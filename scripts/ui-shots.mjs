@@ -875,6 +875,7 @@ const SCREENS = [
   { name: 'import-preview', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }] },
   // 読書メーター（2026-09-29）: 書き出しツールの CSV（感想・読了日・本棚つき）
   { name: 'import-preview-bookmeter', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/bookmeter.csv'] }, { wait: 1200 }] },
+  { name: 'import-memo-fail', url: '/?writefail=book_memos:insert', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   { name: 'import-done', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },
   // 取り込みの残りの状態（2026-10-04 ui-critic・SPEC §1-1b）: 途中で止まった（&writefail=books）／一度に 300 冊まで（350 冊のファイル）
   { name: 'import-midway-error', url: '/?writefail=books', steps: [{ css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { upload: ['input[type=file]', 'scripts/fixtures/booklog.csv'] }, { wait: 1200 }, { css: '[role=dialog] button:has-text("取り込む")' }, { wait: 3000 }] },

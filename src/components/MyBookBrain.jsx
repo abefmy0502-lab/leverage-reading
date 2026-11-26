@@ -897,7 +897,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         bg.promise.then(async () => {
           if (abortRef.current === bg.controller) abortRef.current = null;
           setAborting(false);
-          if (bg.failed || bg.aborted) {
+          if (bg.notice?.text && !bg.failed && !bg.aborted) {
+            if (bg.notice.monthlyLimit) setMonthLimitHit(true);
+            setMessages((arr) => arr.map((m) => (m.id === waitId ? { id: `notice-${Date.now()}`, role: 'assistant', content: bg.notice.text, refs: [], createdAt: new Date().toISOString(), notice: true } : m)));
+          } else if (bg.failed || bg.aborted) {
             // 失敗・中止は「もう一度」つきの吹き出しで（答えの無い質問だけを残さない）。
             setMessages((arr) => arr.map((m) => (m.id === waitId ? {
               id: `err-${Date.now()}`,
@@ -916,6 +919,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       }
       // 離れている間に失敗・中止まで済んでいたら、質問の下に「もう一度」つきの吹き出しを出す
       //   （送った直後に離れて早く失敗すると、質問だけが残っていた・2026-11-25 点検）。
+      if (bg.done && bg.notice?.text && !bg.failed && !bg.aborted) {
+        if (bg.notice.monthlyLimit) setMonthLimitHit(true);
+        setMessages((arr) => [...arr, { id: `notice-${Date.now()}`, role: 'assistant', content: bg.notice.text, refs: [], createdAt: new Date().toISOString(), notice: true }]);
+      }
       if (bg.done && (bg.failed || bg.aborted)) {
         setMessages((arr) => [...arr, {
           id: `err-${Date.now()}`,
@@ -1714,6 +1721,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       // 離れている間に失敗・中止したことを、戻った画面に伝える（質問だけが残っていた・2026-11-25 点検）。
       if (controller.signal.aborted) myBackground.aborted = true;
       else if (!e?.paywall && !e?.monthlyLimit) myBackground.failed = { notCharged: !!e?.notCharged };
+      // トークンの上限・無料の AI の予算に当たったときは、その案内を戻った画面に（2026-11-26 点検）。
+      else myBackground.notice = { text: e?.message || '', monthlyLimit: !!e?.monthlyLimit };
     } finally {
       // この run の controller が現役なら掃除する (新しい送信が始まっていれば
       // 上書きしない)。

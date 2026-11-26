@@ -10,22 +10,23 @@ const CODE = `(async()=>{
 const m=location.pathname.match(/\\/users\\/(\\d+)\\/books\\/(read|reading|stacked|wish)/);
 if(location.hostname.indexOf('bookmeter.com')<0||!m){alert('読書メーターで「読んだ本」などの一覧のページを開いてから押してください。');return;}
 const shelf={read:'読んだ本',reading:'読んでる本',stacked:'積読本',wish:'読みたい本'}[m[2]];
-const base=location.origin+location.pathname;let body='';let got=0;
+const base=location.origin+location.pathname;let body='';let got=0;let prev='';let failed=false;
 for(let p=1;p<=300;p++){
-const r=await fetch(base+'?display_type=list&page='+p,{credentials:'include'});
-if(!r.ok)break;
+let r;try{r=await fetch(base+'?display_type=list&page='+p,{credentials:'include'});}catch(e){failed=true;break;}
+if(!r.ok){if(p>1&&r.status>=500)failed=true;break;}
 const d=new DOMParser().parseFromString(await r.text(),'text/html');
 const items=d.querySelectorAll('li.group__book');
 if(!items.length)break;
+const first=items[0].outerHTML;if(first===prev)break;prev=first;
 items.forEach(li=>{body+=li.outerHTML;});
 got+=items.length;document.title='orime に保存中… '+got+' 冊';
 await new Promise(s=>setTimeout(s,800));
 }
-if(!got){alert('本が見つかりませんでした。ログインしてから、一覧のページで押してください。');return;}
+if(!got){alert(failed?'読書メーターにつながりませんでした。少し待って、もう一度押してください。':'本が見つかりませんでした。ログインしてから、一覧のページで押してください。');return;}
 const html='<!doctype html><html><head><meta charset="utf-8"><title>'+shelf+' - 読書メーター</title><link rel="canonical" href="'+base+'"></head><body><ul class="book-list__group">'+body+'</ul></body></html>';
 const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
 a.download='bookmeter-'+m[2]+'.html';document.body.appendChild(a);a.click();
-alert(shelf+' '+got+' 冊を保存しました。orime の「ほかのアプリから取り込む」で、このファイルを選んでください。');
+alert(shelf+' '+got+' 冊を保存しました。'+(failed?'途中でつながらなくなったので、残りがあるかもしれません。':'')+'orime の「ほかのアプリから取り込む」で、このファイルを選んでください。');
 })();`;
 
 /** ブックマークの URL 欄に貼る 1 行（javascript:…）。 */

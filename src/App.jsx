@@ -1268,7 +1268,8 @@ function AuthedApp() {
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
   // 📚 本棚の写真からまとめて追加（2026-11-22・本を追加の画面から）
   const [shelfScanOpen, setShelfScanOpen] = useState(false);
-  useEffect(() => { if (!shelfScanOpen) shelfScanFromQuickstartRef.current = null; }, [shelfScanOpen]);
+  // シートが閉じたら、どこから開いたかの印を消す（入れて閉じたあとの、ほかの入口のやめるで迷わない・2026-11-26 点検）。
+  useEffect(() => { if (!shelfScanOpen) { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = false; } }, [shelfScanOpen]);
   useEffect(() => { if (!showQuickstart) setQuickstartPicked(null); }, [showQuickstart]);
   // 検索結果の「追加済み」から開いた本の id（詳細の ‹・戻るで検索結果へ戻すため）。
   const [detailFromSearchId, setDetailFromSearchId] = useState(null);
@@ -3065,6 +3066,10 @@ function AuthedApp() {
     // 既にあるメモの本文（同じ本の同じ文は足さない）
     let memosAdded = 0;
     const createdMemoIds = []; // 「取り込みを取り消す」で消すのは、この取り込みで入れたメモだけ
+    // メモの読み書きが途中で失敗しても、もう入れた本とメモは結果に残す（取り消せる・もう一度選べば続きが入る・2026-11-26 点検）。
+    let memosFailed = false;
+    const rows = [];
+    try {
     const ids = [...new Set(pending.map((p) => p.bookId))];
     const existing = new Set();
     // 1 回の問い合わせは 1,000 行までしか返らないので、ページを送って全部読む（読めなければ止める＝二重にしない）。
@@ -3079,7 +3084,6 @@ function AuthedApp() {
         if (!data || data.length < 1000) break;
       }
     }
-    const rows = [];
     for (const p of pending) {
       for (const m of p.memos) {
         const text = String(m.text || '').trim().slice(0, LIMITS.memoText || 2000);
@@ -3099,10 +3103,16 @@ function AuthedApp() {
       memosAdded += chunk.length;
       (inserted || []).forEach((r) => { if (r?.id) createdMemoIds.push(r.id); });
     }
+    } catch (e) {
+      console.warn('[import] memo step failed:', e?.message || e);
+      memosFailed = true;
+    }
     // メモを足した「読みたい・積読」の本は読了にする（本の詳細はメモを読書中・読了でしか出さないため）
     //   （いま作った本は取り込み元の状態のまま。もとから本棚にあった本だけ）
     const newIds = new Set(newBooks.map((b) => b.id));
-    const withMemo = new Set(rows.map((r) => r.book_id).filter((id) => !newIds.has(id)));
+    // 入れられたメモの本だけ（途中で失敗したら、入れた分まで）
+    const insertedRows = rows.slice(0, memosAdded);
+    const withMemo = new Set(insertedRows.map((r) => r.book_id).filter((id) => !newIds.has(id)));
     const statusChanged = []; // 取り消すときに元の状態へ戻す
     for (const id of withMemo) {
       const bk = booksRef.current.find((b) => b.id === id);
@@ -3123,14 +3133,14 @@ function AuthedApp() {
     track('import_done', { source: result?.source || 'unknown', books: booksAdded, matched: booksMatched, memos: memosAdded, reviews: reviewsAdded });
     if (memosAdded + reviewsAdded > 0) markActivation('memo');
     // メモも「この本のまとめ」も無い新しい本（完了画面の「覚えている一文を足す（N 冊）」で一言を足せる）。
-    const withRows = new Set(rows.map((r) => r.book_id));
+    const withRows = new Set(insertedRows.map((r) => r.book_id));
     const bareBooks = newBooks.filter((bk) => noReviewIds.has(bk.id) && !withRows.has(bk.id));
     // 🌱 完了画面の「相談してみる」で入力欄に入れる相談の材料（メモか「この本のまとめ」が入った本・lib/firstDay.js）。
     const memoBookIds = [...new Set([...withRows, ...newBooks.filter((bk) => !noReviewIds.has(bk.id)).map((bk) => bk.id)])];
     const byId = new Map([...booksRef.current, ...newBooks].map((bk) => [bk.id, bk]));
     const consultBooks = memoBookIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 50);
     if (memosAdded + reviewsAdded > 0 && takeOnboardPathDone('import')) track('onboard_path_done', { path: 'import', memos: memosAdded + reviewsAdded });
-    return { booksAdded, booksMatched, booksFailed, memosAdded, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks, memoBookIds, consultBooks };
+    return { booksAdded, booksMatched, booksFailed, memosAdded, memosFailed, reviewsAdded, createdBookIds: newBooks.map((b) => b.id), createdMemoIds, statusChanged, bareBooks, memoBookIds, consultBooks };
   };
 
   // 📥 取り込みを取り消す（取り込みの完了画面から）: この取り込みで入れたものだけを消す。

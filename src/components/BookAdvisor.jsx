@@ -38,7 +38,7 @@ import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa, requestPaywall } from '../lib/freeTrial';
 import { monthDayLabelJa } from '../lib/tokens';
-import { showFreeTokenCount, remainingAdvisorLabel } from '../lib/tokenAmounts';
+import { showFreeTokenCount, remainingAdvisorLabel, canStartAdvisor } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import { fmtTokens } from '../lib/consultHelpers';
 import { trialCancelShortLine } from '../lib/trialNudge';
@@ -1194,6 +1194,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
     if (interviewLoading || recoLoading || askingRef.current) return;
     const c = clamp(sanitizeForPrompt(rawConcern || ''), LIMITS.aiQuestion);
     if (!c) return;
+    // 残りのトークンが本を探す 1 回に足りないときは、聞き取りを始めない（問いに答えたあとで推薦が止まる、を無くす・2026-11-26 点検）。
+    if (!canStartAdvisor(tokenTotal)) {
+      const msg = plan === 'trial'
+        ? '無料期間のトークンは、本を探すには足りなくなりました。'
+        : `今月のトークンは、本を探すには足りなくなりました。${nextResetLabelJa()}に戻ります。`;
+      showLimitNotice(msg);
+      return;
+    }
     askingRef.current = true;
     try {
       // 🤝 はじめて AI に送るときの同意（lib/aiConsent.js）。やめたら送らない（入力は残す）。

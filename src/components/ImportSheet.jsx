@@ -626,6 +626,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             <button type="button" onClick={pickAnother} disabled={undoing} style={{ ...btnLink, flexShrink: 0, whiteSpace: 'nowrap' }}>もう一度選ぶ</button>
           </div>
         )}
+        {/* メモの保存が途中で止まった（入った本とメモは残る・同じファイル（一覧）をもう一度選べば残りだけ入る・2026-11-26 点検）。 */}
+        {outcome.memosFailed && (
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)' }}>
+            <p style={{ ...body, fontSize: 'var(--text-meta)', flex: '1 1 12em', minWidth: 0 }}>メモの一部は入りませんでした。<wbr /><span style={nowrap}>通信状況を確認してください。</span></p>
+            <button type="button" onClick={pickAnother} disabled={undoing} style={{ ...btnLink, flexShrink: 0, whiteSpace: 'nowrap' }}>もう一度選ぶ</button>
+          </div>
+        )}
         {remaining > 0 && (
           <p style={body}>残りの<span style={nowrap}> {fmt(remaining)} 冊</span>は、同じファイルをもう一度選ぶと取り込めます。</p>
         )}

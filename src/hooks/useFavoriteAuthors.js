@@ -18,9 +18,11 @@ export function useFavoriteAuthors(userId, { isOwned, ownedKey = null, active = 
 
   useEffect(() => {
     let alive = true;
+    // 読み込みの途中で入れた／外したお気に入りを、遅れて届いた読み込みの結果で消さない（2026-11-26 点検）。
+    let changed = false;
     setFavs(localFavoriteAuthors(userId));
-    loadFavoriteAuthors(userId).then((list) => { if (alive) setFavs(list); });
-    const onChange = () => setFavs(localFavoriteAuthors(userId));
+    loadFavoriteAuthors(userId).then((list) => { if (alive && !changed) setFavs(list); });
+    const onChange = () => { changed = true; setFavs(localFavoriteAuthors(userId)); };
     window.addEventListener(FAV_AUTHORS_CHANGED_EVENT, onChange);
     return () => { alive = false; window.removeEventListener(FAV_AUTHORS_CHANGED_EVENT, onChange); };
   }, [userId]);

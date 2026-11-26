@@ -441,3 +441,11 @@ describe('点検の直し（2026-11-26）', () => {
     expect(r.books[0].memos.map((m) => m.text)).toEqual(['- 一文']);
   });
 });
+
+describe('数字だけの書名（2026-11-26）', () => {
+  it('『1984』は書名・「12」「250ページ」は読めない行', () => {
+    const r = parsePastedText('1984\n12\n250ページ\n考え方');
+    expect(r.books.map((b) => b.title)).toEqual(['1984', '考え方']);
+    expect(r.skipped).toBe(2);
+  });
+});

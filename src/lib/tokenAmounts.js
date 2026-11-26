@@ -32,9 +32,16 @@ export function answerCountLabel(tokens) {
 // 🔍 AI 選書（聞き取り＋推薦）1 回の目安（tokens.js の TOKEN_COSTS.advisor と同じ・2026-11-25）。
 export const ADVISOR_TOKENS = 20;
 // 残りのトークンで、あと何回本を探せるか（切り捨て・残りがあれば 1＝最後の 1 回は始められる）。「約 1 回」。
+// 本を探すのに要る最小のトークン（聞き取り 約 1 で使い切ると、推薦の 1 回を始められない・2026-11-26 点検）。
+//   推薦は「最後の 1 回」の決まり（使ったトークンが上限未満なら始められる）で通るので、聞き取りのあとに 1 以上残ればよい。
+export const ADVISOR_MIN_TOKENS = 3;
+export function canStartAdvisor(tokens) {
+  if (tokens == null || !Number.isFinite(Number(tokens))) return true; // 分からないときは止めない（サーバーが守る）
+  return Math.floor(Number(tokens)) >= ADVISOR_MIN_TOKENS;
+}
 export function remainingAdvisorLabel(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));
-  const n = t <= 0 ? 0 : Math.max(1, Math.floor(t / ADVISOR_TOKENS));
+  const n = t < ADVISOR_MIN_TOKENS ? 0 : Math.max(1, Math.floor(t / ADVISOR_TOKENS));
   return `約 ${n.toLocaleString('ja-JP')} 回`;
 }
 // 残りのトークンで、あと AI の答え何回（切り捨て＝言い過ぎない・残りがあれば 1）。「約 5 回」。

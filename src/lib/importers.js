@@ -656,7 +656,8 @@ export function parsePlainList(text) {
   const seen = new Set();
   for (const line of lines) {
     // 日付だけ・数だけ（9 桁まで＝ISBN ではない）・「◯ページ」だけの行は本ではない
-    if (/^\d{4}[-/年.]\d{1,2}([-/月.]\d{1,2})?日?$/.test(line) || /^\d{1,9}\s*(ページ|p|冊)?$/i.test(line)) { skipped += 1; continue; }
+    //   4 けたの数だけの行は書名として残す（『1984』・2026-11-26 点検）。
+    if (/^\d{4}[-/年.]\d{1,2}([-/月.]\d{1,2})?日?$/.test(line) || /^\d{1,9}\s*(ページ|p|冊)$/i.test(line) || /^(\d{1,3}|\d{5,9})$/.test(line)) { skipped += 1; continue; }
     const m = line.match(ISBN_LINE);
     const digits = m ? m[1].replace(/[^0-9Xx]/g, '') : '';
     let book;

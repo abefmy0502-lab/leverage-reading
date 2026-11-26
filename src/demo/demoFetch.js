@@ -1054,6 +1054,10 @@ export function installDemoFetch(store) {
         .filter((l) => l.tokens_left > 0)
         .sort((a, b) => String(a.purchased_at).localeCompare(String(b.purchased_at)));
       const lotBalance = lots.reduce((n, l) => n + l.tokens_left, 0);
+      // &freepool=out: 無料の AI の全体の予算が尽きた（api/_freePool.js・2026-11-26）。本人のトークンは残っている。
+      if (tier === 'free' && new URLSearchParams(window.location.search).get('freepool') === 'out') {
+        return json({ error: { message: `今月の無料の AI は、使う方がとても多く、ここまでになりました。${nextFirst}に戻ります。あなたのメモから探す答えは、いつでも使えます。` }, error_code: 'free_limit_reached', free_pool: true }, 402);
+      }
       if (used >= allowance + (row.lot_tokens || 0) + lotBalance) {
         if (tier === 'free') {
           return json({ error: { message: `今月のトークンは、ここまでです。${nextFirst}に 30 トークンに戻ります。` }, error_code: 'free_limit_reached' }, 402);

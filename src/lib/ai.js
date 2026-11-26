@@ -198,7 +198,7 @@ export default callClaude;
 //   'この AI 機能は、プランで…'（402 plan_required）・旧文言（'今月の AI の利用上限…' 'AI 機能のご利用…' 'お試しの相談…'）
 // 上限・プランの案内（エラーではなく案内として見せる文）。AI_NOTICE_RE で見分ける。
 //   'AI への送信をやめました。'（同意のシートで「今はやめる」・lib/aiConsent.js。送っていない）
-export const AI_NOTICE_RE = /^(今月のトークン|今月の写真から書き起こし|無料期間のトークン|この AI 機能は|今月の AI|AI 機能のご利用|お試しの相談|AI への送信をやめました)/;
+export const AI_NOTICE_RE = /^(今月のトークン|今月の写真から書き起こし|無料期間のトークン|この AI 機能は|今月の AI|今月の無料の AI|AI 機能のご利用|お試しの相談|AI への送信をやめました)/;
 export function isAiNoticeString(s) {
   return typeof s === 'string' && AI_NOTICE_RE.test(s);
 }
