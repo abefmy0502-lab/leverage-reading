@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useBookMemos } from '../hooks/useBookMemos';
+import { useBookMemos, memoDeleteFailMessage } from '../hooks/useBookMemos';
 import { useAppDataCache } from '../state/AppDataCache';
 import { useToast } from './Toast';
 import { useHaptic } from '../hooks/useHaptic';
@@ -28,6 +28,20 @@ import { useTagSuggestions } from '../hooks/useTagSuggestions';
 import { track } from '../lib/analytics';
 import { requestOpenMemo } from '../lib/openMemo';
 import { isLargeText } from '../lib/largeText';
+
+// メモの並び順（'page' | 'created_desc'）を端末に覚える（2026-11-26）。読めない・書けない端末では「ページ順」。
+const MEMO_SORT_KEY = 'orime.memoSort.v1';
+function readMemoSort() {
+  try {
+    const v = localStorage.getItem(MEMO_SORT_KEY);
+    return v === 'created_desc' ? 'created_desc' : 'page';
+  } catch {
+    return 'page';
+  }
+}
+function writeMemoSort(v) {
+  try { localStorage.setItem(MEMO_SORT_KEY, v); } catch { /* 覚えられなくても並びは変わる */ }
+}
 
 // 写真で共有は押したときに読む（一覧の読み込みを軽くする・2026-10-11）。
 const ShareSheet = lazy(() => import('./ShareSheet'));
@@ -251,7 +265,9 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
 export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summaryText = '', onSaveSummary, onMakeAction, onShareMemo, afterList = null, focusMemoId = null, editFocusedMemo = false, onEditFocusedOpened, onWriteMemo, books = [], savedMemo = null, heading = null, purposeText = '' }) {
   // 書きかけのまとめがあるときだけ、はじめから開く。最初に 1 回だけ決める（保存して控えが消えると欄が勝手に畳まれていた・2026-11-25 点検）。
   const [summaryOpenInit] = useState(() => { const d = readSummaryDraft(bookId); return d != null && d !== (summaryText || ''); });
-  const [sortBy, setSortBy] = useState('page');
+  // 並び順は端末に覚える（本を開くたびに「ページ順」に戻っていた・2026-11-26）。
+  const [sortBy, setSortByState] = useState(readMemoSort);
+  const setSortBy = (v) => { setSortByState(v); writeMemoSort(v); };
   const [sortMenu, setSortMenu] = useState(null); // { x, y } | null
   // 📖 メモを通して読む（2026-10-18・MemoReadThrough）
   const [readThrough, setReadThrough] = useState(false);
@@ -673,12 +689,17 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
   const performDelete = (memo) => {
     const snapshot = { ...memo };
     let deleteFailed = false;
+    let undoToastId = null;
     const deletionPromise = deleteMemo(memo.id).catch((e) => {
-      toast.error(toMessage(e, 'メモを削除できませんでした。'));
+      // 消せなかったら「削除しました｜元に戻す」を下げて、知らせは 1 つだけ（2 つ並んでいた・2026-11-26）。
+      if (undoToastId) toast.dismiss(undoToastId, { skipExpire: true });
+      toast.error(memoDeleteFailMessage(e));
       deleteFailed = true;
       throw e;
     });
-    toast.undo({
+    // 元に戻すを押さなかったときに、拒否が誰にも受け取られないまま残らないように。
+    deletionPromise.catch(() => {});
+    undoToastId = toast.undo({
       message: snapshot.photoPath
         ? 'メモを削除しました。\n写真は元に戻せません。'
         : 'メモを削除しました。',

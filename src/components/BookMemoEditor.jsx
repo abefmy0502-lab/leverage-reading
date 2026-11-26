@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useAppDataCache } from '../state/AppDataCache';
-import { toMessage, toSaveMessage } from '../lib/errors';
+import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
 import { LIMITS, validateImageFile } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
 import { condenseMemo } from '../lib/ai';
@@ -22,6 +22,7 @@ import { useMemoLinkFinder } from '../hooks/useMemoLinkFinder';
 import { requestOpenMemo } from '../lib/openMemo';
 import { isLargeText } from '../lib/largeText';
 import PhotoLightbox from './PhotoLightbox';
+import { pushEscape } from '../lib/escapeStack';
 
 // Use 100dvh so iOS Safari URL bar resizes don't break full-screen editor.
 // Older browsers without dvh support gracefully ignore the property.
@@ -365,6 +366,10 @@ export default function BookMemoEditor({
       setPageNumber('');
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
+    // 続けて書けるように本文へカーソルを戻す（画面は動かさない・2026-11-26）。
+    setTimeout(() => {
+      try { bodyRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+    }, 0);
   };
 
   const buildPayload = () => {
@@ -397,6 +402,11 @@ export default function BookMemoEditor({
     const v = validate(payload);
     if (v) {
       setErrorMsg(v);
+      return;
+    }
+    // つながっていないときは画面を下げずに、その場で理由を出す（下げてから戻っていた・2026-11-26）。
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setErrorMsg(OFFLINE_SAVE_MESSAGE);
       return;
     }
     setBusy(true);
@@ -444,6 +454,10 @@ export default function BookMemoEditor({
       }
       setSavingHidden(false);
       setErrorMsg(toSaveMessage(e, 'メモを保存できませんでした。'));
+      // 書いていた欄へカーソルを戻す（画面は動かさない・2026-11-26）。
+      setTimeout(() => {
+        try { bodyRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+      }, 0);
     } finally {
       if (mountedRef.current) setBusy(false);
     }
@@ -536,6 +550,14 @@ export default function BookMemoEditor({
     return true;
   };
   requestCloseRef.current = requestClose;
+  // ⎋ Esc で閉じる（「キャンセル」と同じ確かめ方・メモを書くシートと同じ・2026-11-26）。保存中・凝縮中は閉じない。
+  //   いちばん上の層だけが Esc を受ける積み重ね（lib/escapeStack）に入る。ガードは押したときの最新の状態で見る。
+  const escGuardRef = useRef({ busy: false, condensing: false });
+  escGuardRef.current = { busy, condensing };
+  useEffect(() => pushEscape((e) => {
+    if (e?.isComposing || escGuardRef.current.busy || escGuardRef.current.condensing) return;
+    requestCloseRef.current?.();
+  }), []);
   // つながるメモを押したら、書く画面を閉じて（書きかけがあれば確かめて）その本のそのメモを開く。
   const openLinked = async (book, memoId) => {
     if (!book?.id) return;
@@ -593,6 +615,12 @@ export default function BookMemoEditor({
             style={ta}
             maxLength={LIMITS.memoText}
           />
+          {/* 上限まで入ったら（貼り付け・写真から書き起こした文が切れたときも）短く知らせる（2026-11-26）。 */}
+          {text.length >= LIMITS.memoText && (
+            <p role="status" style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              {LIMITS.memoText.toLocaleString('ja-JP')} 字までです。
+            </p>
+          )}
           <div style={{ marginTop: 'var(--space-2)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3) var(--space-2)', alignItems: 'flex-start' }}>
             {/* 書き起こすボタンと、その下の「今月の残り N 回」（無料プラン）を 1 つにまとめる。
                 ボタンと残りの行の間は 8・ほかのボタン（凝縮）との間は 12＝近さでどのボタンの行か分かる。 */}

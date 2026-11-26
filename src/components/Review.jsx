@@ -18,6 +18,7 @@ import { useLongPress } from '../hooks/useLongPress';
 import { useHaptic } from '../hooks/useHaptic';
 import { useToast } from './Toast';
 import { toMessage, isSchemaError } from '../lib/errors';
+import { memoDeleteFailMessage } from '../hooks/useBookMemos';
 import SwipeableCard from './SwipeableCard';
 import ContextMenu from './ContextMenu';
 import PullToRefresh from './PullToRefresh';
@@ -50,6 +51,30 @@ const cardBase = { ...uiCard, padding: 'var(--space-4)' };
 const filterMenuBtn = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 44, minWidth: 0, maxWidth: '100%', padding: '0 var(--space-1)', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 'var(--text-sub)', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' };
 // 行の中の副ボタン（DESIGN §5 btnRow: 高さ 44・15・600）。
 const btnGhost = { ...uiBtnGhost, width: 'auto', minHeight: 44, padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-sub)' };
+
+// 本の詳細のメモの控え（AppDataCache・useBookMemos と同じ形）に入れる 1 件（2026-11-26）。
+const toCacheMemo = (m) => ({
+  id: m.id,
+  bookId: m.bookId,
+  pageNumber: m.pageNumber ?? null,
+  text: m.text || '',
+  photoPath: m.photoPath || null,
+  tags: Array.isArray(m.tags) ? m.tags : [],
+  createdAt: m.createdAt,
+  updatedAt: m.updatedAt ?? m.createdAt,
+  lastRecalledAt: m.lastRecalledAt ?? null,
+  recallCount: m.recallCount ?? 0,
+});
+// 新しい順（created_at・同じなら id）に入れ直す（fetchMemos の並びと同じ）。
+const insertByCreatedDesc = (arr, memo) => {
+  if (arr.some((m) => m.id === memo.id)) return arr;
+  const key = (m) => `${m.createdAt || ''}\u0000${m.id || ''}`;
+  const k = key(memo);
+  const i = arr.findIndex((m) => key(m) < k);
+  const next = [...arr];
+  next.splice(i < 0 ? next.length : i, 0, memo);
+  return next;
+};
 
 // relativeJa / recallFraming は src/lib/recall.js に切り出して
 // サーバー（api/push-cron.js の想起通知）と文言を共有している。
@@ -86,6 +111,7 @@ const transformRow = (m) => {
     photoPath: m.photo_path || null,
     tags: Array.isArray(m.tags) ? m.tags : [],
     createdAt: m.created_at,
+    updatedAt: m.updated_at,
     sourceType,
     kind,
     synth: false,
@@ -425,6 +451,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // まだ入れていない検索の言葉（開いた瞬間から検索の結果を出す＝思い出しカードが一瞬見えないように）。
   const freshPreset = useRef(searchPreset?.nonce && searchPreset.nonce !== appliedSearchNonce ? searchPreset : null).current;
   const toast = useToast();
+  const cache = useAppDataCache();
   // 「◯ 日後にまた出します」の知らせ。行動・記録へ切り替えたら（この画面が閉じたら）残さない（2026-09-29）。
   const recallToastRef = useRef(null);
   const dismissToast = toast.dismiss;
@@ -550,10 +577,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
   // Swipe-driven delete (no confirm — gesture is intent). DB DELETE fires
   // immediately + Undo toast can re-INSERT from snapshot (photo lost).
   const handleSwipeDelete = useCallback(
-    async (memo) => {
+    async (memo, { confirmed = false } = {}) => {
       if (!user || !isSupabaseConfigured) return;
       // 写真つきだけは確かめる（元に戻しても写真は戻らない・本の詳細と同じ・2026-11-25 点検）。
-      if (memo.photoPath) {
+      //   メニューの「削除」で確かめたあとは、もう一度は聞かない（2026-11-26）。
+      if (memo.photoPath && !confirmed) {
         const ok = await confirm({
           title: 'このメモを削除しますか？',
           message: '写真もいっしょに削除されます。元に戻しても、写真は戻りません。',
@@ -564,9 +592,26 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
         if (!ok) return;
       }
       const snapshot = { ...memo };
+      // ほかの画面（本の詳細の一覧・すべての本の検索・つながるメモ・メモが答える相談）にも、消したことを伝える（2026-11-26）。
+      //   本の控えがあればその本の一覧から外し、無ければ（学び・まだ開いていない本）その本の控えだけ捨てて知らせる。
+      //   控えの無い本に patchMemos すると「0 件」の控えができてしまうので、有るときだけ。
+      // memo を控えに戻す（null なら控えから外す）。
+      const syncCache = (memoBack) => {
+        const bid = snapshot.bookId;
+        if (bid && cache.getMemos(bid)) {
+          cache.patchMemos(bid, (arr) => {
+            if (!memoBack) return arr.filter((m) => m.id !== snapshot.id);
+            return arr.some((m) => m.id === snapshot.id) ? arr : [...arr, toCacheMemo(memoBack)];
+          });
+        } else {
+          cache.notifyMemosChanged({ bookId: bid || null });
+        }
+      };
       // Optimistic: remove from list now
       setMemos((arr) => arr.filter((m) => m.id !== snapshot.id));
+      syncCache(null);
       let deleteFailed = false;
+      let undoToastId = null;
       const promise = (async () => {
         const { error } = await supabase
           .from('book_memos')
@@ -581,13 +626,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
           } catch { /* ignore */ }
         }
       })().catch((e) => {
-        toast.error(toMessage(e, 'メモを削除できませんでした。'));
+        // 消せなかったら「削除しました｜元に戻す」を下げて、知らせは 1 つだけ（2 つ並んでいた・2026-11-26）。
+        if (undoToastId) toast.dismiss(undoToastId, { skipExpire: true });
+        toast.error(memoDeleteFailMessage(e));
         // Restore in UI on failure
         deleteFailed = true;
-        setMemos((arr) => [snapshot, ...arr]);
+        setMemos((arr) => insertByCreatedDesc(arr, snapshot));
+        // 写真もまだ残っている（消せなかった）ので、控えにも元のまま戻す。
+        syncCache(snapshot);
         throw e;
       });
-      toast.undo({
+      // 元に戻すを押さなかったときに、拒否が誰にも受け取られないまま残らないように。
+      promise.catch(() => {});
+      undoToastId = toast.undo({
         message: snapshot.photoPath
           ? 'メモを削除しました。\n写真は元に戻せません。'
           : 'メモを削除しました。',
@@ -620,15 +671,19 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
             }
             if (error) throw error;
             invalidateKnowledgeCache();
+            // その場で一覧に戻す（全体を読み直すと骨組みになり、いちばん上まで戻っていた・2026-11-26）。写真は戻らない。
+            const restored = { ...snapshot, photoPath: null };
+            setMemos((arr) => insertByCreatedDesc(arr, restored));
+            syncCache(restored);
             toast.info('削除を取り消しました。');
-            fetchMemos();
+            fetchMemos({ silent: true });
           } catch (e) {
             toast.error(toMessage(e, '元に戻せませんでした。'));
           }
         },
       });
     },
-    [user, fetchMemos, toast, confirm]
+    [user, fetchMemos, toast, confirm, cache]
   );
 
   const booksById = useMemo(() => {
@@ -1213,7 +1268,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
                   cancelLabel: 'キャンセル',
                   danger: true,
                 });
-                if (ok) handleSwipeDelete(m);
+                if (ok) handleSwipeDelete(m, { confirmed: true });
               },
             }]),
           ]}
@@ -1277,7 +1332,11 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setSearchActive(true)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
+                if (e.key !== 'Enter') return;
+                if (e.nativeEvent.isComposing) { e.preventDefault(); return; }
+                // 確定の Enter（検索）でキーボードを下ろす（結果は打つたびに出ている・2026-11-26）。
+                e.preventDefault();
+                e.currentTarget.blur();
               }}
               style={{ ...uiInput, paddingLeft: 'calc(var(--space-3) + 1.1em + var(--space-2))' }}
             />

@@ -51,9 +51,18 @@ export function AppDataCacheProvider({ children }) {
     anyMemoSubsRef.current.forEach((cb) => { try { cb(); } catch { /* ignore */ } });
   };
   // まとめて取り込んだ（ImportSheet）など、キャッシュを通さずにメモが増えたときに呼ぶ。
-  const notifyMemosChanged = useCallback(() => {
-    memoStoreRef.current.clear(); // 本ごとのメモは次に開いたときに読み直す
-    memoCountRef.current.clear(); // 件数も分からなくなる（取り込みで増えた本を「0 件」の形で待たない）
+  // { bookId } を渡すと、その本の控えだけを捨てる（学び＝本の無いメモは bookId: null で控えは捨てない）。
+  //   振り返りでメモを消した・重なり／気づきを学びとして残したときに、ほかの本の控えまで捨てないため（2026-11-26）。
+  const notifyMemosChanged = useCallback((opts) => {
+    if (opts && typeof opts === 'object' && 'bookId' in opts) {
+      if (opts.bookId) {
+        memoStoreRef.current.delete(opts.bookId);
+        memoCountRef.current.delete(opts.bookId);
+      }
+    } else {
+      memoStoreRef.current.clear(); // 本ごとのメモは次に開いたときに読み直す
+      memoCountRef.current.clear(); // 件数も分からなくなる（取り込みで増えた本を「0 件」の形で待たない）
+    }
     invalidateKnowledgeCache();
     notifyAnyMemo();
   }, []);

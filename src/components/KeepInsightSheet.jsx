@@ -7,6 +7,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useAuth } from '../hooks/useAuth';
+import { useAppDataCache } from '../state/AppDataCache';
 import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { btnPrimary, btnPrimaryOff, input as uiInput } from '../styles/ui';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -32,6 +33,7 @@ export default function KeepInsightSheet({ question = '', onClose }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
+  const cache = useAppDataCache();
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
   const ref = useRef(null);
@@ -48,6 +50,8 @@ export default function KeepInsightSheet({ question = '', onClose }) {
       }]);
       if (error) throw error;
       invalidateKnowledgeCache();
+      // すべての本の検索・つながるメモ・メモが答える相談にも、この起動のうちに出るように（学び＝本の控えは捨てない・2026-11-26）。
+      cache.notifyMemosChanged({ bookId: null });
       track('dialogue_insight_saved', {});
       toast.success('気づきを残しました。次の相談で使えます。');
       onClose?.();

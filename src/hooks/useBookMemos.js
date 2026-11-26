@@ -4,11 +4,14 @@ import { useAuth } from './useAuth';
 import { useAppDataCache } from '../state/AppDataCache';
 import { validateImageFile, ALLOWED_IMAGE_EXT } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
+import { toMessage, isSchemaError, OFFLINE_MESSAGE } from '../lib/errors';
 
 const BUCKET = 'book-memo-photos';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const transformMemo = (m) => ({
+// 思い出しの進み具合（lastRecalledAt / recallCount）も持つ（削除を元に戻したとき、覚えた回数が 0 に戻っていた・2026-11-26）。
+//   列が無い DB では null / 0。
+export const transformMemo = (m) => ({
   id: m.id,
   bookId: m.book_id,
   pageNumber: m.page_number ?? null,
@@ -17,7 +20,18 @@ const transformMemo = (m) => ({
   tags: Array.isArray(m.tags) ? m.tags : [],
   createdAt: m.created_at,
   updatedAt: m.updated_at,
+  lastRecalledAt: m.last_recalled_at ?? null,
+  recallCount: m.recall_count ?? 0,
 });
+
+// メモを消せなかったときの 1 行（何ができなかったか＋理由・2026-11-26）。本の詳細と振り返りで同じ言葉。
+//   オフラインは「保存してください」ではなく「もう一度お試しください」（消す操作なので）。
+export function memoDeleteFailMessage(err) {
+  const head = 'メモを削除できませんでした。';
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return `${head}${OFFLINE_MESSAGE}`;
+  const reason = toMessage(err, head);
+  return reason.startsWith(head) ? reason : `${head}${reason}`;
+}
 
 function newId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -360,12 +374,17 @@ export function useBookMemos(bookId, { sortBy = 'page' } = {}) {
       tags: snapshot.tags || [],
     };
     if (snapshot.createdAt) payload.created_at = snapshot.createdAt;
-
-    const { data, error: insErr } = await supabase
-      .from('book_memos')
-      .insert([payload])
-      .select()
-      .single();
+    // 思い出しの進み具合（覚えた回数・最後に思い出した日）も戻す。列が無い DB では schema error になるので、
+    //   そのときだけ外して入れ直す（振り返りの「元に戻す」と同じ・2026-11-26）。
+    const withRecall = { ...payload };
+    if (snapshot.recallCount) withRecall.recall_count = snapshot.recallCount;
+    if (snapshot.lastRecalledAt) withRecall.last_recalled_at = snapshot.lastRecalledAt;
+    const insert = (row) => supabase.from('book_memos').insert([row]).select().single();
+    let { data, error: insErr } = await insert(withRecall);
+    const hasRecall = 'recall_count' in withRecall || 'last_recalled_at' in withRecall;
+    if (insErr && hasRecall && isSchemaError(insErr)) {
+      ({ data, error: insErr } = await insert(payload));
+    }
     if (insErr) throw insErr;
     const inserted = transformMemo(data);
     writeBoth((prev) => [...prev, inserted]);

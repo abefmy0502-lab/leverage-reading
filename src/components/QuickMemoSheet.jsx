@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { toMessage, toSaveMessage } from '../lib/errors';
+import { toMessage, toSaveMessage, OFFLINE_SAVE_MESSAGE } from '../lib/errors';
 import { withPhraseBreaks } from './TightBubble';
 import { LIMITS } from '../lib/limits';
 import PhotoToTextButton from './PhotoToTextButton';
@@ -22,6 +22,7 @@ import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, groupTitle } from '../sty
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { useBackLayer } from '../hooks/useHistoryBack';
 import { closeDelayMs } from '../lib/motion';
+import { pushEscape } from '../lib/escapeStack';
 
 // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ShareSheet と同じ目安）。欄の中の例を 1 行に収まる短い文にする。
 const rootTextLarge = () => {
@@ -392,15 +393,21 @@ export default function QuickMemoSheet({
   // Escape closes（保存中・AI 凝縮中は無視 — backdrop タップと同じガード）。
   // IME 変換中の Esc（変換キャンセル）でシートごと閉じて下書きを失わないよう
   // isComposing をガードする。閉じは slide-down 経由で backdrop と所作を揃える。
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape' && !busy && !condensing && !e.isComposing && !e.nativeEvent?.isComposing) {
-        requestClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  // いちばん上の層だけが Esc を受ける積み重ね（lib/escapeStack）に入る（下の画面まで一緒に閉じないように・2026-11-26）。
+  //   ガードは押したときの最新の状態で見る（ref に毎回入れ直す）。
+  const escRef = useRef(null);
+  escRef.current = (e) => {
+    if (busy || condensing || e?.isComposing) return;
+    requestClose();
+  };
+  useEffect(() => pushEscape((e) => escRef.current?.(e)), []);
+
+  // 本文の欄へカーソルを戻す（保存できなかったとき・画面は動かさない・2026-11-26）。
+  const refocusText = () => {
+    setTimeout(() => {
+      try { textRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ }
+    }, 0);
+  };
 
   // ⚡ 保存を押したら、保存の終わりを待たずにシートを閉じ始める（2026-11-20 オーナー「メモのシートも進めて」）。
   //   前は保存が終わるまで（通信 1 往復）シートが残っていた。保存している間は見えないまま残しておき、
@@ -418,6 +425,11 @@ export default function QuickMemoSheet({
       return;
     }
     const parsed = pageUsed ? parseInt(pageNumber, 10) : NaN;
+    // つながっていないときは閉じ始めずに、その場で理由を出す（閉じかけてから戻っていた・2026-11-26）。
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setErrorMsg(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
     setBusy(true);
     setErrorMsg('');
     // キーボードを下ろして、滑って閉じ始める。動きを減らす設定では、すぐ見えなくする。
@@ -460,6 +472,7 @@ export default function QuickMemoSheet({
       setSavingHidden(false);
       setClosing(false);
       setErrorMsg(msg);
+      refocusText();
     } finally {
       if (mountedRef.current) setBusy(false);
     }
@@ -558,6 +571,12 @@ export default function QuickMemoSheet({
               style={ta}
               maxLength={LIMITS.memoText}
             />
+            {/* 上限まで入ったら（貼り付け・写真から書き起こした文が切れたときも）短く知らせる（2026-11-26）。 */}
+            {text.length >= LIMITS.memoText && (
+              <p role="status" style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                {LIMITS.memoText.toLocaleString('ja-JP')} 字までです。
+              </p>
+            )}
           </div>
 
           {/* 凝縮 — 十分な長さの時だけ出す（話した冗長メモを核心 1 行へ）。 */}

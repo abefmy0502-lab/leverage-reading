@@ -228,7 +228,8 @@ function coverPlaceholder(title) {
 // 書名の頭の全角の英数字は、表示のときだけ半角に（左端が半字ずれないように）。
 const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 
-const SELF_NOTE = '<p class="note" style="text-align:left;margin:0 0 24px">あなたの公開のページです。フォローと通報のボタンは、ほかの人にだけ出ます。</p>';
+// 自分のページの上の説明の 1 行は 2026-11-26 オーナー「この文章は削除」でやめた（フォローと通報のボタンを出さないのは同じ）。
+const SELF_NOTE = '';
 
 function miniCover(title, cover, width) {
   return `<span class="mc" style="width:${width}px" aria-hidden="true">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : coverPlaceholder(title)}</span>`;

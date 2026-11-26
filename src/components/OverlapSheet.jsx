@@ -12,6 +12,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { useAuth } from '../hooks/useAuth';
 import { useAllMemoRows } from '../hooks/useAllMemoRows';
+import { useAppDataCache } from '../state/AppDataCache';
 import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnLinkQuiet, input as uiInput } from '../styles/ui';
 import {
@@ -57,6 +58,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
+  const cache = useAppDataCache();
   const { rows, status, retry } = useAllMemoRows({ userId: user?.id || null, books, active: true });
   const bookById = useMemo(() => new Map((books || []).map((b) => [String(b.id), b])), [books]);
   const candidates = useMemo(() => (rows ? overlapCandidates({ source, rows }) : []), [rows, source]);
@@ -124,6 +126,8 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
       }]);
       if (error) throw error;
       invalidateKnowledgeCache(); // 直後の相談で、この答えを使えるように
+      // すべての本の検索・つながるメモ・メモが答える相談にも、この起動のうちに出るように（学び＝本の控えは捨てない・2026-11-26）。
+      cache.notifyMemosChanged({ bookId: null });
       markOverlapDone(source.id, target.id);
       track('overlap_saved', { personal: isPersonal(target), ai: ai.status === 'ready' });
       toast.success('自分の答えを残しました。相談で使えます。');
@@ -176,6 +180,12 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
             <h3 id="overlap-choose-h" style={label}>重ねる相手を選ぶ</h3>
             <input
               type="text" inputMode="search" enterKeyHint="search" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={60}
+              // 確定の Enter（検索）でキーボードを下ろす（変換中の Enter はそのまま・2026-11-26）。
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                if (!e.nativeEvent.isComposing) e.currentTarget.blur();
+              }}
               placeholder="言葉や書名で探す" aria-label="重ねる相手を、言葉や書名で探す" style={uiInput}
             />
             {chooseList.length === 0 ? (

@@ -277,7 +277,7 @@ describe('本人が開いた公開のページ（?me=1・2026-11-25）', () => {
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true, self: true });
     expect(html).not.toContain('このページを通報する');
     expect(html).not.toContain('?follow=');
-    expect(html).toContain('あなたの公開のページです');
+    expect(html).not.toContain('あなたの公開のページです'); // 説明の 1 行は 2026-11-26 にやめた
     expect(html).toContain('/u/abcdefgh23/b/b1?me=1');
     expect(html).toContain('/u/abcdefgh23?shelf=done&me=1#shelf');
   });
