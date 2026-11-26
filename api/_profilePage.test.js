@@ -289,6 +289,11 @@ describe('本人が開いた公開のページ（?me=1・2026-11-25）', () => {
     expect(html).not.toContain('読みたいに追加');
     expect(html).not.toContain('このページを通報する');
   });
+  it('ほかの人が開いた本のページは、読みたいに追加だけ（下の説明の 1 行は出さない・2026-11-26）', () => {
+    const { html } = renderBook({ nickname: 'ふみ', summary_public: true }, { id: 'b1', title: '考え方', author: '稲盛和夫', status: 'done', rating: 5, cover: '' }, { publicId: 'abcdefgh23', showSummary: true });
+    expect(html).toContain('読みたいに追加');
+    expect(html).not.toContain('入れる前に確かめます');
+  });
   it('ふつうに開いたときは、今までどおり通報とフォロー', () => {
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
     expect(html).toContain('このページを通報する');
