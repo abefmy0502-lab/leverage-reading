@@ -59,4 +59,10 @@ $$;
 revoke all on function public.reserve_ai_free_pool(text, bigint, bigint) from public;
 revoke all on function public.adjust_ai_free_pool(text, bigint) from public;
 grant execute on function public.reserve_ai_free_pool(text, bigint, bigint) to service_role;
+-- Supabase は public スキーマの新しい関数に anon・authenticated の実行権を名前で付けるので、明示して外す（2026-11-26 点検）。
+revoke all on function public.reserve_ai_free_pool(text, bigint, bigint) from anon;
+revoke all on function public.reserve_ai_free_pool(text, bigint, bigint) from authenticated;
 grant execute on function public.adjust_ai_free_pool(text, bigint) to service_role;
+-- Supabase は public スキーマの新しい関数に anon・authenticated の実行権を名前で付けるので、明示して外す（2026-11-26 点検）。
+revoke all on function public.adjust_ai_free_pool(text, bigint) from anon;
+revoke all on function public.adjust_ai_free_pool(text, bigint) from authenticated;

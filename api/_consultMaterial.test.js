@@ -34,3 +34,14 @@ describe('選書理由の中の AI の「この本の核心」', () => {
     expect(out).toContain('決める基準を1つにする');
   });
 });
+
+describe('選書理由の「この本の核心」だけを外す（2026-11-26）', () => {
+  it('本人のメモの「この本の核心：」は残し、選書理由の中だけ外す', () => {
+    const t = '【本: 考え方 / 種別: メモ】\nこの本の核心：自分で考えた一文\n【本: 考え方 / 種別: 選書理由】\n仕事の判断に迷う\nこの本の核心: AI の要約\n【本: 別 / 種別: 選書理由】\nこの本の核心: だけ\n';
+    const out = stripBookSummaries(t);
+    expect(out).toContain('この本の核心：自分で考えた一文');
+    expect(out).toContain('仕事の判断に迷う');
+    expect(out).not.toContain('AI の要約');
+    expect(out).not.toContain('【本: 別 / 種別: 選書理由】');
+  });
+});

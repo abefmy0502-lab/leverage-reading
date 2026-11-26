@@ -12,6 +12,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
    ├ import     → import_previewed → import_done → onboard_path_done {path:'import'} → try_consult {from:'import'}
    ├ ocr        → book_added → memo_added → onboard_path_done {path:'ocr'} → try_consult {from:'ocr'}
    ├ quickstart → quickstart_started → quickstart_completed → onboard_path_done {path:'quickstart'} → try_consult {from:'quickstart'}
+   ├ advisor    → （AI 選書）→ 読みたいに追加 → onboard_path_done {path:'advisor'}（2026-11-26）
    └ skip（× で閉じた）
 相談 ─ first_consult_sent → ai_used {feature:'brain'}
 メモ ─ memos_reached_10

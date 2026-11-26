@@ -633,6 +633,12 @@ export default function HomeScreen({
   // 🧭 目標を書いていない人に、ホームで 1 行（初日のメモがまだの人には出さない）。
   const goalNudge = useGoalNudge(!!onOpenGoals && !loading && !loadError && books.length > 0 && memoState.known && memoState.hasMemos, user?.id);
   const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready && renewal.ready;
+  // ✍️ お気に入りの著者の新しい本は、ホームが落ち着いたときにもう分かっていたときだけ出す（裏で聞き直して
+  //   あとから分かった本は、次にホームを開いたときに＝見ている途中で中身を押し下げない・2026-11-26 点検）。
+  const [newsAllowed, setNewsAllowed] = useState(null);
+  useEffect(() => {
+    if (homeKnown && newsAllowed === null) setNewsAllowed(!!authorNews?.news);
+  }, [homeKnown, newsAllowed, authorNews?.news]);
   // 📊 memos_reached_10（lib/firstDay.js）: 10 件より少ないのを見たあとで 10 件以上になったら 1 回だけ。
   // 🌱 「相談相手が育ちました」（10 件を越えたのを見たあと 1 回だけ・相談の画面で先に越えても、ホームに戻ったら出す）。
   const [grown, setGrown] = useState(grownLinePending);
@@ -724,7 +730,7 @@ export default function HomeScreen({
           />
         )}
         {/* ✍️ お気に入りの著者の新しい本（2026-11-25・hooks/useFavoriteAuthors.js）。押すと著者のシート・× でその本はもう知らせない。 */}
-        {homeKnown && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
+        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
           <GrownLine
             mark="author-news"
             stack

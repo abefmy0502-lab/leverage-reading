@@ -10,7 +10,7 @@ import {
 const START_DELAY_MS = 4000;
 const GAP_MS = 1500;
 
-export function useFavoriteAuthors(userId, { isOwned, active = true } = {}) {
+export function useFavoriteAuthors(userId, { isOwned, ownedKey = null, active = true } = {}) {
   const [favs, setFavs] = useState(() => localFavoriteAuthors(userId));
   const [tick, setTick] = useState(0); // 著者の本を読み直したら +1（news を出し直す）
   const isOwnedRef = useRef(isOwned);
@@ -48,8 +48,9 @@ export function useFavoriteAuthors(userId, { isOwned, active = true } = {}) {
 
   const news = useMemo(
     () => homeNewBook(favs, { isOwned: (b) => !!isOwnedRef.current?.(b) }),
+    // 本棚が変わったら（ownedKey＝本の一覧）出し直す＝ほかの入口で足した本を知らせ続けない（2026-11-26 点検）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [favs, tick],
+    [favs, tick, ownedKey],
   );
 
   const isFavorite = useCallback((name) => favs.some((f) => f.key === authorKey(name)), [favs]);

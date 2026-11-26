@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall, planImport, IMPORT_MAX_PARSE_BOOKS } from './importers';
+import { parseCsv, parseBooklogCsv, parseKindleClippings, parseKindleNotebookHtml, parseImportText, decodeImportBytes, mapStatus, summarizeImport, mergeImportResults, asinToIsbn13, bookmeterStatusHint, parseBookmeterCsv, parseBookmeterJson, parseBookmeterHtml, looksLikeBookmeterCsv, bookmeterPageTotal, importShortfall, planImport, IMPORT_MAX_PARSE_BOOKS, decideStatus, parsePastedText } from './importers';
 
 const fixture = (name) => readFileSync(new URL(`../../scripts/fixtures/${name}`, import.meta.url), 'utf-8');
 
@@ -82,7 +82,16 @@ describe('mergeImportResults', () => {
     expect(m.books).toHaveLength(2);
     expect(m.books[0].memos.map((x) => x.text)).toEqual(['一', '二', '三']);
     expect(mergeImportResults([a, { source: 'booklog', books: [] }]).source).toBe('mixed');
-    expect(mergeImportResults([a])).toBe(a);
+    expect(mergeImportResults([a])).toEqual(a);
+    // 1 つのファイルの中の同じ本も 1 冊に（2026-11-26）
+    const dup = { source: 'goodreads', books: [
+      { title: '7つの習慣', author: 'コヴィー', isbn: '9784863940246', status: 'done', memos: [{ text: 'A' }] },
+      { title: '7つの習慣', author: 'コヴィー', isbn: '9784863940246', status: 'done', memos: [{ text: 'B' }], tags: ['仕事'] },
+    ] };
+    const d = mergeImportResults([dup]);
+    expect(d.books).toHaveLength(1);
+    expect(d.books[0].memos.map((x) => x.text)).toEqual(['A', 'B']);
+    expect(d.books[0].tags).toEqual(['仕事']);
   });
   it('副題・訳者・「完訳」の違いでも同じ本は 1 冊に（書名は長いほう・2026-09-30）', () => {
     const kindle = { source: 'kindle', books: [{ title: '7つの習慣', author: 'スティーブン・R・コヴィー', memos: [{ text: '主体性', page: 1 }] }] };
@@ -406,5 +415,29 @@ describe('著者の名前の空白（日本語どうし）', () => {
     expect(tightenCjkName('稲盛　和夫')).toBe('稲盛和夫');
     expect(tightenCjkName('Stephen R. Covey')).toBe('Stephen R. Covey');
     expect(tightenCjkName('スティーブン・R・コヴィー')).toBe('スティーブン・R・コヴィー');
+  });
+});
+
+describe('点検の直し（2026-11-26）', () => {
+  it('Kindle: 自分のメモはハイライトに含まれていても残す', () => {
+    const t = [
+      '考え方 (稲盛和夫)', '- 位置No. 100-101のハイライト |作成日: 2025年1月1日', '', '人生の結果は考え方で決まる', '==========',
+      '考え方 (稲盛和夫)', '- 位置No. 101のメモ |作成日: 2025年1月1日', '', '考え方', '==========',
+    ].join('\n');
+    const r = parseImportText('My Clippings.txt', t);
+    expect(r.books[0].memos.map((m) => m.text)).toEqual(['人生の結果は考え方で決まる', '考え方']);
+    expect(r.books[0].memos[0].hl).toBeUndefined();
+  });
+  it('ブクログ: 状態が空でも読書メモがあれば読了', () => {
+    expect(decideStatus('', { memo: '大事な一文' })).toEqual({ status: 'done', guessed: true });
+  });
+  it('貼り付け: 表の列のコピー（書名⇥著者）は 1 行 1 冊・カンマのある書名もそのまま', () => {
+    const r = parsePastedText('考え方\t稲盛和夫\n7つの習慣\tコヴィー\nEat, Pray, Love');
+    expect(r.books.map((b) => [b.title, b.author])).toEqual([['考え方', '稲盛和夫'], ['7つの習慣', 'コヴィー'], ['Eat, Pray, Love', '']]);
+  });
+  it('orime の書き出し: 頭の「\'」を外して読み戻す', () => {
+    const csv = 'table,id,book_id,title,author,text\nbooks,b1,,考え方,稲盛和夫,\nbook_memos,m1,b1,,,"\'- 一文"\n';
+    const r = parseImportText('orime.csv', csv);
+    expect(r.books[0].memos.map((m) => m.text)).toEqual(['- 一文']);
   });
 });

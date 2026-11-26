@@ -2498,8 +2498,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           自動的にキーボード直上 / BottomNav 直上に張り付く (LINE 風)。 */}
       {showConcernInput && (() => {
         // トークンを使い切った間は、送っても同じ案内に戻るだけなので送れない形にする（相談と同じ）。
-        const tokensOut = !!(recoError && recoNotice && /^(今月のトークン|無料期間のトークン)/.test(recoError));
-        const monthOut = tokensOut && /^今月のトークン/.test(recoError);
+        // 「今月の無料の AI は…」＝無料の AI の全体の予算が尽きた（来月 1 日に戻る）も同じく入力を閉じる（2026-11-26 点検）。
+        const tokensOut = !!(recoError && recoNotice && /^(今月のトークン|無料期間のトークン|今月の無料の AI)/.test(recoError));
+        const monthOut = tokensOut && /^今月の(トークン|無料の AI)/.test(recoError);
         return (
         // 1 回の目安と残りは、入力欄と送るボタンの上の行に（折り返して全幅・相談と同じ位置）。
         // 無料プランは、書く前に「プランの機能」だと分かるように 1 行（書いて送ってから断らない・2026-09-30）。

@@ -19,7 +19,7 @@ import { BOOKMETER_BOOKMARKLET } from '../lib/bookmeterBookmarklet';
 import { searchBooksOnServer } from '../lib/bookSearch';
 import { input as uiInput } from '../styles/ui';
 import { autoGrowTextarea } from '../hooks/useComposerHeight';
-import { decodeImportBytes, parseImportText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES, IMPORT_MAX_BOOKS } from '../lib/importers';
+import { decodeImportBytes, parseImportText, parsePastedText, summarizeImport, mergeImportResults, importShortfall, planImport, IMPORT_MAX_BYTES, IMPORT_MAX_BOOKS } from '../lib/importers';
 import { track } from '../lib/analytics';
 
 // 日本語の折り返し: 文節で切る（auto-phrase）＋最後の行に語が 1 つだけ残らない（pretty）。
@@ -142,7 +142,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         signal: ctrl.signal,
       });
       if (ctrl.signal.aborted) return;
-      const lookupOf = (x) => ({ found: Math.max(0, x.found - (x.merged || 0)), loose: x.loose, missing: x.missing, failed: x.failed || 0, merged: x.merged || 0, mergedBooks: x.mergedBooks || 0, mergedLines: x.mergedLines || 0 });
+      const lookupOf = (x) => ({ found: x.found, loose: x.loose, missing: x.missing, failed: x.failed || 0, merged: x.merged || 0, mergedBooks: x.mergedBooks || 0, mergedLines: x.mergedLines || 0 });
       // 書店の検索がつながらず、1 冊も確かめられなかった（通信・サーバー）。ファイルのせいにしない（2026-11-25 ui-critic）。
       if (res.failed > 0 && res.found === 0 && res.loose === 0) {
         setCheckFail({ r0, asIs: { ...r, books: res.books, lookup: lookupOf(res) } });
@@ -194,7 +194,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     const text = pasteText.trim();
     if (!text) return;
     try {
-      const one = parseImportText('pasted.txt', text);
+      const one = parsePastedText(text);
       if (!one?.books?.length) { setError('本として読める行がありませんでした。書名か ISBN を 1 行に 1 冊ずつ書いてください。'); return; }
       await prepare({ ...mergeImportResults([one]), fileCount: 1, unreadFiles: [], fromPaste: true });
     } catch {
@@ -371,7 +371,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <button type="button" onClick={() => prepare(checkFail.r0)} style={btnPrimary}>もう一度確かめる</button>
         {/* 原因は通信なので、ファイルの一覧も同じく書いた書名のまま確かめる画面へ進める（行き止まりにしない）。 */}
-        <button type="button" onClick={() => { const r = checkFail.asIs; setCheckFail(null); toPreview(r); }} style={{ ...btnLink, width: '100%' }}>書いた書名のまま進む</button>
+        <button type="button" onClick={() => { const r = checkFail.asIs; toPreview(r).finally(() => setCheckFail(null)); }} style={{ ...btnLink, width: '100%' }}>書いた書名のまま進む</button>
       </div>
     );
   } else if ((step === 'preview' || step === 'importing') && result) {

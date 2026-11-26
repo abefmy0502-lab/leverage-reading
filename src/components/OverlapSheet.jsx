@@ -78,7 +78,9 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
   }, [status, rows, target, choosing]);
 
   // 相手を変えたら、前の相手の AI の答えは消す。
-  useEffect(() => { setAi({ status: 'idle', result: null, error: '' }); }, [target?.id]);
+  //   読んでいる途中に相手を変えたら、前の相手の答えは捨てる（新しい組に古い答えを出さない・2026-11-26 点検）。
+  const aiReqRef = useRef(0);
+  useEffect(() => { aiReqRef.current += 1; setAi({ status: 'idle', result: null, error: '' }); }, [target?.id]);
 
   const aWhere = whereOf({ book_id: source.bookId }, bookById);
   const bWhere = target ? whereOf(target, bookById) : '';
@@ -86,12 +88,15 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
   const askAi = async () => {
     if (!target || ai.status === 'loading') return;
     if (!(await ensureAiConsent('overlap'))) return;
+    const req = ++aiReqRef.current;
     setAi({ status: 'loading', result: null, error: '' });
     try {
       const result = await generateOverlap({ a: { text: source.text, where: aWhere }, b: { text: target.text, where: bWhere } });
+      if (req !== aiReqRef.current) return;
       setAi({ status: 'ready', result, error: '' });
       track('overlap_ai', { personal: isPersonal(target) });
     } catch (e) {
+      if (req !== aiReqRef.current) return;
       setAi({ status: 'error', result: null, error: e?.notice ? e.message : toMessage(e, '少し時間をおいて、もう一度お試しください。自分の言葉だけでも残せます。') });
     }
   };

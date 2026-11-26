@@ -125,7 +125,8 @@ export function scopeQuestions(sk) {
 const bookMemos = (rows) => (rows || []).filter((r) => r && r.book_id && r.text && (!r.source_type || r.source_type === 'book') && [...String(r.text)].length >= 12);
 const ageDays = (r, now) => Math.floor((now - (Date.parse(r.created_at || r.createdAt || '') || now)) / DAY);
 // 日ごとに決まる選び方（開くたびに入れ替わらない・日が変われば別の 1 枚）。
-const daySeed = (now) => Math.floor(now / DAY);
+//   端末の時刻の日付で数える（日本時間の 9 時ではなく 0 時に替わる・2026-11-26 点検）。
+const daySeed = (now) => Math.floor((now - new Date(now).getTimezoneOffset() * 60000) / DAY);
 const pick = (list, seed) => (list.length ? list[seed % list.length] : null);
 
 /** 何か月前か（「半年前」「1 年前」）。 */

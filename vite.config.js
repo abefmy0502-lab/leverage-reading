@@ -146,9 +146,14 @@ function noteLinksFile() {
 
 // 🤖 /llms.txt（AI の検索・回答エンジン向けの orime の説明・2026-11-25）。note の記事があれば出典として並べる。
 function llmsTxt() {
-  const site = (process.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
+  let site = (process.env.VITE_SITE_URL || 'https://orime.vercel.app').replace(/\/+$/, '');
   return {
     name: 'llms-txt',
+    // .env.production に書いた VITE_SITE_URL も使う（smartAppBanner と同じ・2026-11-26 点検）。
+    configResolved(config) {
+      const v = config.env?.VITE_SITE_URL;
+      if (v) site = String(v).replace(/\/+$/, '');
+    },
     configureServer(server) {
       server.middlewares.use('/llms.txt', (_req, res) => {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');

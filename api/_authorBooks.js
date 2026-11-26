@@ -35,7 +35,9 @@ export function releaseDateOf(salesDate) {
 function authorNamesOf(raw) {
   return String(raw || '').normalize('NFKC')
     .split(/[、,，/／;；|]|\s+[+＋]\s*|[+＋]/)
-    .map((n) => n.replace(/[（(][^)）]*[)）]/g, '').replace(/\s+/g, '').replace(/(編著|監修|著|編|訳|述|作|文|画)$/, ''))
+    .map((n) => n.replace(/[（(][^)）]*[)）]/g, '').trim()
+      // 1 字の役割は空白のあとだけ外す（「鈴木健作」の「作」は名前・2026-11-26 点検）。
+      .replace(/(編著|監修)$/, '').replace(/\s+(著|編|訳|述|作|文|画)$/, '').replace(/\s+/g, ''))
     .filter(Boolean);
 }
 // その人の名前が、著者の欄の誰か 1 人とそのまま一致するか（「稲盛和夫研究会」「〜共同チーム」は別の著者・2026-11-25 本番の結果）。

@@ -35,7 +35,9 @@ export function splitAuthorNames(raw) {
   for (let part of s.split(/\s*[、,，/／;；&＆]\s*|\s+と\s+/)) {
     part = part
       .replace(/[（(][^）)]*[）)]/g, '')
-      .replace(/\s*(?:ほか|他|等|著|訳|編|監修|監訳|編著|共著|原作|作|文|絵|画|写真|著者)\s*$/u, '')
+      // 1 字の役割（著・訳・作 …）は空白のあとだけ外す（「鈴木健作」の「作」は名前・2026-11-26 点検）。
+      .replace(/\s*(?:ほか|監修|監訳|編著|共著|原作|写真|著者)\s*$/u, '')
+      .replace(/\s+(?:他|等|著|訳|編|作|文|絵|画)\s*$/u, '')
       .replace(/\s*(?:ほか|他)\s*\d*\s*名?$/u, '')
       .trim();
     const k = authorKey(part);
@@ -94,7 +96,8 @@ export async function addFavoriteAuthor(userId, name) {
   const n = clip(name, 80);
   const key = authorKey(n);
   if (!key || key.length < 2) return { list: readLocal(userId), synced: false };
-  const cur = readLocal(userId).filter((a) => a.key !== key);
+  const before = readLocal(userId);
+  const cur = before.filter((a) => a.key !== key);
   const rec = { key, name: n, createdAt: appNow().toISOString(), dismissed: [] };
   const list = [rec, ...cur].slice(0, FAV_AUTHORS_MAX);
   writeLocal(userId, list);
@@ -105,13 +108,20 @@ export async function addFavoriteAuthor(userId, name) {
     if (error) throw error;
     return { list, synced: true };
   } catch (e) {
-    if (!isMissingTable(e)) { console.warn('[fav-authors] add failed:', e?.message); throw e; }
+    if (!isMissingTable(e)) {
+      // 保存できなかったら端末の控えも元に戻す（星が「お気に入り」のまま残らない・2026-11-26 点検）。
+      console.warn('[fav-authors] add failed:', e?.message);
+      writeLocal(userId, before);
+      notify();
+      throw e;
+    }
     return { list, synced: false };
   }
 }
 
 export async function removeFavoriteAuthor(userId, key) {
-  const list = readLocal(userId).filter((a) => a.key !== key);
+  const before = readLocal(userId);
+  const list = before.filter((a) => a.key !== key);
   writeLocal(userId, list);
   notify();
   if (!userId || !isSupabaseConfigured) return { list, synced: false };
@@ -120,7 +130,12 @@ export async function removeFavoriteAuthor(userId, key) {
     if (error) throw error;
     return { list, synced: true };
   } catch (e) {
-    if (!isMissingTable(e)) { console.warn('[fav-authors] remove failed:', e?.message); throw e; }
+    if (!isMissingTable(e)) {
+      console.warn('[fav-authors] remove failed:', e?.message);
+      writeLocal(userId, before);
+      notify();
+      throw e;
+    }
     return { list, synced: false };
   }
 }

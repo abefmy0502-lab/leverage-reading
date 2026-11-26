@@ -39,7 +39,11 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
   const [added, setAdded] = useState(() => new Set());
   const bodyRef = useRef(null);
 
+  // 読み込みは 1 つだけ（「もう一度」の読み込みも、著者を替えたら止める＝前の著者の本で上書きしない・2026-11-26 点検）。
+  const loadCtrlRef = useRef(null);
   const load = (name, { force = false } = {}) => {
+    loadCtrlRef.current?.abort();
+    loadCtrlRef.current = null;
     if (!name) return () => {};
     const hit = cachedAuthorBooks(name);
     // 覚えている本があれば先に出し、6 時間より古ければ裏で読み直す。
@@ -47,6 +51,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
     else setState({ status: 'loading', books: [] });
     if (hit && !force && Date.now() - hit.at < 6 * 60 * 60 * 1000) return () => {};
     const ctrl = new AbortController();
+    loadCtrlRef.current = ctrl;
     fetchAuthorBooks(name, { signal: ctrl.signal }).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.ok) setState({ status: 'ready', books: r.books });
@@ -172,7 +177,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
         )}
 
         {onTalk && talkIds.length > 0 && (
-          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, names[0] || null); }} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
+          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, current || null); }} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
             <MessageCircle size="1.1em" aria-hidden="true" />{talkIds.length > 1 ? `この著者の本と話す（${talkIds.length} 冊）` : 'この著者の本と話す'}
           </button>
         )}

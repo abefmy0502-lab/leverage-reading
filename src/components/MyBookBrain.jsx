@@ -41,7 +41,7 @@ import PromptMakerSheet from './PromptMakerSheet';
 import { rememberConsultAsk } from '../lib/lastConsultAsk';
 import ContextMenu from './ContextMenu';
 import { usePaywall } from '../state/PaywallContext';
-import { nextResetLabelJa } from '../lib/freeTrial';
+import { nextResetLabelJa, isFreePoolOut, FREE_POOL_EVENT } from '../lib/freeTrial';
 import { TOKEN_COSTS, monthDayLabelJa, remainingAnswersLabel } from '../lib/tokens';
 import { showFreeTokenCount, answerCountLabel, TRIAL_TOKENS, PAID_TOKENS as PLAN_TOKENS } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
@@ -499,6 +499,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🪙➕ トークンを買い足したら、上限の状態を解く（送れるように戻す）。
   useEffect(() => { if (purchasedTokens > 0) setMonthLimitHit(false); }, [purchasedTokens]);
   const freeUsedUp = freeMode && tokensAvailable != null && tokensAvailable <= 0;
+  // 🧯 無料の AI の全体の予算が今月は尽きた（サーバーの 402＋free_pool・lib/freeTrial.js）: 本人のトークンは残っているので
+  //   「使い切った」の案内は出さず、相談はメモから答える（毎回 AI を呼んで 402 を重ねない・2026-11-26 点検）。
+  const [poolOut, setPoolOut] = useState(() => isFreePoolOut());
+  useEffect(() => {
+    const on = () => setPoolOut(isFreePoolOut());
+    window.addEventListener(FREE_POOL_EVENT, on);
+    return () => window.removeEventListener(FREE_POOL_EVENT, on);
+  }, []);
+  const memoOnly = freeUsedUp || (freeMode && poolOut);
   // 使い切った案内を、この月にもう見たか（開いた時点で決める＝見ている間に縮まない）。
   const [outSeenBefore] = useState(readOutSeen);
   // 無料プランは、相談例を押しても送らず入力欄に入れる（2026-11-22 点検: 30 トークンのうち 10 を、試しに押しただけで使っていた）。
@@ -599,15 +608,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const [scopeIds, setScopeIds] = useState(() => (resumed ? resumed.scopeIds : []));
   // 著者の名前から開いたときの印（本が 1 冊でも「〈著者〉さんの本と話す」にする）。範囲を替えると scopeKind が外す。
   const [scopeAuthor, setScopeAuthor] = useState(null);
+  // 話し相手を変えるのはここだけ（著者を渡さない変更では著者を外す＝前の著者の見出しが残らない・2026-11-26 点検）。
+  const setScope = useCallback((ids, author = null) => { setScopeAuthor(author); setScopeIds(ids); }, []);
   useEffect(() => { rememberSession(user?.id, { scopeIds }); }, [scopeIds, user?.id]);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [insightFor, setInsightFor] = useState(null); // ✍️ 気づきを書き残すの相談の文（null＝閉じている）
   // 📚 答え方（まとめて / 本ごとに）。相談相手が 1 冊のときは「まとめて」で答える（並べる本が無い）。
-  const [answerMode, setAnswerMode] = useState(() => (resumed?.answerMode === 'perbook' || resumed?.answerMode === 'fused' ? resumed.answerMode : loadAnswerMode()));
+  const [savedAnswerMode, setAnswerMode] = useState(() => (resumed?.answerMode === 'perbook' || resumed?.answerMode === 'fused' ? resumed.answerMode : loadAnswerMode()));
+  // 🌐 選んだ数冊と話すあいだだけの答え方（端末の好みは書き換えない・すべての本に戻したら元の好み・2026-11-26 点検）。
+  const [scopeModeOverride, setScopeModeOverride] = useState(null);
+  const answerMode = scopeModeOverride || savedAnswerMode;
   useEffect(() => {
-    rememberSession(user?.id, { answerMode });
-    try { localStorage.setItem(ANSWER_MODE_KEY, answerMode); } catch { /* ignore */ }
-  }, [answerMode, user?.id]);
+    rememberSession(user?.id, { answerMode: savedAnswerMode });
+    try { localStorage.setItem(ANSWER_MODE_KEY, savedAnswerMode); } catch { /* ignore */ }
+  }, [savedAnswerMode, user?.id]);
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
   // 絞った本のメモの件数（上部の「〜件から答えます」を相談相手に合わせる）。
   // カード式＋「この本のまとめ」（1 冊 1 件）＝ほかの画面の「メモ N 件」と同じ数え方（lib/consultHelpers.js）。
@@ -632,8 +646,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 本詳細の「この本に相談する」から来たら、相談相手をその本に絞って質問画面へ。
   useEffect(() => {
     if (!scopePreset?.bookIds || !consumePreset('scope', scopePreset.nonce)) return;
-    setScopeAuthor(scopePreset.author || null);
-    setScopeIds(scopePreset.bookIds);
+    setScope(scopePreset.bookIds, scopePreset.author || null);
     setView('chat');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopePreset?.nonce]);
@@ -1238,9 +1251,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 🌐 選んだ数冊（著者がばらばら）と話しはじめるときは、答え方を「本ごとに」で開く（SPEC §3-0・本ごとの見方とぶつかるところ・
   //    下の行の「答え方」と問いかけの答え方を食い違わせない・2026-11-25 ui-critic）。端末の好みは書き換えない。
   const multiScope = scopedKind.kind === 'multi';
-  useEffect(() => {
-    if (multiScope && messages.length === 0) setAnswerMode('perbook');
-  }, [multiScope]); // eslint-disable-line react-hooks/exhaustive-deps
+  //    前の相談が残っている人にも効くように、会話の有無では決めない（数冊を選んだ＝本ごとの見方を並べる相談）。
+  useEffect(() => { setScopeModeOverride(multiScope ? 'perbook' : null); }, [multiScope]);
   const examples = useMemo(() => {
     if (scopeIds.length > 0) {
       // 🌐 対話の世界（2026-11-25）: 話し相手（1 冊・著者・選んだ本）ごとの問いかけ（lib/dialogueWorld.js）。
@@ -1385,7 +1397,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 💬 無料プランで今月のトークンを使い切っていたら、AI を使わずに自分のメモの一節で答える（メモが答える相談・2026-10-01）。
     //   /api/claude は呼ばない（トークンを使わない）。有料プランの画面は開かない（答えの下に静かに 1 回だけ案内）。
     //   2026-10-20: プランの人（有料・7 日間無料）が使い切ったときも同じ（前は送れなかった）。
-    if (freeUsedUp || outOfTokens) { askFromMemos(q, opts); return; }
+    if (memoOnly || outOfTokens) { askFromMemos(q, opts); return; }
     // 🔎 本を探す問いは、まず自分のメモから探す（AI なし）。見つからなければ下の AI へ（lookupFromMemos）。
     if (isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;
     // 🤝 はじめて AI に送るときは、送る内容と送り先を見せて同意をもらう（lib/aiConsent.js）。
@@ -1725,7 +1737,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     askPresetDoneRef.current = askPreset.nonce;
     if (!consumePreset('ask', askPreset.nonce)) return;
     setView('chat');
-    if (Array.isArray(askPreset.bookIds)) setScopeIds(askPreset.bookIds);
+    if (Array.isArray(askPreset.bookIds)) setScope(askPreset.bookIds);
     // 下書きだけ（振り返りのメモ検索で見つからなかった言葉など）: 送らずに入力欄へ入れる（勝手にトークンを使わない）。
     // 下書き（すべての本の「相談で探す」・振り返りの「相談で聞く」）は入力欄に入れてカーソルを置く（送らない＝トークンは送ったときだけ）。
     if (askPreset.draft) {
@@ -1824,7 +1836,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (ids.length === 0) return;
     clearConversation();
     setResumeThread({ ids, title: threadTitleOf(group) });
-    setScopeIds(threadScopeOf(group));
+    setScope(threadScopeOf(group));
     setView('chat');
     track('brain_continue', { turns: ids.length / 2 });
     // カーソルは描いた直後（useLayoutEffect）に置く。押した操作の中で置くので、iOS でもキーボードが上がりやすい
@@ -1839,7 +1851,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const q = String(group.find((m) => m.role === 'user')?.content || '').trim();
     if (!q) return;
     clearConversation();
-    setScopeIds(threadScopeOf(group));
+    setScope(threadScopeOf(group));
     setView('chat');
     setInput(q);
     track('brain_reask', {});
@@ -1896,7 +1908,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const base = q0.length > 50 ? `${q0.slice(0, 50)}…` : q0;
     const q = base ? `「${base}」について、『${title}』の視点でくわしく教えて` : `『${title}』の視点で、くわしく教えて`;
     setView('chat');
-    setScopeIds([bookId]);
+    setScope([bookId]);
     track('brain_perbook_drill', {});
     ask(q, { bookIds: [bookId], mode: 'fused' });
   };
@@ -2383,7 +2395,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 新しい相談の例（会話が始まると入力欄の左に 44 のボタンが入るので、どの状態でも 1 行に収まる短い形 1 つだけ・
   //   文字が大きいときはさらに短く・2026-11-18 ui-critic → 2026-11-23 に 1 つへ）。
   const newConsultExample = largeText ? '例：報告が遅い' : '例：報告がうまくいかない';
-  const composerPlaceholder = (freeUsedUp || outOfTokens) ? 'メモから探します'
+  const composerPlaceholder = (memoOnly || outOfTokens) ? 'メモから探します'
     : carry && !carry.used ? 'この相談の続きを書く'
     // メモが 0 件の人は続けても同じ答えなので、最初の画面と同じ新しい相談の例（2026-10-09 ui-critic）。
     //   例の文は 1 つにそろえる（2026-11-23: 0 件・会話の途中・最初の画面で「上司への…」と「報告が…」が混ざっていた）。
@@ -2608,7 +2620,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 <h2 id="brain-scope-empty-title" style={{ ...headingStyle, marginBottom: 'var(--space-2)' }}>
                   {scopeIds.length === 1 ? 'この本にはまだメモがありません' : '選んだ本にはまだメモがありません'}
                 </h2>
-                <button type="button" onClick={() => setScopeIds([])} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
+                <button type="button" onClick={() => setScope([])} style={{ ...uiBtnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>
                   すべての本に相談する
                 </button>
               </section>
@@ -2698,11 +2710,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     books={books}
                     memoBookIds={memoBookIds}
                     userId={user?.id || null}
-                    onPickBooks={(ids, author = null) => { setScopeAuthor(author); setScopeIds(ids); try { chatScrollRef.current?.scrollTo?.({ top: 0 }); } catch { /* ignore */ } }}
+                    onPickBooks={(ids, author = null) => { setScope(ids, author); try { chatScrollRef.current?.scrollTo?.({ top: 0 }); } catch { /* ignore */ } }}
                     onPickSeveral={() => setScopeSheetOpen(true)}
                     onDraft={(q, ids) => {
                       setScopeAuthor(null);
-                      setScopeIds(ids || []);
+                      setScope(ids || []);
                       setInput(q);
                       requestAnimationFrame(() => { try { inputRef.current?.focus({ preventScroll: true }); } catch { /* ignore */ } });
                     }}
@@ -2982,7 +2994,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             label={scopeLabelFor(scopeIds, books)}
             scoped={scopeIds.length > 0}
             onOpen={() => setScopeSheetOpen(true)}
-            onReset={() => setScopeIds([])}
+            onReset={() => setScope([])}
             disabled={busy}
             mode={modeApplies ? answerMode : null}
             onOpenMode={() => setModeSheetOpen(true)}
@@ -2995,7 +3007,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             <AnswerModeSheet
               value={answerMode}
               onClose={() => setModeSheetOpen(false)}
-              onSelect={(id) => { setAnswerMode(id); setModeSheetOpen(false); track('brain_answer_mode', { mode: id }); }}
+              onSelect={(id) => { setScopeModeOverride(null); setAnswerMode(id); setModeSheetOpen(false); track('brain_answer_mode', { mode: id }); }}
             />
           )}
           {scopeSheetOpen && (
@@ -3004,7 +3016,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               userId={user?.id}
               initial={scopeIds}
               onClose={() => setScopeSheetOpen(false)}
-              onApply={(ids) => { setScopeIds(ids); setScopeSheetOpen(false); track('brain_scope_set', { count: ids.length }); }}
+              onApply={(ids) => { setScope(ids); setScopeSheetOpen(false); track('brain_scope_set', { count: ids.length }); }}
             />
           )}
           {/* 区切り線は相談相手の行の上に 1 本だけ（入力欄側の線は消す）。相談相手の行を隠している間は入力欄の上に 1 本。 */}
@@ -3050,7 +3062,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 items={[
                   { label: `相談相手：${scopeLabelFor(scopeIds, books)}`, onClick: () => setScopeSheetOpen(true) },
                   ...(modeApplies ? [{ label: `答え方：${answerModeLabel(answerMode)}`, onClick: () => setModeSheetOpen(true) }] : []),
-                  ...(scopeIds.length > 0 ? [{ label: 'すべての本に戻す', onClick: () => setScopeIds([]) }] : []),
+                  ...(scopeIds.length > 0 ? [{ label: 'すべての本に戻す', onClick: () => setScope([]) }] : []),
                 ]}
               />
             )}

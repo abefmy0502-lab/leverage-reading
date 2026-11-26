@@ -103,10 +103,11 @@ export function mapStatus(v) {
 }
 // 状態が分からない本の決め方: 読了日・感想・評価があれば読了、無ければ積読（手元にあって、これから読む本）。
 //   guessed＝決めつけた印（確かめる画面で「状態が分からない本 N 冊」をまとめて直せる）。
-export function decideStatus(raw, { doneDate = '', review = '', rating = 0 } = {}) {
+//   読書メモがある本も読了（積読にすると本の詳細にメモが出ない・2026-11-26 点検）。
+export function decideStatus(raw, { doneDate = '', review = '', rating = 0, memo = '' } = {}) {
   const st = mapStatus(raw);
   if (st) return { status: st, guessed: false };
-  return { status: doneDate || String(review || '').trim() || Number(rating) > 0 ? 'done' : 'before', guessed: true };
+  return { status: doneDate || String(review || '').trim() || String(memo || '').trim() || Number(rating) > 0 ? 'done' : 'before', guessed: true };
 }
 
 const BOOKLOG_ORDER = ['service', 'itemId', 'isbn', 'category', 'rating', 'status', 'review', 'tags', 'memo', 'addedAt', 'doneDate', 'title', 'author', 'publisher', 'year', 'genre', 'pages'];
@@ -158,7 +159,7 @@ export function parseBooklogCsv(text) {
     const rating = Math.max(0, Math.min(5, Math.round(Number(get(r, 'rating')) || 0)));
     const doneDate = isoDate(get(r, 'doneDate'));
     const review = clean(get(r, 'review'), 8000);
-    const st = decideStatus(get(r, 'status'), { doneDate, review, rating });
+    const st = decideStatus(get(r, 'status'), { doneDate, review, rating, memo });
     // カテゴリ（ブクログで本人が作った分け方）はそのままフォルダに（2026-11-25・前は捨てていた）。
     const category = clean(get(r, 'category'), 40);
     books.push({
@@ -217,10 +218,12 @@ export function parseKindleClippings(text) {
     const book = byKey.get(key);
     // 同じ箇所を引き直したハイライトは、最後のものだけ残す（Kindle は上書きしても両方残る）。
     // ハイライトを伸ばした（片方がもう片方を含む）ときは長いほうだけ（2026-11-25）。
-    if (book.memos.some((m) => m.text === body || m.text.includes(body))) continue;
-    const shorter = book.memos.findIndex((m) => body.includes(m.text));
-    if (shorter >= 0) { book.memos[shorter] = { text: body, page, createdAt: clippingDate(meta) }; continue; }
-    book.memos.push({ text: body, page, createdAt: clippingDate(meta) });
+    //   伸ばしたかを比べるのはハイライトどうしだけ（自分で書いたメモ＝「考え方」の短いメモまで消していた・2026-11-26 点検）。
+    const isHl = !/メモ|Note/i.test(meta);
+    if (book.memos.some((m) => m.text === body || (isHl && m.hl && m.text.includes(body)))) continue;
+    const shorter = isHl ? book.memos.findIndex((m) => m.hl && body.includes(m.text)) : -1;
+    if (shorter >= 0) { book.memos[shorter] = { text: body, page, createdAt: clippingDate(meta), hl: true }; continue; }
+    book.memos.push({ text: body, page, createdAt: clippingDate(meta), hl: isHl });
     count += 1;
     if (count >= IMPORT_MAX_MEMOS) break;
   }
@@ -229,6 +232,7 @@ export function parseKindleClippings(text) {
   for (const b of byKey.values()) {
     const last = Math.max(0, ...b.memos.map((m) => Date.parse(m.createdAt || '') || 0));
     if (last && now - last < 30 * 86400000) b.status = 'reading';
+    b.memos = b.memos.map(({ hl, ...m }) => m); // 内部の印は外す
   }
   return { source: 'kindle', books: [...byKey.values()].slice(0, IMPORT_MAX_PARSE_BOOKS) };
 }
@@ -635,6 +639,16 @@ export function looksLikePlainList(text) {
   const sep = lines.slice(0, 5).filter((l) => /\t/.test(l) || (l.match(/,/g) || []).length >= 2).length;
   return sep === 0;
 }
+/** 貼り付けた文の読み方（2026-11-26 点検）: 見出しの行・決まった書き出し・Kindle のクリップなら表として、
+ *  それ以外は 1 行 1 冊の一覧として読む（表の列のコピー「書名⇥著者」・カンマを含む書名も一覧のまま）。 */
+export function parsePastedText(text) {
+  const t = String(text || '').replace(/^\uFEFF/, '');
+  const first = t.split(/\r?\n/).map((l) => l.trim()).find(Boolean) || '';
+  const firstCell = first.split(/[,\t]/)[0].trim().replace(/^"|"$/g, '').toLowerCase();
+  const isTable = [...HEADER_ALIASES.title, ...HEADER_ALIASES.isbn].includes(firstCell)
+    || /^={5,}\s*$/m.test(t) || looksLikeOrimeExport(t) || looksLikeGoodreadsCsv(t) || looksLikeStorygraphCsv(t);
+  return isTable ? parseImportText('pasted.csv', t) : parsePlainList(t);
+}
 export function parsePlainList(text) {
   const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/).map((l) => clean(l, 300).replace(/^[・•\-*]\s*|^\d+[.)．]\s+/, '')).filter(Boolean);
   const books = [];
@@ -671,7 +685,9 @@ export function parseOrimeExport(text) {
   const rows = parseCsv(String(text || '').replace(/^﻿/, ''), ',');
   if (rows.length < 2) return { source: 'orime', books: [] };
   const head = rows[0];
-  const recs = rows.slice(1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ''])));
+  // 書き出しが式に見えないよう頭に足した「'」を外す（lib/exportData.js・外さないとメモが別の文になり二重に入っていた・2026-11-26 点検）。
+  const unguard = (v) => (typeof v === 'string' && /^'[=+\-@\t\r]/.test(v) ? v.slice(1) : v);
+  const recs = rows.slice(1).map((r) => Object.fromEntries(head.map((h, i) => [h, unguard(r[i] ?? '')])));
   const byId = new Map();
   for (const r of recs.filter((x) => x.table === 'books')) {
     const title = clean(r.title, 200);
@@ -728,7 +744,8 @@ function parseImportTextRaw(fileName, text) {
 //   （一度に取り込む 2,000 冊は planImport で本棚の本を除いてから決める）。
 export function mergeImportResults(results) {
   const list = (Array.isArray(results) ? results : []).filter((r) => r && Array.isArray(r.books));
-  if (list.length === 1) return list[0];
+  // 1 つのファイルでも同じ本が 2 行あれば 1 冊にまとめる（ブクログ・Goodreads などで二重に入り、
+  //   2 冊目が保存できずメモが消えていた・2026-11-26 点検）。
   const sources = [...new Set(list.map((r) => r.source).filter(Boolean))];
   const byKey = new Map();
   // 同じ本: ISBN（または ASIN）が同じ、または書名＋著者が同じ（著者の書き方が違っても ISBN で 1 冊に）。
@@ -746,6 +763,7 @@ export function mergeImportResults(results) {
       const key = `${String(b.title || '').trim()}\u0000${String(b.author || '').trim()}`;
       const id = b.isbn || b.asin || '';
       let book = byKey.get(key) || (id ? byId.get(id) : null);
+      let fresh = false;
       if (!book) {
         const bucket = importTitleBucket(b.title);
         const near = findImportDuplicate(buckets.get(bucket) || [], { title: b.title, author: b.author, isbn: b.isbn });
@@ -757,6 +775,7 @@ export function mergeImportResults(results) {
         } else {
           if (bookCount >= IMPORT_MAX_PARSE_BOOKS) continue;
           book = { ...b, memos: [] };
+          fresh = true;
           bookCount += 1;
           if (!buckets.has(bucket)) buckets.set(bucket, []);
           buckets.get(bucket).push(book);
@@ -769,6 +788,15 @@ export function mergeImportResults(results) {
       if (!book.isbn && b.isbn) book.isbn = b.isbn;
       if (!book.asin && b.asin) book.asin = b.asin;
       if (!book.doneDate && b.doneDate) { book.doneDate = b.doneDate; book.reviewAt = book.reviewAt || b.reviewAt; }
+      if (!fresh) {
+        // 見立ての状態より、取り込み元が言った状態を（Kindle の「読了」の見立て＋ブクログの「読みたい」など）。
+        if (book.statusGuessed && !b.statusGuessed && b.status) { book.status = b.status; book.statusGuessed = false; }
+        if (!book.rating && b.rating) book.rating = b.rating;
+        if (!book.pages && b.pages) book.pages = b.pages;
+        for (const k of ['tags', 'folders']) {
+          if (Array.isArray(b[k]) && b[k].length) book[k] = [...new Set([...(Array.isArray(book[k]) ? book[k] : []), ...b[k]])];
+        }
+      }
       for (const m of b.memos || []) {
         if (memoCount >= IMPORT_MAX_MEMOS) break;
         if (book.memos.some((x) => x.text === m.text)) continue;
@@ -786,6 +814,7 @@ export function mergeImportResults(results) {
   const skipped = list.reduce((n, r) => n + (Number(r.skipped) || 0), 0);
   const skippedExample = (list.find((r) => r.skippedExample) || {}).skippedExample || '';
   return {
+    ...(list.length === 1 ? list[0] : null),
     source: sources.length === 1 ? sources[0] : 'mixed',
     books: [...new Set(byKey.values())],
     // found: 棚の全冊数と比べる冊数（読書メーターのページから読めた本だけ）。

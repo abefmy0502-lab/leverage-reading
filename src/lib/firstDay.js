@@ -51,7 +51,8 @@ const KEYS = {
   reached: 'orime-memos-reached-goal',
   grown: 'orime-memos-grown-line', // ホームの「相談相手が育ちました」（'1'＝出す・'done'＝押した／閉じた）
 };
-export const ONBOARD_PATHS = ['import', 'ocr', 'quickstart', 'skip'];
+// 'advisor'＝最初の 1 冊を探す（AI 選書・2026-11-25）。本を読みたいに入れたら終えたことに（2026-11-26 点検）。
+export const ONBOARD_PATHS = ['import', 'ocr', 'quickstart', 'advisor', 'skip'];
 
 const store = () => {
   try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; }

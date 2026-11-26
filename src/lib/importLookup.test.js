@@ -75,3 +75,16 @@ describe('書店の検索の失敗', () => {
     expect(res.books.every((b) => b.checkFailed)).toBe(true);
   });
 });
+
+describe('検索の回数の上限（429）', () => {
+  it('429 は待って聞き直し、確かめられたら found', async () => {
+    const { resolveListBooks } = await import('./importLookup');
+    let n = 0;
+    const res = await resolveListBooks([{ title: '考え方', needsLookup: true }], {
+      retryWaitMs: 0,
+      search: async () => { n += 1; return n < 3 ? { ok: false, status: 429 } : { ok: true, results: [{ title: '考え方', author: '稲盛和夫', isbn: '9784479795735' }] }; },
+    });
+    expect(n).toBe(3);
+    expect(res.found).toBe(1);
+  });
+});

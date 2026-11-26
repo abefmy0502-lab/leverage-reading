@@ -5,6 +5,7 @@
 //     著者と話す … 著者の名前（お気に入りの著者が先）→ その著者の本が話し相手
 //     読んできた本から … 話しかけてくる 1 枚（再会・つながり・前の自分）。日ごとに 1 枚・AI なし
 //   ここではトークンを使わない（話し相手を選ぶ・下書きを入れる・重ねるまで）。送るのは本人。
+import { appNow } from '../lib/appNow';
 import { useMemo } from 'react';
 import { ChevronRight, UserRound } from 'lucide-react';
 import MiniCover from './MiniCover';
@@ -24,7 +25,7 @@ export default function DialogueWorld({ books = [], memoBookIds = null, userId =
   const list = useMemo(() => talkBooks(books, memoBookIds), [books, memoBookIds]);
   const authors = useMemo(() => talkAuthors(books, memoBookIds, localFavoriteAuthors(userId)), [books, memoBookIds, userId]);
   const { rows, status } = useAllMemoRows({ userId, books, active: list.length > 0 });
-  const card = useMemo(() => (rows ? rediscoverCard({ rows, books }) : null), [rows, books]);
+  const card = useMemo(() => (rows ? rediscoverCard({ rows, books, now: appNow().getTime() }) : null), [rows, books]);
 
   // メモを読み終えてから一度に出す（「読んできた本から」があとから差し込まれて、表紙の列が押し下げられないように・2026-11-25 ui-critic）。
   if (!list.length || status === 'loading') return null;

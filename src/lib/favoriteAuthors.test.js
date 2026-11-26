@@ -51,3 +51,12 @@ describe('お気に入りの著者（2026-11-25）', () => {
     expect(home.more).toBe(0);
   });
 });
+
+describe('役割の字で終わる名前（2026-11-26）', () => {
+  it('「鈴木健作」は削らず、「稲盛和夫 著」は外す', async () => {
+    const { splitAuthorNames } = await import('./favoriteAuthors');
+    expect(splitAuthorNames('鈴木健作')).toEqual(['鈴木健作']);
+    expect(splitAuthorNames('稲盛和夫 著')).toEqual(['稲盛和夫']);
+    expect(splitAuthorNames('山田太郎監修')).toEqual(['山田太郎']);
+  });
+});

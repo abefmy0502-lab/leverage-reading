@@ -50,6 +50,9 @@ const MAX_BODY_BYTES = 1.5 * 1024 * 1024;
 const MAX_TEXT_CHARS = 150_000;
 // 🎁 無料プラン（契約なし）の相談 1 回の上限。相談の材料（約 9,000 字＋歩み・本ごとの答え方も）が入る大きさ。
 const FREE_MAX_TEXT_CHARS = 30_000;
+// 無料の AI 選書（推薦＝Sonnet）はアプリが送る 3,000 まで（改ざんしたアプリが大きな出力で 1 回の原価を上げられないように・2026-11-26 点検）。
+const FREE_ADVISOR_MAX_TOKENS = 3000;
+const freeMaxTokensFor = (purpose) => (purpose === 'book_advisor' ? FREE_ADVISOR_MAX_TOKENS : FREE_MAX_TOKENS);
 const FREE_MAX_TOKENS = 4000; // 本ごとの答え（1,200 字前後・max_tokens 3,600）が入る大きさ（2026-11-18 に 3000 から）
 // 無料プランの相談（2026-11-18 から Haiku 5.5・api/_aiRouting.js の CONSULT_MODEL と同じ・断ったら Haiku 4.5 で 1 回やり直す）。
 const FREE_MODEL = 'claude-haiku-5-5';
@@ -848,7 +851,7 @@ export default async function handler(req, res) {
     const b = req.body || {};
     const estMax = Math.min(
       Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT,
-      freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
+      freeCall ? freeMaxTokensFor(b.purpose) : MAX_TOKENS_HARD_CAP,
     );
     const images = countImages(b);
     // Claude 以外で答える用途は、失敗して Claude でやり直すときの原価も見込んで、高いほうで予約する（上振れ側）。
@@ -888,10 +891,14 @@ export default async function handler(req, res) {
   let poolSettled = false;
   // refund=true: 関係するメモが無かった相談の払い戻し。予約をまるごと戻し（この 1 回は 0 円として数える）、
   // 追加分（買い足したトークン）からも差し引かない（settle_token_overflow を呼ばない）。
-  const settleCost = (actualMjpy, { refund = false } = {}) => {
+  // poolActual: 全体の予算に数える実際の原価（省略＝actualMjpy）。全体の予算は払い戻し（refund）でも戻さない
+  //   （AI は実際に答えていて、原価はかかっている・2026-11-26 点検）。1 人ずつの原価を予約していない回
+  //   （無料の書き起こし・原価の SQL が無い）に「予約を残す」ときは poolActual: poolReserved を渡す。
+  const settleCost = (actualMjpy, { refund = false, poolActual } = {}) => {
     if (poolReserved && !poolSettled) {
       poolSettled = true;
-      track(adjustFreePool(getServiceSupabase(), { periodMonth: monthKey, deltaMjpy: (actualMjpy == null || refund ? 0 : actualMjpy) - poolReserved }));
+      const spent = poolActual !== undefined ? poolActual : actualMjpy;
+      track(adjustFreePool(getServiceSupabase(), { periodMonth: monthKey, deltaMjpy: (spent == null ? 0 : spent) - poolReserved }));
     }
     if (!costMetered || costSettled) return;
     costSettled = true;
@@ -951,7 +958,7 @@ export default async function handler(req, res) {
     const poolEst = costReserved > 0 ? costReserved : [route.model, route.claudeModel]
       .map((m) => estimateCost(m, {
         textChars: countTextChars(b), images: countImages(b),
-        maxTokens: Math.min(Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT, freeOcrCall ? (b.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_TOKENS : FREE_OCR_MAX_TOKENS) : FREE_MAX_TOKENS),
+        maxTokens: Math.min(Number.isFinite(b.max_tokens) ? Math.max(1, Math.floor(b.max_tokens)) : MAX_TOKENS_DEFAULT, freeOcrCall ? (b.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_TOKENS : FREE_OCR_MAX_TOKENS) : freeMaxTokensFor(b.purpose)),
         segments: cacheSegments(b, { systemTtl: '5m' }),
       }).total)
       .reduce((a, v) => Math.max(a, v), 0);
@@ -996,7 +1003,7 @@ export default async function handler(req, res) {
       : MAX_TOKENS_DEFAULT;
     const maxTokens = Math.min(
       requestedTokens,
-      freeOcrCall ? (req.body?.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_TOKENS : FREE_OCR_MAX_TOKENS) : freeCall ? FREE_MAX_TOKENS : MAX_TOKENS_HARD_CAP,
+      freeOcrCall ? (req.body?.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_TOKENS : FREE_OCR_MAX_TOKENS) : freeCall ? freeMaxTokensFor(req.body?.purpose) : MAX_TOKENS_HARD_CAP,
     );
     const wantsStream = body.stream === true;
 
@@ -1222,9 +1229,10 @@ export default async function handler(req, res) {
             if (u.seenStart) {
               const cm = costModel(sniffer.meta.model);
               const inputOnly = costFromUsage(cm, { ...u, output_tokens: 0 });
-              settleCost(u.seenDelta ? costFromUsage(cm, u) : inputOnly + costOutputPart);
+              settleCost(u.seenDelta ? costFromUsage(cm, u) : inputOnly + costOutputPart,
+                u.seenDelta ? {} : { poolActual: Math.max(poolReserved, inputOnly + costOutputPart) });
             } else {
-              settleCost(costReserved);
+              settleCost(costReserved, { poolActual: poolReserved });
             }
           }
           // ストリームが開始 = 成功コールとして当月カウントを +1。
@@ -1250,7 +1258,7 @@ export default async function handler(req, res) {
       // upstream 完了前なら発生しないため increment しない）。
       if (jsonErr?.name === 'AbortError' || upstreamController.signal.aborted) {
         upstreamDone = true;
-        settleCost(costReserved); // 生成は進んでいたかもしれないので予約は残す（安全側）
+        settleCost(costReserved, { poolActual: poolReserved }); // 生成は進んでいたかもしれないので予約は残す（安全側）
         await flush();
         try { res.end(); } catch { /* socket may already be closed */ }
         return;
@@ -1280,7 +1288,8 @@ export default async function handler(req, res) {
     // 「2xx のときだけ increment」と対称にする）。
     if (!response.ok && usageReserved && tier !== 'admin') track(releaseMonthlyUsage(userId, periodKey));
     // 💴 精算（成功は usage の実額・失敗は予約を戻す）。応答の前に待つ。
-    settleCost(response.ok ? (data?.usage ? costFromUsage(costModel(data?.model), data.usage) : costReserved) : null);
+    settleCost(response.ok ? (data?.usage ? costFromUsage(costModel(data?.model), data.usage) : costReserved) : null,
+      response.ok && !data?.usage ? { poolActual: poolReserved } : {});
     await flush();
     if (!response.ok) {
       // 上流（Anthropic）の生エラー JSON（英語の内部メッセージ・request-id 等）を

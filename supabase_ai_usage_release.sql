@@ -18,6 +18,9 @@
 
 -- ① reserve_ai_usage の GRANT 補修（既に付与済みでも冪等）
 grant execute on function public.reserve_ai_usage(uuid, text, int) to service_role;
+-- Supabase は public スキーマの新しい関数に anon・authenticated の実行権を名前で付けるので、明示して外す（2026-11-26 点検）。
+revoke all on function public.reserve_ai_usage(uuid, text, int) from anon;
+revoke all on function public.reserve_ai_usage(uuid, text, int) from authenticated;
 
 -- ② 払い戻し RPC: 該当行の calls を 0 未満にならない範囲で -1 する。
 --    行が無い場合は何もしない（reserve 前に失敗した経路から呼ばれても安全）。

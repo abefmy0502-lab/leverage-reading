@@ -78,3 +78,6 @@ $$;
 
 revoke all on function public.add_ai_purpose_cost(uuid, text, text, bigint) from public;
 grant execute on function public.add_ai_purpose_cost(uuid, text, text, bigint) to service_role;
+-- Supabase は public スキーマの新しい関数に anon・authenticated の実行権を名前で付けるので、明示して外す（2026-11-26 点検）。
+revoke all on function public.add_ai_purpose_cost(uuid, text, text, bigint) from anon;
+revoke all on function public.add_ai_purpose_cost(uuid, text, text, bigint) from authenticated;

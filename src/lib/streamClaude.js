@@ -23,7 +23,7 @@
 // await the whole exchange when convenient.
 
 import { supabase, isSupabaseConfigured } from './supabase';
-import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed } from './freeTrial';
+import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed, markFreePoolOut } from './freeTrial';
 import { MODEL_SMART } from './models';
 import { apiUrl } from './apiUrl';
 import { checkAiConsentForSend, aiConsentDeclinedError, AI_CONSENT_HEADER } from './aiConsent';
@@ -122,12 +122,23 @@ export async function streamClaude({
       // Error path: relay returns plain JSON, not SSE.
       let detail = '';
       let errorCode = '';
+      let freePool = false;
       try {
         const j = await res.json();
         detail = j?.error?.message || j?.error || '';
         errorCode = j?.error_code || '';
+        freePool = j?.free_pool === true;
       } catch { /* fallthrough */ }
       if (res.status === 401) throw new Error('AI機能を使うにはログインが必要です。');
+      if (res.status === 402 && freePool) {
+        // 無料の AI の全体の予算が尽きた: 有料プランの画面は開かず、サーバーの文で案内する（相談はメモから答える）。
+        markFreePoolOut();
+        const err = new Error(detail || '今月の無料の AI は、ここまでになりました。');
+        err.paywall = true; // 呼び出し側はエラーの案内を重ねて出さない（相談はメモの答えに切り替える）
+        err.code = errorCode;
+        err.freePool = true;
+        throw err;
+      }
       if (isPaywallError(res.status, errorCode)) {
         requestPaywall(paywallReasonFor(errorCode));
         const err = new Error(detail || 'この AI 機能は、プランでご利用いただけます。');

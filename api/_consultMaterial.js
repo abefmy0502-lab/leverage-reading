@@ -11,10 +11,18 @@ const EARLY_SHELF_RE = /={3,} EARLY_SHELF_START ={3,}[\s\S]*?={3,} EARLY_SHELF_E
 const AI_SUMMARY_RE = /【[^【】\n]*種別: (?:AI 解析（著者の意図・主な主張）|読書計画シート)】[\s\S]*?(?=\n【|\n={3,}|$)\n?/g;
 
 // ④ 選書理由の中の「この本の核心: …」の行（AI 選書が書いた本の概要・2026-11-25 点検）
+//   選書理由の項目の中だけで外す（本人が「この本の核心：」で始まるメモを書いていても消さない・2026-11-26 点検）。
+//   核心の行だけの選書理由は、見出しごと外す（空の【…種別: 選書理由】を残さない）。
 const AI_CORE_LINE_RE = /^[ \t]*この本の核心[:：][^\n]*\n?/gm;
+const REASON_ENTRY_RE = /(【[^【】\n]*種別: 選書理由[^【】\n]*】)([\s\S]*?)(?=\n【|\n={3,}|$)(\n?)/g;
+const stripCoreInReasons = (text) => text.replace(REASON_ENTRY_RE, (all, head, body, nl) => {
+  const rest = body.replace(AI_CORE_LINE_RE, '');
+  return rest.trim() ? `${head}${rest.replace(/\n+$/, '')}${nl}` : '';
+});
 
 export function stripBookSummaries(text) {
   if (typeof text !== 'string' || !text) return text;
   if (!text.includes('EARLY_SHELF_START') && !text.includes('AI 解析（著者の意図・主な主張）') && !text.includes('種別: 読書計画シート') && !text.includes('この本の核心')) return text;
-  return text.replace(EARLY_SHELF_RE, '').replace(AI_SUMMARY_RE, '').replace(AI_CORE_LINE_RE, '');
+  const out = text.replace(EARLY_SHELF_RE, '').replace(AI_SUMMARY_RE, '');
+  return stripCoreInReasons(out);
 }

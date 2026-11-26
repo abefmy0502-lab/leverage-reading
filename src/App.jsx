@@ -948,6 +948,8 @@ function AuthedApp() {
   const [showQuickstart, setShowQuickstart] = useState(false);
   // 取り込みの完了画面から開くとき: 一言を足す本（本棚に入っている本・一言の段から始める）。ふだんは null。
   const [quickstartSeed, setQuickstartSeed] = useState(null);
+  const quickstartSeedRef = useRef(null);
+  quickstartSeedRef.current = quickstartSeed;
   // 初日クイックスタートで選んでいた本（寄り道して入れずに戻ったときに選び直さない・2026-11-23）。
   const [quickstartPicked, setQuickstartPicked] = useState(null);
   const [showImport, setShowImport] = useState(false); // 📥 ほかのアプリから取り込む
@@ -2986,10 +2988,16 @@ function AuthedApp() {
     let doneCount = 0;
     const CONCURRENCY = 4;
     let next = 0;
+    // 並べて保存している途中の本（同じ本をほかの保存が作っている間は、その結果を待って同じ本に足す＝二重に作らない・2026-11-26 点検）。
+    const inflight = new Map();
+    const inflightKey = (isbn, b) => isbn || `${String(b.title || '').replace(/\s+/g, '')}\u0000${String(b.author || '').replace(/\s+/g, '')}`;
     const handle = async (b) => {
       const isbn = String(b.isbn || '').replace(/[^0-9Xx]/g, '');
+      const ikey = inflightKey(isbn, b);
+      if (inflight.has(ikey)) { try { await inflight.get(ikey); } catch { /* ignore */ } }
       // 副題の有無・訳者の並びの違いでも同じ本とみなす（取り込みだけ・確かめる画面の planImport と同じ）。
-      let target = findImportDuplicate(booksRef.current, { title: b.title, author: b.author, isbn });
+      //   この取り込みでもう作った本も見る（booksRef は描き直すまで増えない）。
+      let target = findImportDuplicate([...booksRef.current, ...newBooks], { title: b.title, author: b.author, isbn });
       const memos = [...(b.memos || [])];
       if (target) {
         booksMatched += 1;
@@ -2999,6 +3007,8 @@ function AuthedApp() {
           memos.push({ text: b.review, page: null, createdAt: b.reviewAt || null }); // 読書メーターは感想の日付（読了日）
         }
       } else {
+        let release = () => {};
+        inflight.set(ikey, new Promise((r) => { release = r; }));
         try {
           target = await saveBook({
             ...emptyBook(),
@@ -3031,6 +3041,9 @@ function AuthedApp() {
           console.warn('[import] book save failed:', e?.message || e);
           booksFailed += 1;
           target = null;
+        } finally {
+          release();
+          inflight.delete(ikey);
         }
       }
       if (target?.id && memos.length) pending.push({ bookId: target.id, memos });
@@ -3237,6 +3250,7 @@ function AuthedApp() {
       });
       // その本を開いたら消す（openDetail が見る・カードの「追加済み・開く」から開いても残らない）。
       if (saved?.id) advisorAddedToastRef.current = { bookId: saved.id, toastId: addedToastId };
+      if (takeOnboardPathDone('advisor')) track('onboard_path_done', { path: 'advisor' });
       // 表紙取得をバックグラウンドで実行 (await しない)。失敗しても UX に影響なし。
       resolveCoverInBackground(saved);
       // BookAdvisor が advisor_sessions の added_book_ids を更新する用に
@@ -3453,6 +3467,12 @@ function AuthedApp() {
     const patch = { status: newStatus, ...(extra || {}) };
     if ((newStatus === 'reading' || newStatus === 'done') && !book.startDate) patch.startDate = today;
     if (newStatus === 'done' && !book.doneDate) patch.doneDate = today;
+    // 前の状態に戻すときは、その状態に合わない日付を消す（本の詳細の「状態を戻す」と同じ・2026-11-26 点検）。
+    const ORDER = ['want', 'before', 'reading', 'done'];
+    if (ORDER.indexOf(newStatus) < ORDER.indexOf(book.status)) {
+      if (newStatus !== 'done' && book.doneDate) patch.doneDate = '';
+      if ((newStatus === 'want' || newStatus === 'before') && book.startDate) patch.startDate = '';
+    }
     applyBookPatchQuiet(book.id, patch, null);
     // 押した直後に「元に戻す」つきの知らせ（本の状態を進めたときの知らせと同じ・ホームの「読み始める」・長押しの「状態を変える」・2026-11-23）。
     //   戻すのは状態と、この操作で埋めた日付だけ（得たいことの下書きはそのまま）。
@@ -4105,7 +4125,7 @@ function AuthedApp() {
     author: String(book?.author || '').trim().slice(0, 200),
   });
   // ✍️ お気に入りの著者（2026-11-25）。新しい本はホームの 1 行で知らせる（hooks/useFavoriteAuthors.js）。
-  const favAuthors = useFavoriteAuthors(user?.id || null, { isOwned: hasBookFromOther });
+  const favAuthors = useFavoriteAuthors(user?.id || null, { isOwned: hasBookFromOther, ownedKey: books });
   const [authorSheet, setAuthorSheet] = useState(null); // { names: [], reason }
   const [overlapReq, setOverlapReq] = useState(null); // 🔗 { source, targetId }
   useEffect(() => {
@@ -8020,6 +8040,11 @@ function AuthedApp() {
             }}
             onUndo={(outcome) => {
               if (shelfOneLineToastRef.current) { toast.dismiss(shelfOneLineToastRef.current, { skipExpire: true }); shelfOneLineToastRef.current = null; }
+              // 入れた本で開いた初日クイックスタートは閉じる（消した本に一言を書かせない・2026-11-26 点検）。
+              const undone = new Set((outcome?.createdBookIds || []).map(String));
+              if (undone.size && (quickstartSeedRef.current || []).some((b) => undone.has(String(b?.id)))) {
+                setShowQuickstart(false); setQuickstartSeed(null); setQuickstartPicked(null);
+              }
               return undoImport(outcome);
             }}
             onClose={() => { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = false; setShelfScanOpen(false); }}

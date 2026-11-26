@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, isDemo } from './supabase';
-import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed } from './freeTrial';
+import { isPaywallError, requestPaywall, paywallReasonFor, notifyAiUsed, markFreePoolOut } from './freeTrial';
 import { isSchemaError } from './errors';
 import { LIMITS, clamp } from './limits';
 import { streamClaude } from './streamClaude';
@@ -83,6 +83,11 @@ async function postClaude(payload, signal) {
   if (!res.ok) {
     if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
     // 無料のトークンを使い切った／プランの機能 → 有料プランの画面を重ねて開く（PaywallGate が受ける）。
+    if (res.status === 402 && data?.free_pool === true) {
+      // 無料の AI の全体の予算が尽きた: 有料プランの画面は開かず、サーバーの文を出す（2026-11-26 点検）。
+      markFreePoolOut();
+      return data?.error?.message || '今月の無料の AI は、ここまでになりました。';
+    }
     if (isPaywallError(res.status, data?.error_code)) {
       requestPaywall(paywallReasonFor(data.error_code));
       return data?.error?.message || 'この AI 機能は、プランでご利用いただけます。';

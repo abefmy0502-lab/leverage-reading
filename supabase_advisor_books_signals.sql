@@ -80,6 +80,9 @@ begin
 end $$;
 revoke all on function public.link_advisor_book_marks() from public;
 grant execute on function public.link_advisor_book_marks() to service_role;
+-- Supabase は public スキーマの新しい関数に anon・authenticated の実行権を名前で付けるので、明示して外す（2026-11-26 点検）。
+revoke all on function public.link_advisor_book_marks() from anon;
+revoke all on function public.link_advisor_book_marks() from authenticated;
 
 -- 売れ方を決め直す（毎日の Cron の最後）。変えた本の数を返す。
 --   「いま」＝直近 21 日に分野の売上順（list が genre: で始まる一覧）の 100 位以内で見た。
@@ -126,6 +129,9 @@ begin
 end $$;
 revoke all on function public.refresh_advisor_book_trends() from public;
 grant execute on function public.refresh_advisor_book_trends() to service_role;
+-- Supabase は public スキーマの新しい関数に anon・authenticated の実行権を名前で付けるので、明示して外す（2026-11-26 点検）。
+revoke all on function public.refresh_advisor_book_trends() from anon;
+revoke all on function public.refresh_advisor_book_trends() from authenticated;
 
 -- 4. AI 選書の候補を引く（ログインした人・出版社の紹介文は返さない）。
 --   言葉ごとに: 探す言葉に含まれる 4 点・書名 3 点・こんな悩みの人に 2 点・概要と学べること 1 点。

@@ -10,7 +10,12 @@ import { matchShelfGuess } from './shelfScan';
  *   failed＝書店の検索が失敗した本（通信など・打った書名のまま・checkFailed）
  *   found＝確かめた本・loose＝近い書名で当てた本（確かめる画面に「近い本に合わせました」）・missing＝見つからなかった本（打った書名のまま）
  */
-export async function resolveListBooks(books, { search, concurrency = 3, onEach, signal } = {}) {
+const sleep = (ms, signal) => new Promise((resolve) => {
+  if (!ms) { resolve(); return; }
+  const t = setTimeout(resolve, ms);
+  signal?.addEventListener?.('abort', () => { clearTimeout(t); resolve(); }, { once: true });
+});
+export async function resolveListBooks(books, { search, concurrency = 3, onEach, signal, retryWaitMs = 20000 } = {}) {
   const out = books.map((b) => ({ ...b }));
   const targets = out.map((b, i) => (b.needsLookup ? i : -1)).filter((i) => i >= 0);
   let found = 0; let loose = 0; let missing = 0; let failed = 0; let doneCount = 0;
@@ -23,14 +28,24 @@ export async function resolveListBooks(books, { search, concurrency = 3, onEach,
       let res = { ok: false, results: [] };
       // 書店の検索そのものが失敗した（通信・サーバー）のは「見つからない」と分ける（2026-11-25 ui-critic）。
       let reqFailed = false;
-      try {
+      const q = b.isbn || `${b.title} ${b.author || ''}`.trim();
+      // 検索の回数の上限（1 分 120 回・429）に当たったら、少し待って 3 回まで聞き直す
+      //   （長い一覧の後半が「確かめられなかった」になっていた・2026-11-26 点検）。
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        reqFailed = false;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          res = await search(q);
+          if (!res?.ok) reqFailed = true;
+        } catch (e) {
+          if (e?.name === 'AbortError') return;
+          reqFailed = true;
+        }
+        if (!(reqFailed && res?.status === 429) || attempt === 3 || signal?.aborted) break;
         // eslint-disable-next-line no-await-in-loop
-        res = await search(b.isbn || `${b.title} ${b.author || ''}`.trim());
-        if (!res?.ok) reqFailed = true;
-      } catch (e) {
-        if (e?.name === 'AbortError') return;
-        reqFailed = true;
+        await sleep(retryWaitMs * (attempt + 1), signal);
       }
+      if (signal?.aborted) return;
       const results = res?.ok && Array.isArray(res.results) ? res.results : [];
       let hit = null; let isLoose = false;
       if (b.isbn) {
@@ -77,6 +92,15 @@ export async function resolveListBooks(books, { search, concurrency = 3, onEach,
   });
   // まとめた冊数（mergedBooks）と、その元の行の数（mergedLines）＝「同じ本の行 2 つを 1 冊に」。
   const dup = [...counts.values()].filter((n) => n > 1);
+  // 数は 1 冊にまとめたあとの本で数え直す（まとめた行が「近い書名」だったときも合うように・2026-11-26 点検）。
+  const looked = new Set(targets.map((i) => out[i]));
+  const kept = unique.filter((b) => looked.has(b));
+  if (kept.length || targets.length) {
+    found = kept.filter((b) => !b.unverified && !b.matchedLoosely).length;
+    loose = kept.filter((b) => !b.unverified && b.matchedLoosely).length;
+    missing = kept.filter((b) => b.unverified && !b.checkFailed).length;
+    failed = kept.filter((b) => b.checkFailed).length;
+  }
   return {
     books: unique, found, loose, missing, failed,
     merged: out.length - unique.length,

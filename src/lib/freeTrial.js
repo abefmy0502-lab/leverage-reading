@@ -34,9 +34,26 @@ export function requestPaywall(reason = 'feature', feature = '') {
 
 // サーバーの 402 の error_code から、有料プランの画面を開くべきか。
 // subscription_required は旧サーバー（全機能有料の頃）の名前。念のため受ける。
-export function isPaywallError(status, code) {
+export function isPaywallError(status, code, freePool = false) {
+  // 無料の AI の全体の予算が尽きた（free_pool）は、本人のトークンは残っているので有料プランの画面を開かない
+  //   （「使い切った」と言わない・開くたびに何度も重ねない・2026-11-26 点検）。
+  if (freePool) return false;
   return status === 402 && (code === 'free_limit_reached' || code === 'free_ocr_limit_reached'
     || code === 'plan_required' || code === 'subscription_required');
+}
+
+// 🧯 無料の AI の全体の予算が今月は尽きた（サーバーの 402 free_limit_reached＋free_pool）。
+//   アプリを開いている間は覚えて、相談はメモから答える（毎回 AI を呼んで 402 にしない）。翌月に開き直せば戻る。
+export const FREE_POOL_EVENT = 'orime:free-pool-out';
+let freePoolOutMonth = '';
+const jstMonth = (now = new Date()) => new Date(now.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+export function markFreePoolOut(now = new Date()) {
+  freePoolOutMonth = jstMonth(now);
+  if (typeof window === 'undefined') return;
+  try { window.dispatchEvent(new Event(FREE_POOL_EVENT)); } catch { /* ignore */ }
+}
+export function isFreePoolOut(now = new Date()) {
+  return !!freePoolOutMonth && freePoolOutMonth === jstMonth(now);
 }
 export function paywallReasonFor(code) {
   if (code === 'free_limit_reached') return 'free_used';
