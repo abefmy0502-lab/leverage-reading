@@ -1929,7 +1929,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
       {/* Example chips — タップでそのまま送る（相談の相談例と同じ・2026-09-29）。
           無料プランで有料プランの画面が開いたときは、入力欄に残す。 */}
-      {showConcernInput && !showErrorState && (
+      {/* 無料の AI の全体の予算が尽きている間は出さない（押すと AI を呼ぶので・2026-11-26 点検） */}
+      {showConcernInput && !showErrorState && !(freeMode && poolOut) && (
         <div className="example-chips example-chips--stack" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
           <p className="example-chips-label">たとえば</p>
           {ADVISOR_EXAMPLES.map((ex) => (
@@ -2239,7 +2240,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       )}
 
       {/* 推薦生成エラー（リトライ可能） */}
-      {recoError && !recoLoading && recoNotice && (
+      {/* 予算切れが分かっている間は、書き始める前から案内を出す（長い悩みを書いてから止めない・2026-11-26 点検）。 */}
+      {((recoError && recoNotice) || (freeMode && poolOut)) && !recoLoading && (
         ((freeMode && poolOut) || /^今月の無料の AI/.test(recoError)) ? (
           // 🧯 無料の AI の全体の予算が今月は尽きた（本人のトークンは残っている・2026-11-26 ui-critic）: 理由と戻る日、
           //   そして AI を使わずにできる次の一歩（相談でメモから探す・書名で探して本を足す）。プランはすすめない。
@@ -2529,8 +2531,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {showConcernInput && (() => {
         // トークンを使い切った間は、送っても同じ案内に戻るだけなので送れない形にする（相談と同じ）。
         // 「今月の無料の AI は…」＝無料の AI の全体の予算が尽きた（来月 1 日に戻る）も同じく入力を閉じる（2026-11-26 点検）。
-        const tokensOut = !!(recoError && recoNotice && /^(今月のトークン|無料期間のトークン|今月の無料の AI)/.test(recoError));
-        const monthOut = tokensOut && /^今月の(トークン|無料の AI)/.test(recoError);
+        const poolBlocked = freeMode && poolOut;
+        const tokensOut = poolBlocked || !!(recoError && recoNotice && /^(今月のトークン|無料期間のトークン|今月の無料の AI)/.test(recoError));
+        const monthOut = poolBlocked || (tokensOut && /^今月の(トークン|無料の AI)/.test(recoError));
         return (
         // 1 回の目安と残りは、入力欄と送るボタンの上の行に（折り返して全幅・相談と同じ位置）。
         // 無料プランは、書く前に「プランの機能」だと分かるように 1 行（書いて送ってから断らない・2026-09-30）。

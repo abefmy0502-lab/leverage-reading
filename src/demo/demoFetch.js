@@ -1111,6 +1111,8 @@ export function installDemoFetch(store) {
       const mode = new URLSearchParams(window.location.search).get('authors');
       await wait(mode === 'slow' ? 60000 : 400, signal);
       if (mode === 'fail') return json({ error: 'unavailable', books: [] }, 502);
+      // &authors=empty: 書店で、この著者の本が 1 冊も見つからない（2026-11-26）
+      if (mode === 'empty') return json({ books: [] });
       const name = (() => { try { return new URL(url, window.location.origin).searchParams.get('author_books') || ''; } catch { return ''; } })();
       const day = (n) => { const d = new Date(appNow().getTime() + n * 86400000); return { iso: d.toISOString().slice(0, 10), ja: `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日` }; };
       const up = day(24); const recent = day(-20);

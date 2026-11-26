@@ -23,6 +23,8 @@ import { generateOverlap, invalidateKnowledgeCache } from '../lib/ai';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toSaveMessage, toMessage } from '../lib/errors';
 import { track } from '../lib/analytics';
+import { isFreePoolOut, FREE_POOL_EVENT, nextResetLabelJa } from '../lib/freeTrial';
+import { usePaywall } from '../state/PaywallContext';
 
 const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const label = { margin: 0, fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)' };
@@ -62,6 +64,16 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
   const [choosing, setChoosing] = useState(false);
   const [query, setQuery] = useState('');
   const [ai, setAi] = useState({ status: 'idle', result: null, error: '' });
+  // 🧯 無料の AI の全体の予算が今月は尽きた（lib/freeTrial.js）。その間は「AI に見てもらう」を出さず、自分の答えだけを書く
+  //   （押しても、もう一度でも、翌月まで答えられないので・2026-11-26 点検）。
+  const { freeMode } = usePaywall();
+  const [poolOutNow, setPoolOutNow] = useState(() => isFreePoolOut());
+  useEffect(() => {
+    const on = () => setPoolOutNow(isFreePoolOut());
+    window.addEventListener(FREE_POOL_EVENT, on);
+    return () => window.removeEventListener(FREE_POOL_EVENT, on);
+  }, []);
+  const aiPaused = freeMode && poolOutNow;
   const [answer, setAnswer] = useState('');
   const [saving, setSaving] = useState(false);
   const answerRef = useRef(null);
@@ -198,7 +210,10 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
 
             <section aria-labelledby="overlap-ai-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <h3 id="overlap-ai-h" style={label}>重なって見えること</h3>
-              {ai.status === 'idle' && (
+              {aiPaused && ai.status !== 'ready' && (
+                <p style={meta}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、そのまま書いて残せます。')}</p>
+              )}
+              {!aiPaused && ai.status === 'idle' && (
                 <>
                   <button type="button" onClick={askAi} style={btnGhost}>AI に見てもらう</button>
                   <p style={meta}>{withPhraseBreaks('2 つのメモの文だけを材料に、共通点・違い・問いを 1 つずつ。答えは書きません。1 回 約 1 トークン。')}</p>
@@ -209,7 +224,7 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
                   <SkeletonBlock width="90%" height="var(--text-body)" /><SkeletonBlock width="80%" height="var(--text-body)" /><SkeletonBlock width="70%" height="var(--text-body)" />
                 </div>
               )}
-              {ai.status === 'error' && (
+              {!aiPaused && ai.status === 'error' && (
                 <ErrorMessage title="重なりを見られませんでした" description={ai.error} actions={[{ label: 'もう一度', onClick: askAi }]} />
               )}
               {ai.status === 'ready' && ai.result && (
