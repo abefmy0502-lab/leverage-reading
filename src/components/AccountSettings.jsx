@@ -1393,30 +1393,10 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
 
           {/* ── アカウント（破壊的操作・最下部に分離） ── */}
           <Group label="アカウント">
-            {/* データ初期化（アカウントは残す） */}
-            <div style={blockStyle} role="group" aria-label="データを初期化">
-              <div>
-                <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
-                <p style={rowDescStyle}>本・メモ・行動・目標・プロフィールを消します。</p>
-              </div>
-              <button
-                type="button"
-                // 読み上げの名前は見えている文字と同じ（aria-label で別の名前にしない・2026-09-30）。
-                // 同じカードの退会（アカウントの削除を開始）と同じ形＝枠線＋エラー色の文字（2026-11-23 点検・
-                //   片方が文字だけ、片方が枠のボタンで、同じ重さの消す操作が別の物に見えていた）。押すと確かめる。
-                style={resetting ? btnGhostOff : btnDestructiveGhost}
-                aria-busy={resetting || undefined}
-                disabled={resetting}
-                onClick={handleResetData}
-              >
-                {resetting ? '初期化中…' : 'データをすべて初期化する'}
-              </button>
-            </div>
-
-            {/* ログアウト（アカウントを切り替えたい人の導線・削除のすぐ上）。ふつうの一覧の行（本文色）。 */}
+            {/* ログアウト（アカウントを切り替えたい人の導線）。いちばん使う操作なので、消す 2 つ（初期化・削除）より先に（2026-11-26 全体の UX 監査）。ふつうの一覧の行（本文色）。 */}
             <button
               type="button"
-              style={{ ...rowButtonStyle, ...divider, fontSize: 'var(--text-body)' }}
+              style={{ ...rowButtonStyle, fontSize: 'var(--text-body)' }}
               onClick={async () => {
                 // 押し間違いで出てしまわないように、ひと声かける（消す操作ではないので赤くしない・2026-09-29）。
                 // 登録せずに始めた人は、ログアウトすると同じアカウントに戻れない（2026-11-19）。
@@ -1446,6 +1426,26 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             >
               ログアウト
             </button>
+
+            {/* データ初期化（アカウントは残す） */}
+            <div style={{ ...blockStyle, ...divider }} role="group" aria-label="データを初期化">
+              <div>
+                <p style={{ ...rowTitleStyle, fontWeight: 600 }}>データを初期化（ログインは残す）</p>
+                <p style={rowDescStyle}>本・メモ・行動・目標・プロフィールを消します。</p>
+              </div>
+              <button
+                type="button"
+                // 読み上げの名前は見えている文字と同じ（aria-label で別の名前にしない・2026-09-30）。
+                // 同じカードの退会（アカウントの削除を開始）と同じ形＝枠線＋エラー色の文字（2026-11-23 点検・
+                //   片方が文字だけ、片方が枠のボタンで、同じ重さの消す操作が別の物に見えていた）。押すと確かめる。
+                style={resetting ? btnGhostOff : btnDestructiveGhost}
+                aria-busy={resetting || undefined}
+                disabled={resetting}
+                onClick={handleResetData}
+              >
+                {resetting ? '初期化中…' : 'データをすべて初期化する'}
+              </button>
+            </div>
 
             {/* アカウント削除 */}
             <div ref={deleteRef} style={{ ...blockStyle, ...divider }} role="group" aria-label="アカウント削除">

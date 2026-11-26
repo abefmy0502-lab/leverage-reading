@@ -4185,10 +4185,13 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     const head = [headTitle, headTail].filter(Boolean).join(' · ');
     const bookId = spot.b || null;
     const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;
+    // 結論がこのメモの文を半分以上そのまま引いているときは、本文を繰り返さず見出しの 1 行だけ（同じ文が続けて 2 回出ていた・2026-11-26 全体の UX 監査）。
+    const spotText = String(spot.x || '').replace(/\s+/g, '');
+    const repeated = spotText.length >= 8 && conclusionText.includes(spotText.slice(0, Math.max(8, Math.ceil(spotText.length * 0.5))));
     const body = (
       <>
         <span style={{ display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{/* 書名だけ別の塊・後ろの「p.N · いつ」は 1 つの塊（行の頭に「·」が来ない・「p.184 か月」と数字が続いて読めない・2026-10-21 ui-critic）。 */}{headTitle && <>{haltLead(withPhraseBreaks(headTitle))}{' · '}</>}<span style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>{headTail}</span></span>
-        <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{haltLead(spot.x)}</span>
+        {!repeated && <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{haltLead(spot.x)}</span>}
       </>
     );
     const box = { position: 'relative', display: 'block', width: '100%', fontSize: 'var(--text-sub)', textAlign: 'left', marginTop: 'var(--space-3)', padding: `var(--space-3) ${open ? 'var(--space-6)' : '0'} var(--space-3) var(--space-3)`, borderLeft: '2px solid var(--border)', background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, fontFamily: 'inherit', cursor: open ? 'pointer' : 'default' };
