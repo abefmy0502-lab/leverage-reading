@@ -92,6 +92,9 @@ begin
   v := v || jsonb_build_object('renewals', part);
   begin select public.admin_active_series(30) into part; exception when others then part := null; end;
   v := v || jsonb_build_object('active_series', part);
+  -- 無料ユーザーの継続（1・3・5・7・30・90・180・365 日目 × 読書の習慣の型・2026-11-26・supabase_admin_retention_days.sql）
+  begin select public.admin_retention_days() into part; exception when others then part := null; end;
+  v := v || jsonb_build_object('retention_days', part);
 
   -- 運営のやること（名前・メールは渡さない。フィードバックは本文 300 字まで・開いているものだけ・50 件）
   begin

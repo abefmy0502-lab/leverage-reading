@@ -19,7 +19,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera, History } from 'lucide-react';
 import { useReturnMoment } from '../hooks/useReturnMoment';
-import { momentQuote } from '../lib/returnMoments';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -615,7 +614,14 @@ export default function HomeScreen({
   const reask = useReaskNudge(!!onConsultDraft && !loading && !loadError && books.length > 0);
   // 🌙 また開いたときの 1 行（3 日以上あけた日の「おかえりなさい」・はじめて 1 か月〜1 年・lib/returnMoments.js・2026-11-26）。
   const returnMoment = useReturnMoment(!!onOpenMemo && !loading && !loadError && books.length > 0, books, MEMO_COUNT_WAIT_MS);
-  const momentBook = returnMoment.moment ? books.find((b) => b.id === returnMoment.moment.memo.bookId) || null : null;
+  const moment = returnMoment.moment;
+  const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === moment.memo?.bookId) || null;
+  // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・メモを書く・本を開く）。押す先が用意されていなければ出さない。
+  const momentGo = !moment || !momentBook ? null
+    : moment.action === 'compare' ? (onConsultDraft ? () => onConsultDraft(moment.question, 'moment') : null)
+    : moment.action === 'memo' ? (onWriteMemo ? () => onWriteMemo(momentBook) : null)
+    : moment.action === 'book' ? (onOpenBook ? () => onOpenBook(momentBook) : null)
+    : () => onOpenMemo(momentBook, moment.memo.id);
   // 年額の更新の前の 1 行（30 日前から）と、12〜1 月の月額の人への年額の 1 行（2026-10-22）。どちらも 1 行ずつ・ほかの 1 行より先。
   const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);
   const annual = useAnnualNudge(!!onOpenPlan && !loading && !loadError && books.length > 0);
@@ -717,19 +723,19 @@ export default function HomeScreen({
           />
         )}
         {/* 🌙 また開いたときの 1 行（ほかの時期の案内が出ている日は出さない＝2 行にしない・押すとそのメモを開く）。 */}
-        {homeKnown && momentBook && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
+        {homeKnown && momentGo && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
           <GrownLine
-            mark={`moment-${returnMoment.moment.kind}`}
+            mark={`moment-${moment.kind}`}
             stack
-            icon={returnMoment.moment.kind === 'anniv' ? Sprout : History}
-            text={<>{withPhraseBreaks(returnMoment.moment.lead)}<span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(momentQuote(returnMoment.moment.memo))}</span></>}
-            actionLabel="読み返す"
-            onConsult={() => { const m = returnMoment.moment; returnMoment.close('open'); onOpenMemo(momentBook, m.memo.id); }}
+            icon={moment.kind === 'anniv' ? Sprout : History}
+            text={<>{withPhraseBreaks(moment.lead)}<span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span></>}
+            actionLabel={moment.actionLabel}
+            onConsult={() => { returnMoment.close('open'); momentGo(); }}
             onDismiss={() => returnMoment.close('dismiss')}
           />
         )}
         {/* ✍️ お気に入りの著者の新しい本（2026-11-25・hooks/useFavoriteAuthors.js）。押すと著者のシート・× でその本はもう知らせない。 */}
-        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && !momentBook && (
+        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && !momentGo && (
           <GrownLine
             mark="author-news"
             stack
@@ -765,7 +771,9 @@ export default function HomeScreen({
         </div>
       ) : (
         <>
-          {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
+          {/* 読みたい・積読の本だけの人（読書の習慣がない人に多い）には出さない＝まだ読んだ本が無いのに「読んだ本の一文をメモする」を
+              主役にしない。すぐ下の「読みたい本／次に読む本 → 読み始める」が次の一歩（2026-11-26 継続の点検）。 */}
+          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 読書計画とすべての本は、1 枚のまとまりの行（区切り線でつなぐ）。 */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>

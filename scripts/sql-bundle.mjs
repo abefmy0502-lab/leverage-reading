@@ -90,6 +90,7 @@ export const ORDER = [
   ['supabase_admin_launch_kpis.sql', 'ローンチの 4 つの数字'],
   ['supabase_admin_goal.sql', '有料ユーザー 1,000 人の目標・毎週の見直し'],
   ['supabase_admin_profit.sql', '今月の売上と推定の粗利'],
+  ['supabase_admin_retention_days.sql', '無料ユーザーの継続（8 つの日 × 3 つの型）'],
   ['supabase_admin_mcp.sql', '運営ダッシュボードを AI と連携から読む'],
   // 9. 守りの追加（すべての表がそろってから・2026-11-26 監査）
   ['supabase_hardening_2026_11.sql', '大きさの上限・運営の表は管理者だけ・記録の時刻はサーバーの今'],

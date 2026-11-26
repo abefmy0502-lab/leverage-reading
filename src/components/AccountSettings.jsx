@@ -46,7 +46,7 @@ import { deleteConfirmTarget, deleteConfirmMatches } from '../lib/deleteConfirm'
 import { purchasePlan } from '../lib/iap';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral, inviteMessage } from '../lib/referral';
-import { isAppStoreLive, storeLinkFor } from '../lib/appStore';
+import { isAppStoreLive, storeLinkFor, APP_STORE_URL } from '../lib/appStore';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { FREE_TOKENS } from '../lib/tokens';
@@ -1383,6 +1383,24 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 {/* 画面へ進む › ではなく、共有のシートを開く印（2026-11-26 ui-critic） */}
                 <Share size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
+            )}
+            {/* ⭐ App Store でレビューを書く（2026-11-26・継続の点検）: iPhone のアプリの評価の依頼（InAppReview）は部品が無いと
+                出ないので、自分から書きたい人の入口を 1 つ。App Store の URL があるときだけ・特典なし・押しつけない（審査 5.6.1）。 */}
+            {isAppStoreLive && (
+              <a
+                href={`${APP_STORE_URL.split('?')[0]}?action=write-review`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => track('review_link', { action: 'open' })}
+                style={{ ...rowButtonStyle, ...divider, textDecoration: 'none' }}
+              >
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block' }}>App Store でレビューを書く</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>使ってみた感想を、ほかの方に</span>
+                  <span style={srOnly}>（App Store で開きます）</span>
+                </span>
+                <ExternalLink size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </a>
             )}
             {/* 新しくなったこと（2026-10-05）: 版ごとの どこの・何が・これまで → これから・影響・意図。下はいちばん新しい版の日付。 */}
             {!!BUNDLED_RELEASE_ID && (

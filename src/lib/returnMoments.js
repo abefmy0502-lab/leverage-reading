@@ -27,8 +27,12 @@ export const ANNIVERSARIES = Object.freeze([
   { days: 365, label: '1 年' },
 ]);
 export const ANNIVERSARY_WINDOW_DAYS = 14;
-// 何日あけたら「おかえりなさい」（毎日・1 日おきに開く人には出さない＝続けて出すと重い）。
-export const BACK_AFTER_DAYS = 3;
+// 何日あけたら出すか（2026-11-26 2 回目: 1 日目のあと 3 日目に開く人＝あけたのは 2 日、にも出す）。
+//   毎日開く人には出さない。「おかえりなさい。」を頭に付けるのは 7 日以上あけたときだけ（数日おきの人に毎回は重い）。
+export const BACK_AFTER_DAYS = 2;
+export const WELCOME_AFTER_DAYS = 7;
+// 前の自分と比べる相談を出すのは、はじめて 3 か月から（最初のメモが十分に古くなってから）。
+export const COMPARE_FROM_DAYS = 90;
 
 // 日本時間の日付（'YYYY-MM-DD'）。端末の時刻に頼らない（ほかの月の決まりと同じ）。
 export function jstDay(ms) {
@@ -44,7 +48,9 @@ export function dayDiff(fromDay, toDay) {
 export function anniversaryOf(createdAt, now) {
   const t = new Date(createdAt || '').getTime();
   if (!Number.isFinite(t)) return null;
-  const age = dayDiff(jstDay(t), jstDay(now));
+  // 「N 日目」で数える（はじめた日が 1 日目・オーナーの「1 日目・30 日・365 日」と同じ数え方）。
+  const diff = dayDiff(jstDay(t), jstDay(now));
+  const age = diff == null ? null : diff + 1;
   if (age == null || age < ANNIVERSARIES[0].days) return null;
   const marks = [...ANNIVERSARIES];
   for (let y = 2; y <= 20; y += 1) marks.push({ days: 365 * y, label: `${y} 年` });
@@ -61,20 +67,54 @@ function ownBookMemos(memos, bookIds) {
     && String(m.text || '').trim() && !isAiWritten(m) && Number.isFinite(new Date(m.createdAt).getTime()));
 }
 
+// メモがまだ無い人の「はじめて N」で見せる本（積読 → 読みたい の順・アーカイブは除く）。
+//   読書中・読了の本があれば、ホームの「相談相手をつくる」（はじめの一歩）が一文のメモをもう誘っているので出さない（2 度言わない）。
+const STATUS_ORDER = ['before', 'want'];
+function fallbackBook(books) {
+  const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && b.title && !b.archivedAt);
+  if (list.some((b) => b.status === 'reading' || b.status === 'done')) return null;
+  for (const st of STATUS_ORDER) {
+    const b = list.find((x) => x.status === st);
+    if (b) return b;
+  }
+  return null;
+}
+
 // 今日出す 1 行を決める。出さないなら null。
+//   戻り値: { kind: 'anniv'|'back', key, lead, quote, memo?, book?, action: 'read'|'compare'|'memo'|'book', actionLabel, question? }
 //   memos: [{ id, bookId, text, createdAt, lastRecalledAt?, recallCount?, sourceType? }]
 //   prevDay: 前に開いた日（'YYYY-MM-DD'・はじめてなら null）
 //   done: もう出した印の集まり（Set）。'anniv:90'・'back:2026-11-26' など
-export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, done = new Set() } = {}) {
+export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set() } = {}) {
   const today = jstDay(now);
   const own = ownBookMemos(memos, bookIds);
-  if (!own.length) return null;
   const ann = anniversaryOf(createdAt, now);
   if (ann && !done.has(ann.key)) {
-    const first = [...own].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || String(a.id).localeCompare(String(b.id)))[0];
-    // 最初のメモが今月のもの（あとから書き始めた人）でも、はじめて N の 1 行は出す（いちばん古い自分の言葉）。
-    return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, lead: `orime をはじめて ${ann.label}。最初に書いたメモ` };
+    if (own.length) {
+      const first = [...own].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || String(a.id).localeCompare(String(b.id)))[0];
+      // 3 か月からは「いまの考えと比べる」＝最初のメモを入れた相談の下書き（送らない・答えのもとは自分のメモ）。
+      //   長く使うほど深まる（戦略の判断基準 8）。1 か月はまだ近いので読み返すだけ。
+      if (ann.days >= COMPARE_FROM_DAYS) {
+        const excerpt = memoExcerpt(first.text || '', 60).replace(/「/g, '『').replace(/」/g, '』');
+        return {
+          kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'compare', actionLabel: 'いまの考えと比べる',
+          lead: `orime をはじめて ${ann.label}。最初に書いたメモ`, quote: momentQuote(first),
+          question: `${ann.label}前に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
+        };
+      }
+      return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `orime をはじめて ${ann.label}。最初に書いたメモ`, quote: momentQuote(first) };
+    }
+    // メモがまだ無く、まだ読み始めていない人（読書の習慣がない人に多い）: 積読・読みたいの本を 1 冊 → 本を開く（読み始める）。
+    const b = fallbackBook(books);
+    if (b) {
+      return {
+        kind: 'anniv', key: ann.key, label: ann.label, book: b, action: 'book', actionLabel: '本を開く',
+        lead: `orime をはじめて ${ann.label}。本棚で待っている本`, quote: `『${b.title}』`,
+      };
+    }
+    return null;
   }
+  if (!own.length) return null;
   const gap = dayDiff(prevDay, today);
   const backKey = `back:${today}`;
   if (gap != null && gap >= BACK_AFTER_DAYS && !done.has(backKey)) {
@@ -82,7 +122,8 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
     // 思い出しカードと同じ選び方。まだ若いメモしか無い人（はじめて数日）は、1 日以上前のメモから。
     const memo = pickRecallMemo(own, { now, minAgeDays: 2, seed }) || pickFallbackMemo(own, { now, minAgeDays: 1, seed });
     if (!memo) return null;
-    return { kind: 'back', key: backKey, memo, lead: `おかえりなさい。${recallFraming(memo.createdAt, now) || '前に書いたメモ'}` };
+    const framing = recallFraming(memo.createdAt, now) || '前に書いたメモ';
+    return { kind: 'back', key: backKey, memo, action: 'read', actionLabel: '読み返す', quote: momentQuote(memo), lead: gap >= WELCOME_AFTER_DAYS ? `おかえりなさい。${framing}` : framing };
   }
   return null;
 }

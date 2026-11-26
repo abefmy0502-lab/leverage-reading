@@ -16,10 +16,11 @@ describe('jstDay / dayDiff', () => {
 
 describe('anniversaryOf', () => {
   it('1 か月・3 か月・半年・1 年・2 年の 14 日のうちだけ', () => {
-    expect(anniversaryOf(ago(29), NOW)).toBe(null);
-    expect(anniversaryOf(ago(30), NOW)?.label).toBe('1 か月');
-    expect(anniversaryOf(ago(43), NOW)?.label).toBe('1 か月');
-    expect(anniversaryOf(ago(44), NOW)).toBe(null);
+    expect(anniversaryOf(ago(28), NOW)).toBe(null); // 29 日目
+    expect(anniversaryOf(ago(29), NOW)?.label).toBe('1 か月'); // 30 日目
+    expect(anniversaryOf(ago(42), NOW)?.label).toBe('1 か月');
+    expect(anniversaryOf(ago(43), NOW)).toBe(null);
+    expect(anniversaryOf(ago(364), NOW)?.label).toBe('1 年'); // 365 日目
     expect(anniversaryOf(ago(95), NOW)?.label).toBe('3 か月');
     expect(anniversaryOf(ago(180), NOW)?.key).toBe('anniv:180');
     expect(anniversaryOf(ago(370), NOW)?.label).toBe('1 年');
@@ -40,14 +41,31 @@ describe('pickReturnMoment', () => {
     expect(m.lead).toBe('orime をはじめて 1 か月。最初に書いたメモ');
     expect(pickReturnMoment({ now: NOW, createdAt: ago(31), prevDay: '2026-11-25', memos, done: new Set(['anniv:30']) })).toBe(null);
   });
-  it('3 日以上あけたら「おかえりなさい」・2 日では出さない', () => {
-    expect(pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-24', memos })).toBe(null);
-    const m = pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-23', memos });
-    expect(m.kind).toBe('back');
+  it('2 日以上あけたら前のメモ・7 日以上なら「おかえりなさい」・毎日なら出さない', () => {
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-25', memos })).toBe(null);
+    const two = pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-24', memos });
+    expect(two.kind).toBe('back');
+    expect(two.lead.startsWith('おかえりなさい')).toBe(false);
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-19', memos });
     expect(m.key).toBe('back:2026-11-26');
     expect(m.lead.startsWith('おかえりなさい。')).toBe(true);
     expect(m.lead).not.toMatch(/ぶり/);
-    expect(pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-23', memos, done: new Set(['back:2026-11-26']) })).toBe(null);
+    expect(m.action).toBe('read');
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(200), prevDay: '2026-11-19', memos, done: new Set(['back:2026-11-26']) })).toBe(null);
+  });
+  it('3 か月からは最初のメモと「いまの考えと比べる」（相談の下書き）', () => {
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(92), prevDay: '2026-11-25', memos });
+    expect(m.action).toBe('compare');
+    expect(m.question).toContain('3 か月前に「メモ a の本文」');
+    expect(m.actionLabel).toBe('いまの考えと比べる');
+  });
+  it('メモがまだ無く読み始めていない人の「はじめて N」は積読・読みたいの本（本を開く）', () => {
+    const want = pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [{ id: 'w', title: '読みたい本', status: 'want' }, { id: 'b', title: '積読の本', status: 'before' }] });
+    expect(want.action).toBe('book');
+    expect(want.quote).toBe('『積読の本』');
+    // 読書中・読了の本があるときは、ホームのはじめの一歩がもう一文のメモを誘うので出さない
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [{ id: 'w', title: 'A', status: 'want' }, { id: 'r', title: 'B', status: 'reading' }] })).toBe(null);
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [] })).toBe(null);
   });
   it('はじめて開いた日（前の日が無い）は出さない', () => {
     expect(pickReturnMoment({ now: NOW, createdAt: ago(5), prevDay: null, memos })).toBe(null);

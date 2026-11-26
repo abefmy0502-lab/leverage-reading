@@ -77,12 +77,12 @@ export function useReturnMoment(active, books, waitMs) {
     if (!ready || decided !== undefined || !active) return;
     if (!need || !rows) { setDecided(null); return; }
     const bookIds = new Set((books || []).map((b) => b.id));
-    const m = pickReturnMoment({ now, createdAt, prevDay: prev, memos: rows.map(toMemo), bookIds, done });
+    const m = pickReturnMoment({ now, createdAt, prevDay: prev, memos: rows.map(toMemo), bookIds, books, done });
     setDecided(m);
     if (m) {
       // 「おかえりなさい」は出した時点で今日の分を済ませる（同じ日にもう出さない）。はじめて N は閉じるか押すまで。
       if (m.kind === 'back') markDone(userId, m.key);
-      track('return_moment', { kind: m.kind, action: 'shown', ...(m.kind === 'anniv' ? { days: Number(m.key.split(':')[1]) || 0 } : { gap: gap || 0 }) });
+      track('return_moment', { kind: m.kind, action: 'shown', to: m.action, ...(m.kind === 'anniv' ? { days: Number(m.key.split(':')[1]) || 0 } : { gap: gap || 0 }) });
     }
   }, [ready, active]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = (action) => {
