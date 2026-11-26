@@ -102,9 +102,10 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan =
           区切りの線の下に 1 行（本がある人の入口と混ぜない）。 */}
       {onAdvisor && (
         <div style={{ borderTop: '1px solid var(--separator)', margin: 'var(--space-4) 0 calc(-1 * var(--space-2))', paddingTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-1)' }}>
-          <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>これから読書を始めるなら</span>
-          {/* 強弱は 塗り → 枠 → 文字（灰）の 3 段にそろえる（脇道は灰・2026-11-26 ui-critic） */}
-          <button type="button" onClick={onAdvisor} style={btnLinkQuiet}>最初の 1 冊を探す</button>
+          {/* 前の文は付随情報の強さ（13/--text-3）に下げ、ボタンは灰の文字＋ › で押せると分かる形に
+              （同じ強さだと 1 つの文に見えた・2026-11-26 ui-critic）。強弱は 塗り → 枠 → 文字 の 3 段のまま。 */}
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>これから読書を始めるなら</span>
+          <button type="button" onClick={onAdvisor} style={{ ...btnLinkQuiet, gap: 'var(--space-1)' }}>最初の 1 冊を探す<ChevronRight size="1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></button>
         </div>
       )}
     </section>
