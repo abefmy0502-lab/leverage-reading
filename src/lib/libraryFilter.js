@@ -3,8 +3,15 @@
 //   分野やフォルダで絞ったまま「評価順」に並べられる（分野ごと・フォルダごとの評価の見方・2026-10-11 オーナー）。
 //   hits: 検索で見つかった本（Map<id, { rank }>）。あるときは見つかった順（並び替えより言葉が合う本を先に）。
 
+// 「積読・読書中」（手元にあって、読み終えていない本）をまとめて絞る印（記録の分野の切り替えから開いたとき・2026-11-26）。
+export const STATUS_ACTIVE = 'active';
+export const ACTIVE_STATUS_LABEL = '積読・読書中';
+export const statusMatches = (status, statusFilter) => (
+  statusFilter === 'all' || (statusFilter === STATUS_ACTIVE ? (status === 'before' || status === 'reading') : status === statusFilter)
+);
+
 export function matchesLibraryFilters(b, { statusFilter = 'all', folderFilter = null, minRating = 0, tagFilter = [], hits = null } = {}) {
-  if (statusFilter !== 'all' && b.status !== statusFilter) return false;
+  if (!statusMatches(b.status, statusFilter)) return false;
   if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
   if (minRating > 0 && (b.rating || 0) < minRating) return false;
   if (tagFilter.length > 0) {

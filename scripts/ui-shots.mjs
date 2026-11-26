@@ -835,6 +835,10 @@ const SCREENS = [
   { name: 'knowledge-map-pick', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { css: '[data-knowledge-map] button[aria-label*="数値化の鬼"] >> nth=0' }, { wait: 400 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 300 }] },
   { name: 'knowledge-map-list', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map] h4') }, { wait: 400 }] },
   { name: 'review-record-fields', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { wait: 400 }] },
+  // 分野を読了・積読・読書中で切り替え（2026-11-26 オーナー）
+  { name: 'review-record-fields-done', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { css: '[data-book-fields-record] button[aria-pressed]:has-text("読了")' }, { wait: 400 }] },
+  { name: 'review-record-fields-active', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { css: '[data-book-fields-record] button[aria-pressed]:has-text("積読・読書中")' }, { wait: 400 }] },
+  { name: 'library-fields-active', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { css: '[data-book-fields-record] button[aria-pressed]:has-text("積読・読書中")' }, { wait: 300 }, { css: '[data-book-fields-record] li button' }, { wait: 800 }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   // 一部の区画だけ（読了が 1 冊も無い人＝「月別の読了」は出さない・2026-10-04）
   { name: 'review-record-partial', url: '/?demo=noreadingnone', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },

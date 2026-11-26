@@ -691,10 +691,17 @@ export default function ReadingRecord({
   const memoable = (books || []).some((b) => b.status === 'reading' || b.status === 'done');
   // 🏷 分野（2026-10-11）: 本の分野ごとの本・メモ。メモを読めなかったときはメモの数を 0 と偽装しない（数えない）。
   //   分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。
-  const fieldRecord = useMemo(
-    () => buildFieldRecord(books, { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}) }),
-    [books, memoStats],
-  );
+  //   読了・積読・読書中ごとにも作る（題の下の切り替え・2026-11-26 オーナー「読了、積読・読書中で分けて見れるようにしたい」）。
+  const fieldRecords = useMemo(() => {
+    const opts = { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}) };
+    const list = books || [];
+    return {
+      all: buildFieldRecord(list, opts),
+      done: buildFieldRecord(list.filter((b) => b.status === 'done'), opts),
+      active: buildFieldRecord(list.filter((b) => b.status === 'before' || b.status === 'reading'), opts),
+    };
+  }, [books, memoStats]);
+  const fieldRecord = fieldRecords.all;
 
   // メモ集計がまだ返っていない間は「記録は、これから」を出さない — 本0冊で
   // メモだけあるユーザーに空状態が一瞬チラついてから統計に切り替わるのを防ぐ。
@@ -802,7 +809,7 @@ export default function ReadingRecord({
 
       {/* 🏷 分野（分野の付いた本があるときだけ・押すと、すべての本をその分野で絞る）。 */}
       {fieldRecord.any && (
-        <BookFieldsRecord record={fieldRecord} onOpenField={onFilterTag} onFindBooks={onFindBooksForTag} />
+        <BookFieldsRecord record={fieldRecord} records={fieldRecords} onOpenField={onFilterTag} onFindBooks={onFindBooksForTag} />
       )}
     </div>
   );

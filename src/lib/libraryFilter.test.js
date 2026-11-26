@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterLibraryBooks, folderCounts, sortLibraryBooks } from './libraryFilter';
+import { filterLibraryBooks, folderCounts, sortLibraryBooks, statusMatches, matchesLibraryFilters, STATUS_ACTIVE } from './libraryFilter';
 
 const books = [
   { id: 'a', title: 'A', status: 'done', rating: 3, tags: ['考える力'], collections: ['課題図書'], updated_at: '2026-10-01' },
@@ -32,5 +32,12 @@ describe('すべての本の絞り込みと並び', () => {
   });
   it('フォルダの冊数（名前順）', () => {
     expect(folderCounts(books)).toEqual([{ name: '課題図書', count: 3 }, { name: '読み返す', count: 2 }]);
+  });
+  it('積読・読書中（STATUS_ACTIVE）は 2 つの状態をまとめて絞る（記録の分野から・2026-11-26）', () => {
+    expect(['want', 'before', 'reading', 'done'].filter((st) => statusMatches(st, STATUS_ACTIVE))).toEqual(['before', 'reading']);
+    expect(statusMatches('done', 'done')).toBe(true);
+    expect(statusMatches('want', 'all')).toBe(true);
+    expect(matchesLibraryFilters({ status: 'reading', tags: ['考える力'] }, { statusFilter: STATUS_ACTIVE, tagFilter: ['考える力'] })).toBe(true);
+    expect(matchesLibraryFilters({ status: 'done', tags: ['考える力'] }, { statusFilter: STATUS_ACTIVE, tagFilter: ['考える力'] })).toBe(false);
   });
 });

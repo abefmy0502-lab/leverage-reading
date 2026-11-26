@@ -47,7 +47,7 @@ import SegThumb from './components/SegThumb';
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
 import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, undismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
-import { filterLibraryBooks, folderCounts, matchesLibraryFilters } from './lib/libraryFilter';
+import { filterLibraryBooks, folderCounts, matchesLibraryFilters, STATUS_ACTIVE, ACTIVE_STATUS_LABEL } from './lib/libraryFilter';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -6964,7 +6964,7 @@ function AuthedApp() {
                 {/* 記録の「読んだ本」など、状態を決めて記録から開いたときは、その状態を見出しに（「読了 6 冊」）。
                     「すべての本 6 冊」と言いながら読了だけを並べていた食い違いを直す（2026-09-29）。 */}
                 <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
-                  {libraryFrom === 'record' && statusFilter !== 'all' && STATUS_LABEL[statusFilter] ? STATUS_LABEL[statusFilter] : 'すべての本'}
+                  {libraryFrom === 'record' && statusFilter === STATUS_ACTIVE ? ACTIVE_STATUS_LABEL : libraryFrom === 'record' && statusFilter !== 'all' && STATUS_LABEL[statusFilter] ? STATUS_LABEL[statusFilter] : 'すべての本'}
                 </h1>
                 {/* 読み込み中・読み込めなかったときに「0 冊」と見せない（本があるまま更新中なら出す）。 */}
                 {/* 検索中は「すべての本 0 冊」と見せない（本が無いように読める）。何冊の中から何冊見つかったかを出す（2026-09-29）。 */}
@@ -7065,6 +7065,12 @@ function AuthedApp() {
                   {minRating > 0 && (
                     <ShelfChip active onClick={() => setMinRating(0)} ariaLabel={`評価 ${minRating} 以上の絞り込みを解除`}>
                       <IcStar size="1em" aria-hidden="true" />{minRating}以上<IcX size="1em" aria-hidden="true" />
+                    </ShelfChip>
+                  )}
+                  {/* 記録の分野の「積読・読書中」から開いたとき（2 つの状態をまとめて絞る・押すと解除・2026-11-26） */}
+                  {statusFilter === STATUS_ACTIVE && (
+                    <ShelfChip active onClick={() => setStatusFilter('all')} ariaLabel={`${ACTIVE_STATUS_LABEL}の絞り込みを解除`}>
+                      {ACTIVE_STATUS_LABEL}<IcX size="1em" aria-hidden="true" />
                     </ShelfChip>
                   )}
                   {tagFilter.map((t) => (
@@ -7239,7 +7245,7 @@ function AuthedApp() {
                   hits={libraryHits}
                   onOpen={(b, memoId) => openDetail(b, memoId)}
                   onAutoRetry={triggerCoverAutoRetry}
-                  showStatus={statusFilter === 'all'}
+                  showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE}
                   memoStatus={librarySearch.memoStatus}
                   onRetry={librarySearch.retry}
                   onConsult={() => openConsultSearch(libraryQuery)}
@@ -7257,7 +7263,7 @@ function AuthedApp() {
                       onSwipeDelete={swipeDeleteBook}
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
-                      showStatus={statusFilter === 'all'}
+                      showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE}
                     />
                     );
                   }}
@@ -7276,7 +7282,7 @@ function AuthedApp() {
                     onAutoRetry={triggerCoverAutoRetry}
                   />
                 );
-                if (statusFilter !== 'all') return <BookShelfCase books={shown} renderBook={renderShelfBook} />;
+                if (statusFilter !== 'all' && statusFilter !== STATUS_ACTIVE) return <BookShelfCase books={shown} renderBook={renderShelfBook} />;
                 const total = (st) => filtered.filter((b) => b.status === st).length;
                 return ['reading', 'done', 'before', 'want']
                   .map((st) => ({ st, books: shown.filter((b) => b.status === st) }))
@@ -7304,7 +7310,7 @@ function AuthedApp() {
                       onSwipeDelete={swipeDeleteBook}
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
-                      showStatus={statusFilter === 'all'}
+                      showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE}
                     />
                   ))}
                 </div>
@@ -7400,8 +7406,9 @@ function AuthedApp() {
                   onFindBooksForTag={(tags) => openAdvisorWithDraft(advisorDraftFor(tags))}
                   onShowActions={() => { setActionShowDoneNonce(Date.now()); setReviewSubTab('action'); }}
                   onOpenBook={(b) => { setTab('books'); openDetail(b); }}
-                  onFilterTag={(tag) => {
-                    setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter('all');
+                  onFilterTag={(tag, status) => {
+                    // status: 記録の分野で選んでいる状態（'done'・'active'＝積読・読書中・無ければすべて・2026-11-26）
+                    setSearch(''); setMinRating(0); setFolderFilter(null); setStatusFilter(status || 'all');
                     setTagFilter([tag]);
                     // 分野の行（★の平均つき）から開いたら評価順に（本人が並び替えを選んでいればそのまま）
                     if (!sortTouchedRef.current && sortBy !== 'rating') { autoRatingSortRef.current = sortBy; setSortBy('rating'); }

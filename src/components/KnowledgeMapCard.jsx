@@ -2,7 +2,7 @@
 // 点＝本の表紙（円の上）・線＝似たことを書いたメモ・同じメモのタグでつながる本どうし（太さ＝つながりの数）。
 // 本を押すとその本の線が濃くなり、下に「〈本〉と重なる本」が並ぶ。各行に 2 つのメモと「重ねて考える」（重なりのシート）。
 // AI は使わない（端末の中の計算・トークンを使わない・無料プランも）。数・%・順位は出さない。
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { MiniCover } from './BookCards';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
@@ -21,6 +21,8 @@ const quote = {
   wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere',
 };
 const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 };
+// 引用の出どころ（どちらの本のメモか・重なりのシートのカードと同じ 13/--text-3・2026-11-26 ui-critic）
+const source = { display: 'block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 // likely: 地図が出そうか（読んでいる・読んだ本が 3 冊以上）。メモを読み込んでいる間だけ形を出すかどうかに使う。
 export default function KnowledgeMapCard({ books = [], likely = false }) {
@@ -28,6 +30,7 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
   const { rows, status } = useAllMemoRows({ userId: user?.id || null, books, active: !!user?.id });
   const map = useMemo(() => (status === 'ready' && rows ? buildKnowledgeMap({ rows, books }) : null), [status, rows, books]);
   const [picked, setPicked] = useState(null);
+  const sectionRef = useRef(null);
 
   if (!map) {
     if (status === 'error' || !likely) return null;
@@ -47,9 +50,17 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
     });
   const selBook = bookById.get(selected);
   const pick = (id) => { setPicked(id); track('knowledge_map_pick', {}); };
+  // 一覧の行から選び直したら、地図の先頭まで送る（指の下で一覧がすり替わって見えないように・2026-11-26 ui-critic）。
+  const pickFromList = (id) => {
+    pick(id);
+    const el = sectionRef.current;
+    if (!el?.scrollIntoView) return;
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }));
+  };
 
   return (
-    <section data-knowledge-map="" aria-labelledby="knowledge-map-title" style={{ ...card, padding: 'var(--space-4)' }}>
+    <section ref={sectionRef} data-knowledge-map="" aria-labelledby="knowledge-map-title" style={{ ...card, padding: 'var(--space-4)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
         <h3 id="knowledge-map-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>知識の地図</h3>
         <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`つながる本 ${map.nodes.length} 冊`}</span>
@@ -101,7 +112,7 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
       </div>
 
       {/* 選んだ本と重なる本（線の中身）。押すと、その 2 つのメモで「重ねて考える」 */}
-      <h4 style={{ margin: 'var(--space-4) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+      <h4 aria-live="polite" style={{ margin: 'var(--space-6) 0 0', fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         {withPhraseBreaks(`『${titleOf(selBook)}』と重なる本`, { scriptBreaks: true })}
       </h4>
       <ul style={{ listStyle: 'none', margin: 'var(--space-2) 0 0', padding: 0 }}>
@@ -109,9 +120,9 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
           <li key={String(r.other.id)} style={{ padding: 'var(--space-3) 0', borderTop: i ? '1px solid var(--separator)' : 'none' }}>
             <button
               type="button"
-              onClick={() => pick(String(r.other.id))}
+              onClick={() => pickFromList(String(r.other.id))}
               style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', width: '100%', minHeight: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
-              aria-label={`『${titleOf(r.other)}』を地図の中心に`}
+              aria-label={`『${titleOf(r.other)}』と重なる本を見る`}
             >
               <MiniCover book={r.other} width={28} />
               <span style={{ flex: 1, minWidth: 0 }}>
@@ -120,8 +131,8 @@ export default function KnowledgeMapCard({ books = [], likely = false }) {
               </span>
             </button>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)', paddingLeft: 'var(--space-3)', borderLeft: '2px solid var(--separator)' }}>
-              <p style={quote}>{r.my.text}</p>
-              <p style={quote}>{r.their.text}</p>
+              <div><span style={source}>{withPhraseBreaks(`『${titleOf(selBook)}』`, { scriptBreaks: true })}</span><p style={quote}>{r.my.text}</p></div>
+              <div><span style={source}>{withPhraseBreaks(`『${titleOf(r.other)}』`, { scriptBreaks: true })}</span><p style={quote}>{r.their.text}</p></div>
             </div>
             <button
               type="button"

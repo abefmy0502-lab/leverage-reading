@@ -10,6 +10,7 @@
 //
 // 反ゲーミフィケーション: 点数・%・順位・「あと N 冊」・「埋めよう」は出さない。
 import { useState } from 'react';
+import SegThumb from './SegThumb';
 import { Check, ChevronRight, Search } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { Chip } from './formPrimitives';
@@ -234,8 +235,29 @@ export function BookFolderLinks({ folders = [], onPick, onEdit }) {
 }
 
 // 振り返り › 記録の「分野」。record: lib/bookFields.js の buildFieldRecord の結果。
-export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
-  const { groups } = record;
+// records: { all, done, active }（すべて・読了・積読・読書中ごとの buildFieldRecord の結果・2026-11-26 オーナー「読了、積読・読書中で分けて見れるように」）。
+//   2 つ以上に分野の本があるときだけ、題の下に切り替え（読書の時間の「今月｜これまで」と同じ下線の形）。押すと下の行が替わり、
+//   行を押すとその状態の本だけで、すべての本をその分野で絞る（onOpenField(分野, 'done' | 'active' | undefined)）。
+//   「まだ本がない分野」は「すべて」のときだけ（読了だけで見て「まだ本がない」と言うと、積読の本があるのに無いと読める）。
+const FIELD_SCOPES = [
+  { v: 'all', label: 'すべて' },
+  { v: 'done', label: '読了' },
+  { v: 'active', label: '積読・読書中' },
+];
+const scopeBtn = (on) => ({
+  minHeight: 'var(--tap-min)', padding: 0, border: 'none', borderBottom: '2px solid transparent', borderRadius: 0,
+  background: 'transparent', color: on ? 'var(--text)' : 'var(--text-2)', fontFamily: 'inherit', fontSize: 'var(--text-sub)',
+  fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+});
+export function BookFieldsRecord({ record, records, onOpenField, onFindBooks }) {
+  const [scope, setScope] = useState('all');
+    const scopes = records ? FIELD_SCOPES.filter((x) => x.v === 'all' || records[x.v]?.any) : [];
+  const showScopes = scopes.length >= 2;
+  const cur = showScopes && scopes.some((x) => x.v === scope) ? scope : 'all';
+  const shown = records ? records[cur] : record;
+  const filtered = cur !== 'all';
+  // 読了・積読・読書中で見ているときは、本のある大分類だけ（大分類の全体の地図は「すべて」で見る）。
+  const groups = filtered ? shown.groups.filter((c) => c.fields.length > 0) : shown.groups;
   // 棒の長さは、いちばん本の多い分野を 1 とした割合（本棚の形＝どこに本が寄っているかを一目で・2026-11-26 オーナー「直感的に」）。
   const maxBooks = groups.reduce((m, g) => g.fields.reduce((mm, f) => Math.max(mm, f.books || 0), m), 0);
   return (
@@ -245,6 +267,17 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
       style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' }}
     >
       <h3 id="book-fields-record-title" style={{ fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', margin: 0 }}>分野</h3>
+      {showScopes && (
+        <div role="group" aria-label="分野を見る本（下の行が替わります）" style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-1)' }}>
+          <SegThumb activeKey={cur} activeSelector='[aria-pressed="true"]' variant="underline" />
+          {scopes.map((x) => (
+            <button key={x.v} type="button" aria-pressed={cur === x.v} onClick={() => setScope(x.v)} style={scopeBtn(cur === x.v)}>
+              {x.label}
+              {x.v !== 'all' && <span style={{ marginLeft: 'var(--space-1)', fontWeight: 400, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{records[x.v].total}</span>}
+            </button>
+          ))}
+        </div>
+      )}
       {groups.map((c, ci) => (
         // 大分類の間は 24（見出しの下の最初だけ 16・2026-10-11 ui-critic）
         <div key={c.id} data-field-group={c.id} style={{ marginTop: ci === 0 ? 'var(--space-4)' : 'var(--space-6)' }}>
@@ -253,7 +286,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
             <span>{c.name}</span>
             {/* 本の合計は、その大分類の分野を 1 つでも持つ本の数（2 つの分野の本を二重に数えない）。分野が 1 つだけの大分類は、
                 すぐ下の行と同じ数になるので出さない（2026-11-17 ui-critic） */}
-            {c.fields.length > 0 && c.size > 1 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', paddingRight: 'calc(var(--text-sub) * 1.1 + var(--space-2))' }}>{`本棚 ${c.books} 冊`}</span>}
+            {c.fields.length > 0 && c.size > 1 && !(filtered && c.fields.length === 1) && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', paddingRight: 'calc(var(--text-sub) * 1.1 + var(--space-2))' }}>{filtered ? `${c.books} 冊` : `本棚 ${c.books} 冊`}</span>}
           </p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
@@ -268,8 +301,8 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
                 <li key={f.name} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
                   <button
                     type="button"
-                    onClick={() => onOpenField?.(f.name)}
-                    aria-label={`${f.name}・本棚 ${f.books} 冊${sub.length ? `・${sub.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}` : ''}・本を見る`}
+                    onClick={() => onOpenField?.(f.name, filtered ? cur : undefined)}
+                    aria-label={`${f.name}・${filtered ? FIELD_SCOPES.find((x) => x.v === cur).label : '本棚'} ${f.books} 冊${sub.length ? `・${sub.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}` : ''}・本を見る`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--tap-min)',
                       padding: 'var(--space-2) 0', background: 'none', border: 'none', cursor: 'pointer',
@@ -301,7 +334,7 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
           </ul>
           )}
           {/* 本がまだ無い分野は、大分類ごとにまとめて 1 行（全体の 14 分野が見える・押すと AI 選書の最初の悩みに入れて開く＝送らない・2026-10-11 オーナー）。 */}
-          {c.empty?.length > 0 && <EmptyFieldsLine names={c.empty} divided={c.fields.length > 0} onFindBooks={onFindBooks} />}
+          {!filtered && c.empty?.length > 0 && <EmptyFieldsLine names={c.empty} divided={c.fields.length > 0} onFindBooks={onFindBooks} />}
         </div>
       ))}
     </section>

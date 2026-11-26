@@ -541,10 +541,12 @@ export function pickThinFields(stat, max = 2) {
 export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBook = {}, minutesByField = null } = {}) {
   const stat = new Map(BOOK_FIELDS.map((f) => [f, { name: f, books: 0, memos: 0, seconds: 0, minutes: 0, rated: 0, ratingSum: 0, avgRating: null }]));
   let any = false;
+  let total = 0; // 分野の付いた本の数（2 つの分野の本も 1 冊）
   for (const b of Array.isArray(books) ? books : []) {
     const fs = fieldsOf(b);
     if (!fs.length) continue;
     any = true;
+    total += 1;
     for (const f of fs) {
       const s = stat.get(f);
       s.books += 1;
@@ -574,7 +576,7 @@ export function buildFieldRecord(books = [], { memoCountByBook = {}, secondsByBo
     fields: c.fields.map((f) => stat.get(f.name)).filter((s) => s.books > 0),
     empty: c.fields.map((f) => f.name).filter((f) => !(stat.get(f).books > 0)),
   }));
-  return { groups, any };
+  return { groups, any, total };
 }
 
 // 「この分野の本を探す」で AI 選書の最初の悩みに入れる言葉（送らない）。分野は 1 つでも数個（「・」でつなぐ）でも。
