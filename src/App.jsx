@@ -39,6 +39,7 @@ const HomeQuickMemo = lazy(() => import('./components/HomeQuickMemo'));
 // ⏱ 集中モード（読書の時間・2026-10-09）。使うときに読む。
 const FocusStartSheet = lazy(() => import('./components/FocusStartSheet'));
 const ReadTargetSheet = lazy(() => import('./components/ReadTargetSheet'));
+const ProgressSheet = lazy(() => import('./components/ProgressSheet'));
 const FocusMode = lazy(() => import('./components/FocusMode'));
 import { startFocus, pauseFocus, loadFocusState, saveFocusState } from './lib/readingTime';
 import { BookReadingTime } from './components/ReadingTimeCard';
@@ -47,7 +48,8 @@ import SegThumb from './components/SegThumb';
 import { DoneQuestions, BeforeAfter } from './components/DoneReflection';
 import { visibleDoneQuestions, readDoneQuestionState, markDoneQuestionAnswered, dismissDoneQuestions, undismissDoneQuestions, visibleBeforeItems, foundAnswerDraft, promptedMemoText } from './lib/doneReflection';
 import { readingSessions } from './hooks/useReadingSessions';
-import { filterLibraryBooks, folderCounts, matchesLibraryFilters, STATUS_ACTIVE, ACTIVE_STATUS_LABEL } from './lib/libraryFilter';
+import { progressLabel, progressSpoken } from './lib/readingProgress';
+import { filterLibraryBooks, folderCounts, matchesLibraryFilters, STATUS_ACTIVE, ACTIVE_STATUS_LABEL, STATUS_ARCHIVED, ARCHIVED_LABEL } from './lib/libraryFilter';
 import Onboarding, { isOnboardingCompleted, clearOnboardingCompletion } from './components/Onboarding';
 import {
   Search as IcSearch, Plus as IcPlus, Library as IcLibrary, Sparkles as IcSparkles,
@@ -235,7 +237,7 @@ import {
   Upload,
   Share,
   Camera,
-  Trash2,
+  Trash2, Archive, ArchiveRestore,
   RotateCcw,
   Brain,
   HelpCircle,
@@ -775,6 +777,8 @@ function AuthedApp() {
     mutateBookLocal,
     saveBookBrief,
     saveReadTarget,
+    saveProgress,
+    setArchived,
     saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,
@@ -3294,8 +3298,28 @@ function AuthedApp() {
 
 // Status transitions — optimistic UI with undo toast.
   // opts.message: 「元に戻す」の知らせの代わりに出す文（読書計画シートを作りに積読に積んだとき等・2026-09-29）。
+  // 🗄 アーカイブにする／戻す（2026-11-26 オーナー「少し読んだが合わないから読書中や積読からは除外したい」）。
+  //   状態はそのまま（戻すともとの状態に）。メモは消さない。知らせは「元に戻す」つき。
+  const toggleArchive = (book, on) => {
+    if (!book) return;
+    haptic.light();
+    setArchived(book.id, on);
+    setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: on ? new Date().toISOString() : null } : c));
+    track('book_archive', { on: !!on, status: book.status });
+    toast.undo({
+      quote: book.title,
+      message: on ? 'をアーカイブしました。' : 'をアーカイブから戻しました。',
+      onUndo: () => {
+        setArchived(book.id, !on);
+        setCurrent((c) => (c && c.id === book.id ? { ...c, archivedAt: on ? null : new Date().toISOString() } : c));
+      },
+    });
+  };
+
   const advanceStatus = (book, newStatus, opts = {}) => {
     if (!book) return;
+    // アーカイブした本の状態を変えたら、アーカイブから戻す（読み始めたのに一覧に出ない、を防ぐ・2026-11-26）
+    if (book.archivedAt || books.find((b) => b.id === book.id)?.archivedAt) setArchived(book.id, false);
     // 二度押しで、状態を進めた直後に同じ場所に出たボタン（次の状態へ・読書計画シートを作る）を押させない（2026-11-25 点検）。
     if (statusChangedRef.current.id === book.id && Date.now() - statusChangedRef.current.at < STATUS_TAP_LOCK_MS) return;
     statusChangedRef.current = { id: book.id, at: Date.now() };
@@ -4851,8 +4875,10 @@ function AuthedApp() {
       }
       return !libraryHits || libraryHits.has(b.id);
     });
-    const out = { total: base.length };
-    base.forEach((b) => { out[b.status] = (out[b.status] || 0) + 1; });
+    // アーカイブした本は「すべて」・各状態に数えず、「アーカイブ」だけに（2026-11-26）
+    const live = base.filter((b) => !b.archivedAt);
+    const out = { total: live.length, archived: base.length - live.length };
+    live.forEach((b) => { out[b.status] = (out[b.status] || 0) + 1; });
     return out;
   }, [books, libraryHits, minRating, tagFilter, folderFilter]);
   const stats = useMemo(() => ({ total: books.length, want: books.filter((b) => b.status === "want").length, before: books.filter((b) => b.status === "before").length, reading: books.filter((b) => b.status === "reading").length, done: books.filter((b) => b.status === "done").length }), [books]);
@@ -4866,11 +4892,13 @@ function AuthedApp() {
   const [focusStartBook, setFocusStartBook] = useState(null);
   // ⏳ 読む時間の目安のシート（本・2026-10-18）
   const [readTargetBook, setReadTargetBook] = useState(null);
+  // 📖 どこまで読んだかのシート（2026-11-26）
+  const [progressBook, setProgressBook] = useState(null);
   const [focusRun, setFocusRun] = useState(null);
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
   // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
   // （「保存しました。」＋行動に追加などがシートの上に重なっていた・2026-10-10）。元に戻すなどの処理は走らせない。
-  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen || readTargetBook);
+  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen || readTargetBook || progressBook);
   useEffect(() => {
     if (!sheetOverBook) return;
     bookToastsRef.current.forEach((_bookId, id) => toast.dismiss(id, { skipExpire: true }));
@@ -4937,6 +4965,19 @@ function AuthedApp() {
       {focusStartBook && (
         <Suspense fallback={<OverlayFallback />}>
           <FocusStartSheet book={books.find((x) => x.id === focusStartBook.id) || focusStartBook} onStart={startFocusRun} onClose={() => setFocusStartBook(null)} initialUntil={!!focusStartBook.focusUntil} initialMinutes={focusStartBook.planMinutes || null} />
+        </Suspense>
+      )}
+      {progressBook && (
+        <Suspense fallback={<OverlayFallback />}>
+          <ProgressSheet
+            book={books.find((x) => x.id === progressBook.id) || progressBook}
+            infoPages={current?.id === progressBook.id ? (bookAbout.info?.pages || 0) : 0}
+            onSave={(p) => {
+              saveProgress(progressBook.id, p);
+              setCurrent((c) => (c && c.id === progressBook.id ? { ...c, currentPage: p.current, totalPages: p.unit === 'page' ? p.total : c.totalPages, progressUnit: p.unit } : c));
+            }}
+            onClose={() => setProgressBook(null)}
+          />
         </Suspense>
       )}
       {readTargetBook && (
@@ -5709,6 +5750,8 @@ function AuthedApp() {
                 {/* 区切りの「·」は独立した項目にして、前後の空きを columnGap（8）で等しく（前は「·　」の全角の空きで右だけ広かった・2026-11-09） */}
                 {current.startDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>開始 {fmtDateJa(current.startDate)}</span></>}
                 {current.doneDate && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap' }}>読了 {fmtDateJa(current.doneDate)}</span></>}
+                {/* 🗄 アーカイブ中（2026-11-26・戻すのは「…」の「アーカイブから戻す」か、状態を変えたとき） */}
+                {current.archivedAt && <><span aria-hidden="true">·</span><span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}><Archive size="1em" aria-hidden="true" />アーカイブ中</span></>}
               </div>
               {/* 読書の時間は次の行に（「·」で続けると折り返した行の頭に「·」が来た） */}
               {(current.status === 'reading' || current.status === 'done') && (
@@ -5730,6 +5773,23 @@ function AuthedApp() {
                   ) : null}
                 />
               )}
+              {/* 📖 読んだところ（読書中・2026-11-26）: 「p.120 / 320 ›」・まだなら「読んだところを記録 ›」。押すとシート。 */}
+              {current.status === 'reading' && (() => {
+                const lbl = progressLabel({ current: current.currentPage, total: current.totalPages, unit: current.progressUnit });
+                return (
+                  <button
+                    type="button"
+                    data-detail-progress=""
+                    onClick={() => { haptic.light(); dismissStatusUndo(current.id); setProgressBook(current); }}
+                    aria-haspopup="dialog"
+                    aria-label={lbl ? `読んだところ ${progressSpoken({ current: current.currentPage, total: current.totalPages, unit: current.progressUnit })}（押すと変えられます）` : '読んだところを記録する'}
+                    style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', minHeight: 'var(--tap-min)', margin: 'calc((var(--tap-min) - 1.5em) / -2) 0', padding: 0, background: 'none', border: 'none', color: 'var(--text-2)', fontSize: 'var(--text-meta)', fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {lbl ? `読んだところ ${lbl}` : '読んだところを記録'}
+                    <ChevronRight size="1.1em" aria-hidden="true" style={{ flexShrink: 0, marginLeft: 'var(--space-1)', color: 'var(--text-3)' }} />
+                  </button>
+                );
+              })()}
               {current.status === 'done' && (
                 <div data-detail-rating="" style={{ marginTop: 'var(--space-1)' }}>
                   {/* 読了にした直後で、まだ評価が無いときだけ淡い 1 行（★の高い本の考えを相談で優先する） */}
@@ -6383,6 +6443,12 @@ function AuthedApp() {
                 icon: shelfShows(myProfile, current.id) ? <EyeOff size="1.1em" aria-hidden="true" /> : <Eye size="1.1em" aria-hidden="true" />,
                 onClick: () => toggleShelfHidden(current),
               }] : []),
+              // 🗄 アーカイブ（2026-11-26・読了の本はふつう要らないので読みたい・積読・読書中だけ。アーカイブ中はいつでも戻せる）
+              ...(current.archivedAt
+                ? [{ label: 'アーカイブから戻す', icon: <ArchiveRestore size="1.1em" aria-hidden="true" />, onClick: () => toggleArchive(current, false) }]
+                : current.status !== 'done'
+                  ? [{ label: 'アーカイブする', icon: <Archive size="1.1em" aria-hidden="true" />, onClick: () => toggleArchive(current, true) }]
+                  : []),
               // ヘルプは上の行に単独のボタンで置かず、この「…」の中（削除の直前・削除はいつも最後）に（2026-09-30）。
               { label: 'ヘルプ', icon: <HelpCircle size="1.1em" aria-hidden="true" />, onClick: openHelp },
               { label: '削除', icon: <Trash2 size="1.1em" aria-hidden="true" />, destructive: true, onClick: () => requestDeleteBook(current) },
@@ -6979,7 +7045,7 @@ function AuthedApp() {
                 {/* 記録の「読んだ本」など、状態を決めて記録から開いたときは、その状態を見出しに（「読了 6 冊」）。
                     「すべての本 6 冊」と言いながら読了だけを並べていた食い違いを直す（2026-09-29）。 */}
                 <h1 style={{ fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
-                  {libraryFrom === 'record' && statusFilter === STATUS_ACTIVE ? ACTIVE_STATUS_LABEL : libraryFrom === 'record' && statusFilter !== 'all' && STATUS_LABEL[statusFilter] ? STATUS_LABEL[statusFilter] : 'すべての本'}
+                  {statusFilter === STATUS_ARCHIVED ? ARCHIVED_LABEL : libraryFrom === 'record' && statusFilter === STATUS_ACTIVE ? ACTIVE_STATUS_LABEL : libraryFrom === 'record' && statusFilter !== 'all' && STATUS_LABEL[statusFilter] ? STATUS_LABEL[statusFilter] : 'すべての本'}
                 </h1>
                 {/* 読み込み中・読み込めなかったときに「0 冊」と見せない（本があるまま更新中なら出す）。 */}
                 {/* 検索中は「すべての本 0 冊」と見せない（本が無いように読める）。何冊の中から何冊見つかったかを出す（2026-09-29）。 */}
@@ -7109,6 +7175,16 @@ function AuthedApp() {
                       </ShelfChip>
                     );
                   })}
+                  {/* 🗄 アーカイブ（アーカイブした本があるときだけ・状態のチップの最後・2026-11-26） */}
+                  {(chipStats.archived > 0 || statusFilter === STATUS_ARCHIVED) && (
+                    <ShelfChip
+                      key="archived"
+                      onClick={() => setStatusFilter(statusFilter === STATUS_ARCHIVED ? 'all' : STATUS_ARCHIVED)}
+                      active={statusFilter === STATUS_ARCHIVED}
+                    >
+                      {ARCHIVED_LABEL}<span style={{ color: 'var(--text-2)', fontWeight: 400 }}>{chipStats.archived || 0}</span>
+                    </ShelfChip>
+                  )}
                   {/* 右の空き 16（間 8＋この 8・送り切ったときに最後のチップを端に付けない＝共有のシートの「どの本？」と同じ）。 */}
                   <span aria-hidden="true" style={{ flex: '0 0 var(--space-2)' }} />
                 </div>
@@ -7260,7 +7336,7 @@ function AuthedApp() {
                   hits={libraryHits}
                   onOpen={(b, memoId) => openDetail(b, memoId)}
                   onAutoRetry={triggerCoverAutoRetry}
-                  showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE}
+                  showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE || statusFilter === STATUS_ARCHIVED}
                   memoStatus={librarySearch.memoStatus}
                   onRetry={librarySearch.retry}
                   onConsult={() => openConsultSearch(libraryQuery)}
@@ -7278,7 +7354,7 @@ function AuthedApp() {
                       onSwipeDelete={swipeDeleteBook}
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
-                      showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE}
+                      showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE || statusFilter === STATUS_ARCHIVED}
                     />
                     );
                   }}
@@ -7297,7 +7373,7 @@ function AuthedApp() {
                     onAutoRetry={triggerCoverAutoRetry}
                   />
                 );
-                if (statusFilter !== 'all' && statusFilter !== STATUS_ACTIVE) return <BookShelfCase books={shown} renderBook={renderShelfBook} />;
+                if (statusFilter !== 'all' && statusFilter !== STATUS_ACTIVE && statusFilter !== STATUS_ARCHIVED) return <BookShelfCase books={shown} renderBook={renderShelfBook} />;
                 const total = (st) => filtered.filter((b) => b.status === st).length;
                 return ['reading', 'done', 'before', 'want']
                   .map((st) => ({ st, books: shown.filter((b) => b.status === st) }))
@@ -7325,7 +7401,7 @@ function AuthedApp() {
                       onSwipeDelete={swipeDeleteBook}
                       onLongPress={handleBookLongPress}
                       onAutoRetry={triggerCoverAutoRetry}
-                      showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE}
+                      showStatus={statusFilter === 'all' || statusFilter === STATUS_ACTIVE || statusFilter === STATUS_ARCHIVED}
                     />
                   ))}
                 </div>
@@ -7621,6 +7697,12 @@ function AuthedApp() {
                   icon: <Share size="1.1em" aria-hidden="true" />,
                   onClick: () => shareBook(bookContextMenu.book),
                 },
+            // 🗄 アーカイブ（読了以外・アーカイブ中は戻す・2026-11-26）
+            ...(bookContextMenu.book.archivedAt
+              ? [{ label: 'アーカイブから戻す', icon: <ArchiveRestore size="1.1em" aria-hidden="true" />, onClick: () => toggleArchive(bookContextMenu.book, false) }]
+              : bookContextMenu.book.status !== 'done'
+                ? [{ label: 'アーカイブする', icon: <Archive size="1.1em" aria-hidden="true" />, onClick: () => toggleArchive(bookContextMenu.book, true) }]
+                : []),
             {
               label: '削除',
               icon: <Trash2 size="1.1em" aria-hidden="true" />,

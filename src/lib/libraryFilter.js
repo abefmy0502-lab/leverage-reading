@@ -6,12 +6,16 @@
 // 「積読・読書中」（手元にあって、読み終えていない本）をまとめて絞る印（記録の分野の切り替えから開いたとき・2026-11-26）。
 export const STATUS_ACTIVE = 'active';
 export const ACTIVE_STATUS_LABEL = '積読・読書中';
+// 🗄 アーカイブ（2026-11-26）: アーカイブした本は、ふだんの一覧（すべて・各状態）には出さず、この印のときだけ並べる。
+export const STATUS_ARCHIVED = 'archived';
+export const ARCHIVED_LABEL = 'アーカイブ';
 export const statusMatches = (status, statusFilter) => (
   statusFilter === 'all' || (statusFilter === STATUS_ACTIVE ? (status === 'before' || status === 'reading') : status === statusFilter)
 );
 
 export function matchesLibraryFilters(b, { statusFilter = 'all', folderFilter = null, minRating = 0, tagFilter = [], hits = null } = {}) {
-  if (!statusMatches(b.status, statusFilter)) return false;
+  if (statusFilter === STATUS_ARCHIVED) { if (!b.archivedAt) return false; }
+  else if (b.archivedAt || !statusMatches(b.status, statusFilter)) return false;
   if (folderFilter && !((b.collections || []).includes(folderFilter))) return false;
   if (minRating > 0 && (b.rating || 0) < minRating) return false;
   if (tagFilter.length > 0) {

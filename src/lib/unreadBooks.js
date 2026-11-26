@@ -35,7 +35,7 @@ const when = (b) => String(b?.updatedAt || b?.updated_at || b?.createdAt || b?.c
 
 /** まだ読んでいない本（積読 → 読みたい・それぞれ新しい順・書名のある本だけ）。 */
 export function pickUnreadBooks(books, { max = UNREAD_MAX_BOOKS } = {}) {
-  const list = (Array.isArray(books) ? books : []).filter((b) => b && UNREAD_STATUSES.includes(b.status) && String(b.title || '').trim());
+  const list = (Array.isArray(books) ? books : []).filter((b) => b && !b.archivedAt && UNREAD_STATUSES.includes(b.status) && String(b.title || '').trim()); // アーカイブした本はすすめない（2026-11-26）
   return [...list]
     .sort((a, b) => (UNREAD_STATUSES.indexOf(a.status) - UNREAD_STATUSES.indexOf(b.status)) || when(b).localeCompare(when(a)))
     .slice(0, Math.max(0, max));
@@ -97,7 +97,7 @@ export function unreadBooksBlock(books, { infoOf = peekBookInfo, maxBooks = UNRE
 
 /** 答えの中に『書名』で出てきた、まだ読んでいない本（本棚の本と同じ確かめ方・出てきた順・重ねない）。 */
 export function unreadBooksInAnswer(text, books, { max = 3 } = {}) {
-  const unread = (Array.isArray(books) ? books : []).filter((b) => b && UNREAD_STATUSES.includes(b.status));
+  const unread = (Array.isArray(books) ? books : []).filter((b) => b && !b.archivedAt && UNREAD_STATUSES.includes(b.status));
   if (unread.length === 0) return [];
   const out = [];
   for (const m of String(text || '').matchAll(/『([^』\n]+)』/g)) {

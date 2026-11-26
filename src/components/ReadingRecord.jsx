@@ -700,7 +700,7 @@ export default function ReadingRecord({
     return {
       all: buildFieldRecord(list, opts),
       done: buildFieldRecord(list.filter((b) => b.status === 'done'), opts),
-      active: buildFieldRecord(list.filter((b) => b.status === 'before' || b.status === 'reading'), opts),
+      active: buildFieldRecord(list.filter((b) => !b.archivedAt && (b.status === 'before' || b.status === 'reading')), opts), // アーカイブした本は外す（2026-11-26）
     };
   }, [books, memoStats]);
   const fieldRecord = fieldRecords.all;

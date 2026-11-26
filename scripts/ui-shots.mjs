@@ -832,6 +832,12 @@ const SCREENS = [
   { name: 'review-record-day', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { eval: RT_SCROLL('[data-record-foot]') }, { eval: "(() => { const c = [...document.querySelectorAll('[data-record-foot] [data-day]')]; const t = c.find((x) => !String(x.style.background).includes('accent')); const r = (t || c[0]).getBoundingClientRect(); const g = document.querySelector('[data-record-foot] [role=slider]'); g.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true })); g.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); })()" }, { wait: 400 }] },
   // 🗺 知識の地図（2026-11-26）: 地図・本を押して選び直したところ
   // つながりが無い人（メモ 3 件）・メモが無い人でも出る（2026-11-26 オーナー「繋がるものがなくても何らか見えて感動するもの」）
+  // 📖 どこまで読んだか・🗄 アーカイブ（2026-11-26）
+  { name: 'progress-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 600 }] },
+  { name: 'progress-sheet', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { wait: 600 }, { css: '[data-detail-progress]' }, { wait: 500 }] },
+  { name: 'progress-sheet-percent', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { wait: 600 }, { css: '[data-detail-progress]' }, { wait: 400 }, { css: '[role=radiogroup] button[role=radio]:has-text("電子書籍")' }, { wait: 300 }] },
+  { name: 'archive-library', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { wait: 400 }, { css: 'button:has-text("アーカイブ")' }, { wait: 500 }] },
+  { name: 'archive-detail', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { wait: 400 }, { css: 'button:has-text("アーカイブ")' }, { wait: 500 }, { css: '.lvg-page button:has-text("最高の睡眠")' }, { wait: 600 }] },
   { name: 'knowledge-map-loading', url: '/?load=allmemos', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1500 }, { eval: RT_SCROLL('[data-knowledge-map-loading]') }, { wait: 300 }] },
   { name: 'knowledge-map-nolinks', url: '/?demo=fewmemos', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 600 }] },
   { name: 'knowledge-map-nomemo', url: '/?memos=none', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 600 }] },

@@ -14,6 +14,7 @@
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
+import { progressLabel } from '../lib/readingProgress';
 import { useEffect, useMemo, useState } from 'react';
 import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
@@ -171,7 +172,9 @@ function phraseChunks(title) {
 const byUpdated = (a, b) => (b.updated_at || '').localeCompare(a.updated_at || '');
 const byDone = (a, b) => (b.doneDate || '').localeCompare(a.doneDate || '') || byUpdated(a, b);
 
-function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry, onRead }) {
+function ReadingNow({ books: allBooks, onOpenBook, onWriteMemo, onStartReading, onAddBook, onSeeAllReading, onCoverRetry, onRead }) {
+  // 🗄 アーカイブした本は出さない（読書中・積読から外したい本・2026-11-26）
+  const books = allBooks.filter((b) => !b.archivedAt);
   const reading = books.filter((b) => b.status === 'reading').sort(byUpdated);
   const shown = reading.slice(0, 3);
   // 📗 読み終えてから 14 日以内の本（メモがいちばん出る時期・読了の 3 つの問いがある間）は、読書中があっても最後に 1 冊だけ
@@ -214,7 +217,8 @@ function ReadingNow({ books, onOpenBook, onWriteMemo, onStartReading, onAddBook,
         // 本は 1 枚のまとまりに行で並べる（1 冊ずつのカードにしない・iOS の一覧と同じ）。
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {shown.map((b, i) => (
-            <BookRow key={b.id} divider={i > 0} book={b} sub={b.author} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? <ReadLink book={b} onRead={onRead} /> : null} />
+            // 📖 どこまで読んだかを記録した本は、著者の後ろに「p.120 / 320」（2026-11-26）
+            <BookRow key={b.id} divider={i > 0} book={b} sub={[b.author, progressLabel({ current: b.currentPage, total: b.totalPages, unit: b.progressUnit })].filter(Boolean).join(' · ')} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} footer={onRead ? <ReadLink book={b} onRead={onRead} /> : null} />
           ))}
           {justDone.map((b) => (
             <BookRow key={b.id} divider book={b} sub={`読了 · ${b.author || ''}`.replace(/ · $/, '')} onOpenBook={onOpenBook} onCoverRetry={onCoverRetry} action={memoBtn(b)} />
@@ -811,7 +815,7 @@ export default function HomeScreen({
           <button type="button" onClick={onOpenLibrary} style={navRow}>
             <Library size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
             <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
-            <span style={navValue}>{books.length} 冊</span>
+            <span style={navValue}>{books.filter((b) => !b.archivedAt).length} 冊</span>
             <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
           </div>

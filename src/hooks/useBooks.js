@@ -5,6 +5,7 @@ import { LIMITS, clamp } from '../lib/limits';
 import { isSchemaError } from '../lib/errors';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { readLocalTarget, writeLocalTarget, cleanTarget } from '../lib/readTarget';
+import { cleanProgress, readLocalProgress, writeLocalProgress, readLocalArchived, writeLocalArchived } from '../lib/readingProgress';
 import { writeLocalBrief, readLocalBrief } from '../lib/bookBrief';
 import { captureBookReadingSessions, restoreBookReadingSessions } from '../lib/readingSessions';
 import { planTaxonomyChange } from '../lib/bookFieldsAuto';
@@ -65,6 +66,14 @@ const isMissingRelationError = (err) => {
 // source_memo_id は UUID 列。非 UUID（合成ノートの 'leverage_memo-...' 等）を弾く。
 const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 
+function progressFields(book) {
+  const local = readLocalProgress(book.id);
+  const hasCols = book.current_page !== undefined || book.total_pages !== undefined || book.progress_unit !== undefined;
+  const fromDb = cleanProgress({ current: book.current_page, total: book.total_pages, unit: book.progress_unit });
+  const use = local && (!hasCols || (fromDb.current == null && fromDb.total == null)) ? local : fromDb;
+  return { currentPage: use.current, totalPages: use.total, progressUnit: use.unit };
+}
+
 const transformBook = (book) => ({
   ...book,
   // 🔢 書名・著者の全角の英数字は半角で見せる（「７つの習慣」→「7つの習慣」・次に保存したときに半角で残る・2026-11-25）。
@@ -82,8 +91,10 @@ const transformBook = (book) => ({
     .map(transformAction),
   startDate: book.start_date,
   doneDate: book.done_date,
-  currentPage: book.current_page,
-  totalPages: book.total_pages,
+  // 📖 どこまで読んだか（2026-11-26・lib/readingProgress.js）。列が無い DB では端末の控え。
+  ...progressFields(book),
+  // 🗄 アーカイブ（2026-11-26）。列が無い DB では端末の控え。
+  archivedAt: book.archived_at !== undefined ? (book.archived_at || null) : readLocalArchived(book.id),
   investPurpose: book.invest_purpose,
   aiAnalysis: book.ai_analysis,
   aiStrategy: book.ai_strategy,
@@ -782,6 +793,54 @@ export function useBooks() {
 
   // ⏳ 読む時間の目安（分）だけを書く（2026-10-18・lib/readTarget.js）。本の保存（saveBook）は通さない。
   //   列が無い・つながらないときは端末に控える（目安は本人の画面のための数なので止めない）。
+  // 📖 どこまで読んだか（現在・総ページ・単位）だけを書く（2026-11-26・本の保存は通さない）。列が無い DB では端末に控える。
+  const saveProgress = async (bookId, p) => {
+    const v = cleanProgress(p);
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, currentPage: v.current, totalPages: v.total ?? (v.unit === 'percent' ? b.totalPages : null), progressUnit: v.unit } : b)));
+    if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) { writeLocalProgress(bookId, v); return { ok: true, local: true }; }
+    const row = { current_page: v.current, progress_unit: v.unit };
+    if (v.unit === 'page') row.total_pages = v.total;
+    let error = null;
+    try {
+      ({ error } = await supabase.from('books').update(row).eq('id', bookId).eq('user_id', user.id));
+      // progress_unit の列だけ無い（前の版の進捗の SQL だけ流した）→ ページだけ書く
+      if (error && String(error.message || '').includes('progress_unit') && v.unit === 'page') {
+        ({ error } = await supabase.from('books').update({ current_page: v.current, total_pages: v.total }).eq('id', bookId).eq('user_id', user.id));
+      }
+    } catch (e) {
+      error = e || new Error('save failed');
+    }
+    if (error) {
+      if (!isSchemaError(error)) console.warn('どこまで読んだかを本に保存できず端末に控えます:', error?.message || error);
+      writeLocalProgress(bookId, v);
+      return { ok: true, local: true };
+    }
+    writeLocalProgress(bookId, null);
+    return { ok: true, local: false };
+  };
+
+  // 🗄 アーカイブにする／戻す（archived_at だけ・状態は変えない・2026-11-26）。列が無い DB では端末に控える。
+  const setArchived = async (bookId, on) => {
+    const iso = on ? new Date().toISOString() : null;
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, archivedAt: iso } : b)));
+    if (!user || !isSupabaseConfigured || !UUID_RE.test(bookId || '')) { writeLocalArchived(bookId, iso); return { ok: true, local: true }; }
+    let error = null;
+    try {
+      ({ error } = await supabase.from('books').update({ archived_at: iso }).eq('id', bookId).eq('user_id', user.id));
+    } catch (e) {
+      error = e || new Error('save failed');
+    }
+    if (error) {
+      if (!isSchemaError(error) && !String(error.message || '').includes('archived_at')) {
+        console.warn('アーカイブを本に保存できず端末に控えます:', error?.message || error);
+      }
+      writeLocalArchived(bookId, iso);
+      return { ok: true, local: true };
+    }
+    writeLocalArchived(bookId, null);
+    return { ok: true, local: false };
+  };
+
   const saveReadTarget = async (bookId, minutes) => {
     const value = cleanTarget(minutes);
     setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, readTargetMin: value } : b)));
@@ -878,6 +937,8 @@ export function useBooks() {
     mutateBookLocal,
     saveBookBrief,
     saveReadTarget,
+    saveProgress,
+    setArchived,
     saveBookTaxonomy,
     captureBookSnapshot,
     restoreBookFromSnapshot,

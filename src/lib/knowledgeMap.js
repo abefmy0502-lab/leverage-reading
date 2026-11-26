@@ -28,7 +28,7 @@ function edgeFor(edgeMap, x, y) {
 }
 const memoOf = (m) => ({ id: m.id, text: String(m.text || ''), bookId: m.book_id ?? m.bookId ?? null, page: Number.isFinite(m.page_number ?? m.pageNumber) ? (m.page_number ?? m.pageNumber) : null });
 const timeOf = (b) => Date.parse(b?.doneDate || b?.done_date || b?.startDate || b?.start_date || b?.updated_at || b?.created_at || '') || 0;
-const onMap = (b) => b?.status === 'reading' || b?.status === 'done';
+const onMap = (b) => !b?.archivedAt && (b?.status === 'reading' || b?.status === 'done'); // アーカイブした本は点にしない（2026-11-26）
 
 /**
  * rows: 自分のメモ（useAllMemoRows の行）・books: 本棚の本。

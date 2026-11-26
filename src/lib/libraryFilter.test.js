@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterLibraryBooks, folderCounts, sortLibraryBooks, statusMatches, matchesLibraryFilters, STATUS_ACTIVE } from './libraryFilter';
+import { filterLibraryBooks, folderCounts, sortLibraryBooks, statusMatches, matchesLibraryFilters, STATUS_ACTIVE, STATUS_ARCHIVED } from './libraryFilter';
 
 const books = [
   { id: 'a', title: 'A', status: 'done', rating: 3, tags: ['考える力'], collections: ['課題図書'], updated_at: '2026-10-01' },
@@ -39,5 +39,12 @@ describe('すべての本の絞り込みと並び', () => {
     expect(statusMatches('want', 'all')).toBe(true);
     expect(matchesLibraryFilters({ status: 'reading', tags: ['考える力'] }, { statusFilter: STATUS_ACTIVE, tagFilter: ['考える力'] })).toBe(true);
     expect(matchesLibraryFilters({ status: 'done', tags: ['考える力'] }, { statusFilter: STATUS_ACTIVE, tagFilter: ['考える力'] })).toBe(false);
+  });
+  it('アーカイブした本はふだんの一覧に出さず、アーカイブのときだけ（2026-11-26）', () => {
+    const b = { status: 'reading', archivedAt: '2026-11-26T00:00:00Z' };
+    expect(matchesLibraryFilters(b, { statusFilter: 'all' })).toBe(false);
+    expect(matchesLibraryFilters(b, { statusFilter: 'reading' })).toBe(false);
+    expect(matchesLibraryFilters(b, { statusFilter: STATUS_ARCHIVED })).toBe(true);
+    expect(matchesLibraryFilters({ status: 'reading' }, { statusFilter: STATUS_ARCHIVED })).toBe(false);
   });
 });

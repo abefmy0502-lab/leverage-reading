@@ -295,7 +295,7 @@ export function buildSeed(scenario) {
       done_date: done != null ? dateOnly(done) : null,
       invest_purpose: purpose, current_challenge: '', hypothesis: '', book_reason: '',
       ai_analysis: '', ai_strategy: '', leverage_memo: '', ai_summary: '', roi_summary: '',
-      source_query: '', current_page: null, total_pages: 240,
+      source_query: '', current_page: null, total_pages: 240, progress_unit: null, archived_at: null,
       created_at: iso(createdDays), updated_at: iso(done ?? started ?? createdDays),
       ...(BOOK_EXTRAS[title] || {}),
     });
@@ -304,6 +304,11 @@ export function buildSeed(scenario) {
     }));
   });
   // 🗂 本人が作ったフォルダ（本の詳細のフォルダの行・すべての本のフォルダのチップの確かめ用・2026-10-11）
+  // 📖 どこまで読んだか（2026-11-26）: 『1兆ドルコーチ』は p.120 / 320。🗄 アーカイブ: 『スタンフォード式 最高の睡眠』（&archive=none で無し）
+  db.books.forEach((b) => { if (b.title === '1兆ドルコーチ') { b.current_page = 120; b.total_pages = 320; b.progress_unit = 'page'; } });
+  if (typeof window === 'undefined' || new URLSearchParams(window.location.search).get('archive') !== 'none') {
+    db.books.forEach((b) => { if (b.title === 'スタンフォード式 最高の睡眠') b.archived_at = iso(3); });
+  }
   //   &rated=reading: 読書中の『数値化の鬼』に★4（評価済みの本を読了にした直後＝送り先が「読了を写真で共有」の確かめ用）
   if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('rated') === 'reading') {
     db.books.forEach((b) => { if (b.title === '数値化の鬼') b.rating = 4; });
