@@ -11,6 +11,7 @@
 
 import { isPushSupported, isPushConfigured, getPermission, subscribeToPush } from './push';
 import { isNativePushCapable, getNativePushPermission, subscribeNativePush } from './nativePush';
+import { isLocalReminderCapable, getLocalReminderPermission, enableLocalReminder } from './localReminder';
 import { isDemo } from './supabase';
 
 export const PUSH_OPTIN_KEY = 'orime-recall-push-optin-v1';
@@ -55,15 +56,19 @@ export async function canOfferNotify() {
   if (isNativePushCapable) {
     try { return (await getNativePushPermission()) === 'prompt'; } catch { return false; }
   }
+  // iPhone のアプリで APNs をまだ使わないビルド: 端末の中だけの思い出しの通知（lib/localReminder.js・2026-11-26）
+  if (isLocalReminderCapable()) {
+    try { return (await getLocalReminderPermission()) === 'prompt'; } catch { return false; }
+  }
   return isPushSupported() && isPushConfigured() && getPermission() === 'default';
 }
 
 // 通知をオンにする（必ずボタンを押した中で呼ぶ）。{ ok, reason }
 export async function enableNotify() {
   if (isDemo) return { ok: true };
-  return isNativePushCapable
-    ? subscribeNativePush({ frequency: 'weekly' })
-    : subscribeToPush({ frequency: 'weekly' });
+  if (isNativePushCapable) return subscribeNativePush({ frequency: 'weekly' });
+  if (isLocalReminderCapable()) return enableLocalReminder();
+  return subscribeToPush({ frequency: 'weekly' });
 }
 
 // ⭐️ レビューの依頼と、通知の案内・許可の確認を同じ時に重ねない（2026-10-10）。案内を出した・許可を聞いた時刻を
@@ -74,4 +79,11 @@ export function noteNotifyPrompt(at = Date.now()) {
 }
 export function notifyPromptedWithin(ms = 60000, now = Date.now()) {
   return lastNotifyPromptAt > 0 && now - lastNotifyPromptAt < ms;
+}
+
+// 案内の文: 端末の中だけの通知は、開かなくなったときだけ・行動の期限は届けない（約束と違うことを言わない）。
+export function notifyOptInBody() {
+  return isLocalReminderCapable()
+    ? 'しばらく開かなかったときだけ、前に残したメモを多くても週に 1\u00a0回お届けします。通知は設定からいつでもオフにできます。'
+    : null;
 }

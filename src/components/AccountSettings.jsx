@@ -47,6 +47,7 @@ import { purchasePlan } from '../lib/iap';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral, inviteMessage } from '../lib/referral';
 import { isAppStoreLive, storeLinkFor, APP_STORE_URL } from '../lib/appStore';
+import { isLocalReminderCapable, getLocalReminderPermission, isLocalReminderOn, enableLocalReminder, disableLocalReminder } from '../lib/localReminder';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { FREE_TOKENS } from '../lib/tokens';
@@ -575,8 +576,10 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   //   - ネイティブ: VITE_NATIVE_PUSH=on のビルドだけ（既定は iPhone では通知の欄ごと隠す・lib/nativePush.js・2026-10-11）
   // 🧪 お試しモード（開発専用）では、鍵が無くても通知の欄を出し、スイッチは端末の中の状態だけを切り替える
   //   （「設定からオフにできる」を確かめられるように・2026-09-29）。
-  const pushConfigured = isDemo || (isNative ? isNativePushCapable : isPushConfigured());
-  const pushSupported = isDemo || (isNative ? isNativePushCapable : isPushSupported());
+  // iPhone のアプリで APNs をまだ使わないビルドは、端末の中だけの思い出しの通知（lib/localReminder.js・2026-11-26）。
+  const localReminder = !isDemo && isNative && !isNativePushCapable && isLocalReminderCapable();
+  const pushConfigured = isDemo || (isNative ? (isNativePushCapable || localReminder) : isPushConfigured());
+  const pushSupported = isDemo || (isNative ? (isNativePushCapable || localReminder) : isPushSupported());
   // A2HS 案内は Web(ブラウザ)のみ。ネイティブ(Capacitor WKWebView)では isIOS()=true /
   // isStandalonePWA()=false になり「ホーム画面に追加」を誤って促してしまうため !isNative で封じる。
   const pushNeedsA2HS = !isDemo && !isNative && isPushConfigured() && isIOS() && !isStandalonePWA(); // iOS ブラウザタブ内
@@ -589,7 +592,11 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
     if (isDemo) return undefined; // お試しモードは端末の中の状態（demoPushOn）だけ
     (async () => {
       try {
-        if (isNative) {
+        if (localReminder) {
+          const perm = await getLocalReminderPermission();
+          setPushDenied(perm === 'denied');
+          if (alive) setPushOn(perm === 'granted' && isLocalReminderOn());
+        } else if (isNative) {
           // ネイティブ(APNs): 権限と DB 上の ios 購読行から初期状態を決める。
           setPushDenied((await getNativePushPermission()) === 'denied');
           const on = await isNativePushSubscribed();
@@ -618,14 +625,16 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       }
       if (pushOn) {
         // OFF にする — 購読解除 + DB 行削除。失敗しても静かに。
-        if (isNative) await unsubscribeNativePush(); else await unsubscribeFromPush();
+        if (localReminder) await disableLocalReminder(); else if (isNative) await unsubscribeNativePush(); else await unsubscribeFromPush();
         setPushOn(false);
         toast.info('通知をオフにしました。');
       } else {
         // ON にする — ここは必ずユーザージェスチャ内なので許可要求してよい。
-        const res = isNative
-          ? await subscribeNativePush({ frequency: 'weekly' })
-          : await subscribeToPush({ frequency: 'weekly' });
+        const res = localReminder
+          ? await enableLocalReminder()
+          : isNative
+            ? await subscribeNativePush({ frequency: 'weekly' })
+            : await subscribeToPush({ frequency: 'weekly' });
         if (res.ok) {
           setPushOn(true);
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
@@ -1256,14 +1265,14 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
           <Group label="通知" ariaLabel="通知">
             {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
-              title="思い出しと行動の通知"
-              desc="思い出し（週 1 回まで）と、行動の期限の日の朝 8 時ごろに届きます。"
+              title={localReminder ? '思い出しの通知' : '思い出しと行動の通知'}
+              desc={localReminder ? 'しばらく開かなかったときだけ、前のメモが夜 8 時ごろに届きます（週 1 回まで）。' : '思い出し（週 1 回まで）と、行動の期限の日の朝 8 時ごろに届きます。'}
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch
                   checked={pushOn}
                   busy={pushBusy}
-                  ariaLabel="思い出しと行動の通知"
+                  ariaLabel={localReminder ? '思い出しの通知' : '思い出しと行動の通知'}
                   onChange={handleTogglePush}
                 />
               ) : null}

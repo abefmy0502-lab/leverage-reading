@@ -44,9 +44,13 @@
 | 365 日 | はじめて 1 年＋本棚で待っている本 | はじめて 1 年＋最初のメモで「いまの考えと比べる」・12 月の今年の 1 枚 | 同左 |
 | すすめる | 設定の「orime を友だちに教える」「App Store でレビューを書く」・写真で共有（読了・月末・12 月） | 同左 | 同左・公開の本棚 |
 
+## 2c. 3 回目（同日）: iPhone で 3〜7 日目に呼び戻す
+
+- **端末の中だけの思い出しの通知**（`lib/localReminder.js`・`@capacitor/local-notifications` を package.json に入れた）: APNs の鍵が無くても、通知の案内カード・設定のスイッチから「通知を受け取る」→ ホームを開くたびに 3・10・24 日後の夜 8 時に置き直す＝**開かなくなった人にだけ**前のメモ（メモが無く読み始めていない人は本棚で待っている本を 1 通）。週 1 回まで・サーバーなし
+- **iPhone のレビュー依頼の部品**（`@capacitor-community/in-app-review`）も package.json に入れた＝相談の答えから行動を足した直後の依頼が、次のビルドから出る
+
 ## 4. オーナーの作業（コードでは届かないもの）
 
-- **iPhone の思い出しの通知**: APNs の鍵（`APNS_*`）・Xcode の Push Notifications・`supabase_push_native.sql` → `VITE_NATIVE_PUSH=on` で出し直し。3〜7 日目にアプリの外から呼び戻せるのはこれだけ（いまはホームを開いた人にしか届かない）
-- **iPhone のレビュー依頼**: Mac で `npm i @capacitor-community/in-app-review && npx cap sync ios`（入れないと、相談の答えから行動を足した直後の依頼が出ない）
+- **次の iPhone のビルド**: Mac で `npm install && npx cap sync ios`（端末の中の通知とレビュー依頼の部品が入る・鍵の設定は要らない）。APNs（行動の期限の通知も届ける）は今までどおり `APNS_*`・`VITE_NATIVE_PUSH=on` で
 - **SQL を流す**: `supabase_all_in_order.sql`（`admin_retention_days` が入った）。流すと運営ダッシュボードに 8 つの日 × 3 つの型の継続が出る
 - **数える**: 公開から 30 日で `retention_days`（型ごとの 3・7・30 日目）と `return_moment`（shown → open の率）・`invite_share`・`review_link`・App Store Connect の `share_invite` の入手数を見る。open が低ければ文を、invite が少なければ置き場所を見直す。90・180・365 日目の数は、その日数がたってから出る（今はまだ分母が 0）

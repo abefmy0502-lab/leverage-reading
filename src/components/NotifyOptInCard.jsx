@@ -9,7 +9,7 @@ import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff } from '../styles/ui';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
 import { track } from '../lib/analytics';
-import { canOfferNotify, enableNotify, isNotifyOptInDone, markNotifyOptInDone, noteNotifyPrompt } from '../lib/notifyOptIn';
+import { canOfferNotify, enableNotify, isNotifyOptInDone, markNotifyOptInDone, noteNotifyPrompt, notifyOptInBody } from '../lib/notifyOptIn';
 
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const closeBtn = {
@@ -83,7 +83,7 @@ export default function NotifyOptInCard({ where = 'action', primary = true, styl
       {/* 句読点ごとのまとまりを inline-block にして、そこで折り返す（相談の TrialNudgeCard と同じ・DESIGN §5「閉じられる案内カード」）。
           文字を大きくして 1 行に収まらないまとまりだけは、中の文節の切れ目（BudouX の <wbr>）で折り返す。 */}
       <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-        {(BODY.match(/[^、。]+[、。]?|[、。]/g) || []).map((part, i) => (
+        {((notifyOptInBody() || BODY).match(/[^、。]+[、。]?|[、。]/g) || []).map((part, i) => (
           <span key={i} style={{ display: 'inline-block' }}>{withPhraseBreaks(part)}</span>
         ))}
       </p>

@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera, History } from 'lucide-react';
 import { useReturnMoment } from '../hooks/useReturnMoment';
+import { isLocalReminderCapable, isLocalReminderOn, rescheduleLocalReminders } from '../lib/localReminder';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -385,6 +386,8 @@ function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, act
   );
 }
 
+const localReminderSet = new Set(); // 端末の中の通知を置き直した利用者（その回に 1 度だけ）
+
 // ホームの時期の案内が読んだ結果を、アプリを開いている間だけ覚える（10 分・2026-11-21）。
 //   前はホームに戻るたびに読み直し、その時期は毎回、形だけの表示で最大まで待っていた。値が null（出さない）でも覚える。
 const HOME_PEEK_TTL_MS = 10 * 60 * 1000;
@@ -614,6 +617,16 @@ export default function HomeScreen({
   const reask = useReaskNudge(!!onConsultDraft && !loading && !loadError && books.length > 0);
   // 🌙 また開いたときの 1 行（2 日以上あけた日の前のメモ・7 日以上で「おかえりなさい」・はじめて 1 か月〜1 年・lib/returnMoments.js・2026-11-26）。
   const returnMoment = useReturnMoment(!!onOpenMemo && !loading && !loadError && books.length > 0, books, MEMO_COUNT_WAIT_MS);
+  // 🔔📱 端末の中だけの思い出しの通知（lib/localReminder.js）: ホームを開くたびに先の予定を置き直す
+  //   ＝開いている人には届かず、開かなくなったときだけ 3・10・24 日後に届く。その回に 1 度だけ。
+  useEffect(() => {
+    if (loading || loadError || !user?.id || localReminderSet.has(user.id) || !isLocalReminderCapable() || !isLocalReminderOn()) return;
+    localReminderSet.add(user.id);
+    loadAllMemoRows(user.id).then((r) => {
+      const memos = (r?.rows || []).filter((m) => m.book_id).map((m) => ({ id: m.id, bookId: m.book_id, text: m.text || '', createdAt: m.created_at, sourceType: m.source_type || null }));
+      return rescheduleLocalReminders({ memos, books });
+    }).catch(() => {});
+  }, [loading, loadError, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const moment = returnMoment.moment;
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === moment.memo?.bookId) || null;
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
