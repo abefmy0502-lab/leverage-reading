@@ -48,7 +48,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `grown_card` | ホームの「相談相手が育ちました」を押した／閉じた（端末で 1 回） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
 | `try_consult` `{from:'grown'}` | 同じく「相談してみる」を押した（上と一緒に送る） | `from`: `grown` | `App.jsx` |
 | `trial_next_consult` | 7 日間無料が始まった知らせの「相談してみる」を押した | なし | `Paywall.jsx` |
-| `notify_optin` `{where:'import'\|'ocr'}` | 通知の案内（取り込みの完了・写真から書き起こしたメモの保存のあと）を出した／答えた | もとからと同じ | `NotifyOptInCard.jsx` |
+| `notify_optin` `{where:'import'\|'ocr'\|'memo3'}` | 通知の案内（取り込みの完了・写真から書き起こしたメモの保存のあと・ホームでメモを保存した直後でメモ 3 件以上＝2026-11-26）を出した／答えた | もとからと同じ | `NotifyOptInCard.jsx` |
 
 ## 入れた理由のイベント（2026-10-18）
 

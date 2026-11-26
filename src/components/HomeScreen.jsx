@@ -36,6 +36,7 @@ import { reaskCandidate, pickReask, reaskText, readReaskDone, markReaskDone } fr
 import { renewalCandidate, yearReviewStats, hasAnything, renewalText, daysUntil, readRenewalDone, markRenewalDone } from '../lib/renewalReview';
 import { annualNudgeCandidate, annualNudgeText, readAnnualNudgeDone, markAnnualNudgeDone } from '../lib/annualNudge';
 import { readingSessions, useReadingSessions } from '../hooks/useReadingSessions';
+import NotifyOptInCard from './NotifyOptInCard';
 import { useGoals } from '../hooks/useGoals';
 import { todayPlanItem } from '../lib/goalRoadmap';
 import { ALL_GOALS_KEY, hasAnyGoal } from '../lib/goals';
@@ -703,6 +704,9 @@ export default function HomeScreen({
         ) : null}
         {/* 🔗 ホームのメモを書くで保存したメモの似たメモ（題の下の静かな 1 行・2026-10-10）。 */}
         {homeKnown && books.length > 0 && <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} />}
+        {/* 🔔 思い出しの通知の 1 回だけの案内（2026-11-26 体験した人の声「設定の奥でしか見つからない」）: ホームでメモを保存した直後、
+            自分のメモが 3 件以上になってから（何を思い出させるのかが分かってから）。答えたら・閉じたら他の場所と同じきまりで出さない。 */}
+        {homeKnown && savedMemo && memoState.count != null && memoState.count >= 3 && <NotifyOptInCard where="memo3" primary={false} />}
         {homeKnown && tokensBack.show && (
           <GrownLine
             mark="tokens-back"
