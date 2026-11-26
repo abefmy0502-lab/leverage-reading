@@ -42,7 +42,7 @@ export default function DialogueWorld({ books = [], memoBookIds = null, userId =
       {card && (
         <section aria-labelledby="dw-rediscover-h" style={sectionGap}>
           <h3 id="dw-rediscover-h" style={{ ...groupTitle, margin: 0 }}>読んできた本から</h3>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4) var(--space-1)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-3) var(--space-4) var(--space-1)' }}>
             <p style={meta}>{withPhraseBreaks(card.lead)}</p>
             <p style={{ margin: 'var(--space-2) 0 0', fontFamily: 'var(--font-read)', fontSize: 'var(--text-read)', lineHeight: 1.6, color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'normal', lineBreak: 'strict', overflowWrap: 'anywhere' }}>
               「{card.quote}」

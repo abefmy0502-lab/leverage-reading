@@ -359,7 +359,7 @@ function HomeActionsRow({ summary, onOpen }) {
 function HomeConsultRow({ count, onOpen }) {
   const sub = count > 0 ? `あなたのメモ ${count}\u00a0件から答えます` : '';
   return (
-    <button type="button" data-home-consult="" onClick={onOpen} aria-label={`相談。${sub}。相談を開く`} style={navRow}>
+    <button type="button" data-home-consult="" onClick={onOpen} aria-label={sub ? `相談。${sub}。相談を開く` : '相談を開く'} style={navRow}>
       <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談</span>

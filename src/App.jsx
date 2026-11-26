@@ -5857,7 +5857,7 @@ function AuthedApp() {
                   }}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', textAlign: 'left',
-                    padding: 'var(--space-3) var(--space-4)', minHeight: 'calc(var(--space-12) + var(--space-2))', cursor: 'pointer', fontFamily: 'inherit',
+                    padding: 'var(--space-2) var(--space-4)', minHeight: 'var(--btn-h)', cursor: 'pointer', fontFamily: 'inherit',
                     background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)',
                     // em のアイコンを文字に合わせる（ボタンの既定の文字の大きさだと、文字最大でアイコンだけ育たなかった）。
                     fontSize: 'var(--text-body)',

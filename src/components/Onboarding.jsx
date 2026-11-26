@@ -62,13 +62,13 @@ function OnboardSample() {
     <figure aria-label="例: 3 か月前のメモが、相談の答えのもとになる" style={{ margin: 'var(--space-2) 0 0', padding: 'var(--space-4)', background: 'var(--fill)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <div>
         <p style={sampleLabel}>『1兆ドルコーチ』 · 3 か月前のあなた</p>
-        <p style={{ margin: 'var(--space-1) 0 0', paddingLeft: 'var(--space-3)', borderLeft: '2px solid var(--accent)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>
+        <p style={{ margin: 'var(--space-1) 0 0', paddingLeft: 'var(--space-3)', borderLeft: '2px solid var(--separator)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>
           {withPhraseBreaks('命令ではなく、質問で考えさせる。')}
         </p>
       </div>
       <div>
         <p style={sampleLabel}>相談「部下が自分から動かない」</p>
-        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+        <p style={{ margin: 'var(--space-1) 0 0', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {withPhraseBreaks('指示を出す前に「どうすればうまくいくと思う？」と聞いてみましょう。')}
         </p>
       </div>
