@@ -259,7 +259,9 @@ export function BookFieldsRecord({ record, records, onOpenField, onFindBooks }) 
   // 読了・積読・読書中で見ているときは、本のある大分類だけ（大分類の全体の地図は「すべて」で見る）。
   const groups = filtered ? shown.groups.filter((c) => c.fields.length > 0) : shown.groups;
   // 棒の長さは、いちばん本の多い分野を 1 とした割合（本棚の形＝どこに本が寄っているかを一目で・2026-11-26 オーナー「直感的に」）。
-  const maxBooks = groups.reduce((m, g) => g.fields.reduce((mm, f) => Math.max(mm, f.books || 0), m), 0);
+  // 読了・積読・読書中で見ているときも「すべて」と同じものさし（状態を替えて見比べると、棒がそのまま本棚のどれだけかに読める・2026-11-26 ui-critic）。
+  const scaleGroups = records ? records.all.groups : groups;
+  const maxBooks = scaleGroups.reduce((m, g) => g.fields.reduce((mm, f) => Math.max(mm, f.books || 0), m), 0);
   return (
     <section
       data-book-fields-record=""
