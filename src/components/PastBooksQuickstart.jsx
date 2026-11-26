@@ -35,7 +35,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, btnLinkQuiet, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { subtitleStyle } from './BookSearchModal';
 import EmptyState from './EmptyState';
@@ -490,7 +490,6 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
             {/* なぜ本を選ぶのか（＝一言が相談の根拠になる）を 1 文で（2026-10-21 ui-critic「冊数の話だけ」）。括弧なし・句のまとまりで折り返す */}
             <p style={sub}>
               <span style={{ display: 'inline-block' }}>選んだ本の一文が、相談の根拠になります。</span>
-              <span style={{ display: 'inline-block' }}>{MIN_BOOKS}&nbsp;冊から始められます。</span>
             </p>
 
             <div role="search" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
@@ -608,17 +607,18 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
                       );
                     })}
                   </div>
-                  {/* 取り込みは脇道（初回ガイドで主ボタンとして一度見せている）。問い → 検索 → チップ の流れの後ろに控えめに（2026-10-21 ui-critic） */}
+                  {/* 取り込みは脇道（初回ガイドで主ボタンとして一度見せている）。問い → 検索 → チップ の流れの後ろに控えめに（2026-10-21 ui-critic）。
+                      文字は灰（btnLinkQuiet）＝主役（本を選ぶ）と競わない（2026-11-26 全体の UX 監査） */}
                   {(onImport || onShelfScan) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-4)' }}>
                       {onImport && (
-                        <button type="button" onClick={() => onImport(picked.map((p) => p.book))} style={{ ...btnLink, padding: 0 }}>
+                        <button type="button" onClick={() => onImport(picked.map((p) => p.book))} style={{ ...btnLinkQuiet, padding: 0 }}>
                           ほかのアプリから取り込む
                         </button>
                       )}
                       {/* 紙の本が手元にある人の脇道（背表紙を撮ってまとめて本棚へ・2026-11-23 点検） */}
                       {onShelfScan && (
-                        <button type="button" onClick={() => onShelfScan(picked.map((p) => p.book))} style={{ ...btnLink, padding: 0 }}>
+                        <button type="button" onClick={() => onShelfScan(picked.map((p) => p.book))} style={{ ...btnLinkQuiet, padding: 0 }}>
                           本棚の写真から追加
                         </button>
                       )}
