@@ -2145,7 +2145,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 答え方（まとめて / 本ごとに）は、並べる本が無い 1 冊のときと、メモがまだ無いとき（答える材料が無い）は出さない。
   // 数え終わるまでは出しておく（メモのある大多数の人で、読み込み後にチップが増えて跳ねないように）。
   // メモが答える相談（無料のトークンを使い切った）では答え方は効かないので出さない（2026-10-01 ui-critic）。
-  const modeApplies = !freeUsedUp && scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
+  const modeApplies = !memoOnly && scopeIds.length !== 1 && (!memoStatsLoaded || ownMemoTotal > 0 || memoStatsFailed);
   // 🪙 無料プランの使う量の目安は、チップの行の上に 1 回だけ（13/--text-2・2026-10-09）。
   //   上の行（会話の先頭）に「今月の残り…」が出ているときは出さない（量の話を 2 か所にしない・2026-10-09 ui-critic）。
   const chipCostLine = freeMode && tokensRemaining == null && (followups.length > 0 || regenLabel) ? (
