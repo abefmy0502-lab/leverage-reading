@@ -381,11 +381,12 @@ describe('countBooksWithMemos', () => {
 
 import { isLastAnswer as _isLastAnswer, shouldDecide as _shouldDecide } from './consultHelpers';
 describe('残りが答え 1 回ぶんのときは聞き返さない（2026-10-20）', () => {
-  it('無料プラン・7 日間無料で、残り 20 トークン未満のときだけ', () => {
-    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 10 })).toBe(true);
+  it('無料プラン・7 日間無料で、残りが答え 2 回ぶん（約 6 トークン）未満のときだけ（2026-11-26 に 1 回 約 3 へ）', () => {
+    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 5 })).toBe(true);
+    expect(_isLastAnswer({ freeMode: true, tokensRemaining: 10 })).toBe(false);
     expect(_isLastAnswer({ freeMode: true, tokensRemaining: 20 })).toBe(false);
     expect(_isLastAnswer({ freeMode: true, tokensRemaining: 0 })).toBe(false);
-    expect(_isLastAnswer({ plan: 'trial', tokensRemaining: 5 })).toBe(true);
+    expect(_isLastAnswer({ plan: 'trial', tokensRemaining: 4 })).toBe(true);
     expect(_isLastAnswer({ plan: 'paid', tokensRemaining: 5 })).toBe(false);
     expect(_isLastAnswer({ freeMode: true, tokensRemaining: 5, purchasedTokens: 300 })).toBe(false);
   });

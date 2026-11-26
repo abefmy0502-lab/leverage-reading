@@ -150,14 +150,14 @@ describe('AI に渡す文の組み立て', () => {
 });
 
 describe('確かめる一歩 → 読書準備', () => {
-  it('合っている: 課題＝受け取ったまとめ', () => {
+  it('合っている: 課題＝本人の言葉（受け取ったまとめ＝AI の文は入れない・2026-11-26）', () => {
     const p = advisorSetupPayload('仕事が回らない', [{ q: '本当はどうなっていたいですか？', a: '家族との時間' }], { why: 'w' }, { summary: '「手が付かない」ということ。', correction: '' });
-    expect(p.currentChallenge).toBe('「手が付かない」ということ。');
+    expect(p.currentChallenge).toBe('仕事が回らない');
     expect(p.investPurpose).toBe('家族との時間');
   });
-  it('少し違う（直す）: 課題＝直し（先）＋まとめ', () => {
+  it('少し違う（直す）: 課題＝直し（先）＋最初の相談', () => {
     const p = advisorSetupPayload('仕事が回らない', [], {}, { summary: 'まとめ', correction: '断れない' });
-    expect(p.currentChallenge).toBe('断れない\nまとめ');
+    expect(p.currentChallenge).toBe('断れない／仕事が回らない');
   });
   it('まだ言葉にできない の問いは答えに数えない', () => {
     const p = advisorSetupPayload('x', [{ q: 'A', a: '', unsure: true }, { q: 'B', a: '1' }, { q: 'C', a: '2' }], {});

@@ -1431,6 +1431,16 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     // 💬 無料プランで今月のトークンを使い切っていたら、AI を使わずに自分のメモの一節で答える（メモが答える相談・2026-10-01）。
     //   /api/claude は呼ばない（トークンを使わない）。有料プランの画面は開かない（答えの下に静かに 1 回だけ案内）。
     //   2026-10-20: プランの人（有料・7 日間無料）が使い切ったときも同じ（前は送れなかった）。
+    // 🌱 メモがまだ 1 件も無い人（読書の習慣がない人に多い）の相談は、行き止まりの答え（「まだメモが…」）を返さず、
+    //   この悩みに合う本を探す AI 選書へ悩みを入れて開く（送らない・トークンは使わない・2026-11-26 継続の点検＝体験した人の声）。
+    //   本を絞った相談・続きの相談は今までどおり（選んだ本にメモが無いときの文がある）。
+    if (ownMemoTotalRef.current === 0 && scopeIds.length === 0 && !opts.prior && !carry && onFindBooks) {
+      track('consult_no_memos', { action: 'to_advisor' });
+      setInput('');
+      toast.info('まだメモが無いので、この悩みに合う本を探します。');
+      onFindBooks(advisorDraftFromConsult(q));
+      return;
+    }
     if (memoOnly || outOfTokens) { askFromMemos(q, opts); return; }
     // 🔎 本を探す問いは、まず自分のメモから探す（AI なし）。見つからなければ下の AI へ（lookupFromMemos）。
     if (isBookLookup(q) && !opts.skipUserInsert && await lookupFromMemos(q, opts)) return;

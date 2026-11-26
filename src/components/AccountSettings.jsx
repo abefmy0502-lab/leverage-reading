@@ -1241,7 +1241,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   <p style={{ ...noteStyle, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {/* 1 文だけ（2026-11-23 点検・プランの中身は「プランを見る」の先で言う＝ボタンを目立たせる）。
                         トークンの目安（AI の答え 約 N 回）はトークンの使い方のシートに。 */}
-                    {withPhraseBreaks('無料プランはずっと無料です。AI は、相談・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）に使えます。
+                    {withPhraseBreaks('無料プランはずっと無料です。AI は、相談・AI 選書・この本で学べること・写真から書き起こし（')}<span style={{ whiteSpace: 'nowrap' }}>毎月 {FREE_OCR_PER_MONTH} 回</span>）に使えます。
                   </p>
                   <button
                     type="button"

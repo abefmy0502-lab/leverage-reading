@@ -12,11 +12,12 @@
 //
 // 出さないもの: 連続日数・「N 日ぶり」の数・目標・バッジ・責める言葉（「しばらく開いていません」など）。
 //   空けた日数は数字にしない。はじめて N は、3 か月からは「いまの考えと比べる」（相談の下書き）。
-//   メモが無く読み始めていない人には、ホームの一覧に出ていない積読・読みたいの本を 1 冊（読み始める）。
+//   メモが無く読み始めていない人には、本棚で待っている本を 1 冊（15 分だけ読む＝集中モード 15 分）。
 //
 // ⚠️ 純関数だけ（I/O なし）。端末に覚えるのは hooks/useReturnMoment.js。
 
 import { pickRecallMemo, pickFallbackMemo, recallFraming, memoExcerpt, isAiWritten } from './recall';
+import { daysUntilDeadline } from './homeActions';
 
 const DAY_MS = 86400000;
 
@@ -68,64 +69,103 @@ function ownBookMemos(memos, bookIds) {
     && String(m.text || '').trim() && !isAiWritten(m) && Number.isFinite(new Date(m.createdAt).getTime()));
 }
 
-// メモがまだ無い人の「はじめて N」で見せる本（アーカイブは除く）。
+// メモがまだ無く、まだ読み始めていない人に見せる本（アーカイブは除く）。
 //   - 読書中・読了の本があれば、ホームの「相談相手をつくる」（はじめの一歩）が一文のメモをもう誘っているので出さない（2 度言わない）。
-//   - ホームの一覧（積読があれば積読、無ければ読みたいの、新しく触った順の上から 3 冊・HomeScreen の ReadingNow と同じ並び）に
-//     出る本は選ばない（同じ本に 2 つの入口を並べない・2026-11-26 ui-critic）。残りから、いちばん長く待っている本（触ったのが古い順）。
-//     残りが無ければ出さない（すぐ下の一覧がもう同じ一歩）。
+//   - ホームの一覧（積読があれば積読、無ければ読みたいの、新しく触った順の上から 3 冊）に出ていない本があれば、いちばん長く待っている本。
+//     無ければ一覧の 1 冊目（1〜3 冊しか入れていない人＝読書の習慣がない人に多い・2026-11-26 体験した人の声で「何も出ない」を直した）。
+//   - 行き先は「15 分だけ読む」＝集中モードを 15 分で始める（一覧の「読み始める」とは違う、いちばん小さな一歩）。
 const byUpdatedDesc = (a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
 function fallbackBook(books) {
   const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && b.title && !b.archivedAt);
   if (list.some((b) => b.status === 'reading' || b.status === 'done')) return null;
   const before = list.filter((b) => b.status === 'before').sort(byUpdatedDesc);
   const want = list.filter((b) => b.status === 'want').sort(byUpdatedDesc);
-  const onHome = new Set((before.length ? before : want).slice(0, 3).map((b) => b.id));
+  const shown = (before.length ? before : want).slice(0, 3);
+  const onHome = new Set(shown.map((b) => b.id));
   const rest = [...before, ...want].filter((b) => !onHome.has(b.id));
-  if (!rest.length) return null;
-  return rest.sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))[0];
+  if (rest.length) return rest.sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))[0];
+  return shown[0] || null;
+}
+function waitingBookMoment({ kind, key, label = null, lead, book }) {
+  return { kind, key, label, book, action: 'focus', actionLabel: '15 分だけ読む', lead, quote: `『${book.title}』` };
 }
 
 // 今日出す 1 行を決める。出さないなら null。
-//   戻り値: { kind: 'anniv'|'back', key, lead, quote, memo?, book?, action: 'read'|'compare'|'start', actionLabel, question? }
+//   戻り値: { kind: 'anniv'|'back', key, lead, quote, memo?, book?, action: 'read'|'compare'|'focus'|'actions', actionLabel, question? }
 //   memos: [{ id, bookId, text, createdAt, lastRecalledAt?, recallCount?, sourceType? }]
 //   prevDay: 前に開いた日（'YYYY-MM-DD'・はじめてなら null）
 //   done: もう出した印の集まり（Set）。'anniv:90'・'back:2026-11-26' など
+// 期限が今日か、過ぎて 3 日までの、まだの行動（相談で決めた一歩を、翌日以降に思い出せるように・2026-11-26 体験した人の声＝
+//   「初日に行動に追加しても、翌日以降どこにも出てこない」）。ホームの常設の行ではなく、この 1 行の中だけ・1 日 1 回・閉じられる。
+//   それより古い期限は振り返り › 行動 にある（ここで毎日責めない）。
+export function dueActionOf(books, now) {
+  const list = [];
+  for (const b of Array.isArray(books) ? books : []) {
+    if (!b || b.archivedAt) continue;
+    for (const a of Array.isArray(b.actions) ? b.actions : []) {
+      if (!a || a.done || !String(a.text || '').trim()) continue;
+      const n = daysUntilDeadline(a.deadline, new Date(now));
+      if (n != null && n <= 0 && n >= -3) list.push({ ...a, bookId: b.id, _n: n });
+    }
+  }
+  list.sort((x, y) => y._n - x._n || String(x.text).localeCompare(String(y.text)));
+  return list[0] || null;
+}
+
 export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set() } = {}) {
   const today = jstDay(now);
   const own = ownBookMemos(memos, bookIds);
   const ann = anniversaryOf(createdAt, now);
+  // 前に 1 行で見せたメモ（done の 'm:<id>'）は、ほかに候補があれば選ばない（3 日目と 7 日目に同じメモを出さない・2026-11-26 体験した人の声）。
+  const seen = (m) => done.has(`m:${m.id}`);
   if (ann && !done.has(ann.key)) {
     if (own.length) {
-      const first = [...own].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || String(a.id).localeCompare(String(b.id)))[0];
+      const sorted = [...own].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt) || String(a.id).localeCompare(String(b.id)));
+      // いちばん古いメモ。もう見せていたら、まだ見せていないいちばん古いメモ（半年・1 年で同じ最初のメモを繰り返さない）。
+      const firstUnseen = sorted.find((m) => !seen(m));
+      const first = firstUnseen || sorted[0];
+      const isFirst = first.id === sorted[0].id;
+      const memoLabel = isFirst ? '最初に書いたメモ' : (recallFraming(first.createdAt, now) || '前に書いたメモ');
       // 3 か月からは「いまの考えと比べる」＝最初のメモを入れた相談の下書き（送らない・答えのもとは自分のメモ）。
       //   長く使うほど深まる（戦略の判断基準 8）。1 か月はまだ近いので読み返すだけ。
       if (ann.days >= COMPARE_FROM_DAYS) {
         const excerpt = memoExcerpt(first.text || '', 60).replace(/「/g, '『').replace(/」/g, '』');
         return {
           kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'compare', actionLabel: 'いまの考えと比べる',
-          lead: `orime をはじめて ${ann.label}。最初に書いたメモ`, quote: momentQuote(first),
-          question: `${ann.label}前に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
+          lead: `orime をはじめて ${ann.label}。${memoLabel}`, quote: momentQuote(first),
+          question: `${isFirst ? `${ann.label}前` : (recallFraming(first.createdAt, now) || '前').replace(/に書いたメモ$/, '')}に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
         };
       }
-      return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `orime をはじめて ${ann.label}。最初に書いたメモ`, quote: momentQuote(first) };
+      return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `orime をはじめて ${ann.label}。${memoLabel}`, quote: momentQuote(first) };
     }
-    // メモがまだ無く、まだ読み始めていない人（読書の習慣がない人に多い）: ホームの一覧に出ていない積読・読みたいの本を 1 冊 → 読み始める。
+    // メモがまだ無く、まだ読み始めていない人（読書の習慣がない人に多い）: 本棚で待っている本 → 15 分だけ読む。
     const b = fallbackBook(books);
-    if (b) {
-      return {
-        kind: 'anniv', key: ann.key, label: ann.label, book: b, action: 'start', actionLabel: '読み始める',
-        lead: `orime をはじめて ${ann.label}。本棚で待っている本`, quote: `『${b.title}』`,
-      };
-    }
+    if (b) return waitingBookMoment({ kind: 'anniv', key: ann.key, label: ann.label, lead: `orime をはじめて ${ann.label}。本棚で待っている本`, book: b });
     return null;
   }
-  if (!own.length) return null;
+  // 期限が来た行動（はじめて N の次に大事・1 日 1 回）
+  const actKey = `act:${today}`;
+  const due = done.has(actKey) ? null : dueActionOf(books, now);
+  if (due) {
+    return {
+      kind: 'action', key: actKey, action: 'actions', actionLabel: '行動を開く', bookId: due.bookId,
+      lead: due._n === 0 ? '今日が期限の行動' : '期限が来ている行動', quote: `「${memoExcerpt(due.text, 40)}」`,
+    };
+  }
   const gap = dayDiff(prevDay, today);
   const backKey = `back:${today}`;
+  if (!own.length) {
+    // メモが無く読み始めていない人が 2 日以上あけて開いた日も、本棚で待っている本を 1 冊（3〜7 日目に何も無かった）。
+    if (gap == null || gap < BACK_AFTER_DAYS || done.has(backKey)) return null;
+    const b = fallbackBook(books);
+    return b ? waitingBookMoment({ kind: 'back', key: backKey, lead: gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。本棚で待っている本' : '本棚で待っている本', book: b }) : null;
+  }
   if (gap != null && gap >= BACK_AFTER_DAYS && !done.has(backKey)) {
     const seed = Number(today.replace(/-/g, '')) || 0;
     // 思い出しカードと同じ選び方。まだ若いメモしか無い人（はじめて数日）は、1 日以上前のメモから。
-    const memo = pickRecallMemo(own, { now, minAgeDays: 2, seed }) || pickFallbackMemo(own, { now, minAgeDays: 1, seed });
+    const fresh = own.filter((m) => !seen(m));
+    const pool = fresh.length ? fresh : own;
+    const memo = pickRecallMemo(pool, { now, minAgeDays: 2, seed }) || pickFallbackMemo(pool, { now, minAgeDays: 1, seed });
     if (!memo) return null;
     const framing = recallFraming(memo.createdAt, now) || '前に書いたメモ';
     return { kind: 'back', key: backKey, memo, action: 'read', actionLabel: '読み返す', quote: momentQuote(memo), lead: gap >= WELCOME_AFTER_DAYS ? `おかえりなさい。${framing}` : framing };

@@ -11,8 +11,8 @@ const VISITS = [1, 3, 5, 7, 30, 90, 180, 365];
 
 // 型ごとに、何日目にどの本・メモがあるか
 const PERSONAS = {
-  // 読書の習慣がない: AI 選書で読みたいを 4 冊（ホームの一覧は 3 冊まで）・まだ読み始めていない・メモは書かない
-  none: () => ({ books: [1, 2, 3, 4].map((i) => ({ id: `w${i}`, title: `読みたい本 ${i}`, status: 'want', updated_at: `2026-01-0${i}T00:00:00Z` })), memos: [] }),
+  // 読書の習慣がない: 1 日目に AI 選書で読みたいを 1 冊・まだ読み始めていない・メモは書かない
+  none: () => ({ books: [{ id: 'w1', title: '最初の 1 冊', status: 'want', updated_at: '2026-01-05T01:00:00Z' }], memos: [] }),
   // 少し読む: 1 日目に 1 冊・メモ 2 件、30 日目にもう 1 件
   little: (day) => ({
     books: [{ id: 'b1', title: '本 A', status: 'reading' }],
@@ -36,13 +36,16 @@ function walk(persona) {
   const out = {};
   let prev = null;
   const done = new Set();
+  const shown = {};
   for (const day of VISITS) {
     const { books, memos } = PERSONAS[persona](day);
     const m = pickReturnMoment({ now: at(day), createdAt: new Date(START).toISOString(), prevDay: prev, memos, bookIds: new Set(books.map((b) => b.id)), books, done });
-    if (m) done.add(m.key);
+    if (m) { done.add(m.key); if (m.memo?.id) done.add(`m:${m.memo.id}`); }
+    if (m) shown[day] = m.memo?.id || m.book?.id || null;
     out[day] = m ? `${m.kind}:${m.action}` : null;
     prev = jstDay(at(day));
   }
+  out.shown = shown;
   return out;
 }
 
@@ -56,13 +59,20 @@ describe('3 つの型 × 8 つの日（ホームの また開いたときの 1 �
       for (const d of [90, 180, 365]) expect(r[d]).toBe('anniv:compare');
     }
   });
-  it('読書の習慣がない人（メモ 0 件・まだ読み始めていない）は、1 か月〜1 年に本棚で待っている本（読み始める）', () => {
+  it('読書の習慣がない人（読みたいの本 1 冊・メモ 0 件）にも、3 日目から毎回「本棚で待っている本＋15 分だけ読む」', () => {
     const r = walk('none');
-    for (const d of [1, 3, 5, 7]) expect(r[d]).toBe(null); // この間はホームの「読みたい本 → 読み始める」が入口
-    for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:start');
+    expect(r[1]).toBe(null);
+    for (const d of [3, 5, 7]) expect(r[d]).toBe('back:focus');
+    for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:focus');
   });
   it('読み始めたがメモが無い人には出さない（ホームの「相談相手をつくる」が一文のメモを誘う）', () => {
     const m = pickReturnMoment({ now: at(30), createdAt: new Date(START).toISOString(), prevDay: null, memos: [], books: [{ id: 'x', title: 'A', status: 'reading' }] });
     expect(m).toBe(null);
+  });
+
+  it('続けて開いても同じメモを繰り返さない（3・5・7 日目・半年・1 年）', () => {
+    const r = walk('lot');
+    const ids = [3, 5, 7, 180, 365].map((d) => r.shown[d]);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

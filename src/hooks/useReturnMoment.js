@@ -13,7 +13,7 @@ import { useAuth } from './useAuth';
 import { loadAllMemoRows, peekAllMemoRows } from './useAllMemoRows';
 import { appNow } from '../lib/appNow';
 import { isDemo } from '../lib/supabase';
-import { anniversaryOf, pickReturnMoment, jstDay, dayDiff, BACK_AFTER_DAYS } from '../lib/returnMoments';
+import { anniversaryOf, pickReturnMoment, jstDay, dayDiff, BACK_AFTER_DAYS, dueActionOf } from '../lib/returnMoments';
 import { track } from '../lib/analytics';
 
 const VISIT_KEY = 'orime.lastVisit.v1:';
@@ -60,7 +60,8 @@ export function useReturnMoment(active, books, waitMs) {
   const ann = anniversaryOf(createdAt, now);
   const gap = dayDiff(prev, today);
   // 読みに行く必要があるか（はじめて N の 14 日のうち・3 日以上あけた日だけ）。
-  const need = active && !!userId && ((ann && !done.has(ann.key)) || (gap != null && gap >= BACK_AFTER_DAYS && !done.has(`back:${today}`)));
+  const need = active && !!userId && ((ann && !done.has(ann.key)) || (gap != null && gap >= BACK_AFTER_DAYS && !done.has(`back:${today}`))
+    || (!done.has(`act:${today}`) && !!dueActionOf(books, now)));
   const [rows, setRows] = useState(() => (userId ? peekAllMemoRows(userId) : null));
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
@@ -81,7 +82,9 @@ export function useReturnMoment(active, books, waitMs) {
     setDecided(m);
     if (m) {
       // 「おかえりなさい」は出した時点で今日の分を済ませる（同じ日にもう出さない）。はじめて N は閉じるか押すまで。
-      if (m.kind === 'back') markDone(userId, m.key);
+      if (m.kind === 'back' || m.kind === 'action') markDone(userId, m.key);
+      // 見せたメモを覚える（次の 1 行で同じメモを繰り返さない）
+      if (m.memo?.id) markDone(userId, `m:${m.memo.id}`);
       track('return_moment', { kind: m.kind, action: 'shown', to: m.action, ...(m.kind === 'anniv' ? { days: Number(m.key.split(':')[1]) || 0 } : { gap: gap || 0 }) });
     }
   }, [ready, active]); // eslint-disable-line react-hooks/exhaustive-deps

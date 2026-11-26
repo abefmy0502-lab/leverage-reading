@@ -599,7 +599,7 @@ export default function HomeScreen({
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport, onShelfScan = null, authorNews = null,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
-  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null,
+  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null, onReadFirst = null,
 }) {
   const { user } = useAuth();
   const toast = useToast();
@@ -628,11 +628,12 @@ export default function HomeScreen({
     }).catch(() => {});
   }, [loading, loadError, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const moment = returnMoment.moment;
-  const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === moment.memo?.bookId) || null;
+  const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === (moment.memo?.bookId || moment.bookId)) || null;
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
   const momentGo = !moment || !momentBook ? null
     : moment.action === 'compare' ? (onConsultDraft ? () => onConsultDraft(moment.question, 'moment') : null)
-    : moment.action === 'start' ? (onStartReading ? () => onStartReading(momentBook) : null)
+    : moment.action === 'focus' ? (onReadFirst ? () => onReadFirst(momentBook) : null)
+    : moment.action === 'actions' ? (onOpenActions ? () => onOpenActions() : null)
     : () => onOpenMemo(momentBook, moment.memo.id);
   // 年額の更新の前の 1 行（30 日前から）と、12〜1 月の月額の人への年額の 1 行（2026-10-22）。どちらも 1 行ずつ・ほかの 1 行より先。
   const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);
@@ -739,11 +740,11 @@ export default function HomeScreen({
           <GrownLine
             mark={`moment-${moment.kind}`}
             stack
-            icon={moment.kind === 'anniv' ? Sprout : History}
+            icon={moment.kind === 'anniv' ? Sprout : moment.kind === 'action' ? CalendarCheck : History}
             text={<>{withPhraseBreaks(moment.lead)}<span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span></>}
             actionLabel={moment.actionLabel}
             // 読み上げは本の名前つき（同じ画面の一覧の「『書名』を読み始める」と見分ける・ui-critic）
-            actionAria={moment.action === 'start' ? `『${momentBook.title}』を読み始める` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
+            actionAria={moment.action === 'focus' ? `『${momentBook.title}』を 15 分だけ読む` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
             onConsult={() => { returnMoment.close('open'); momentGo(); }}
             onDismiss={() => returnMoment.close('dismiss')}
           />
@@ -787,7 +788,7 @@ export default function HomeScreen({
         <>
           {/* 読みたい・積読の本だけの人（読書の習慣がない人に多い）には出さない＝まだ読んだ本が無いのに「読んだ本の一文をメモする」を
               主役にしない。すぐ下の「読みたい本／次に読む本 → 読み始める」が次の一歩（2026-11-26 継続の点検）。 */}
-          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
+          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.filter((b) => !b.archivedAt).length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 読書計画とすべての本は、1 枚のまとまりの行（区切り線でつなぐ）。 */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>

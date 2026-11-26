@@ -62,8 +62,7 @@ export function displayUserText(raw) {
 //   この本から得たいこと ＝ ヒアリングの「理想の状態」の答え（問いの言葉で探し、無ければ 2 問目）
 //   以前は相談そのものを「得たいこと」に、答えを全部つなげて「課題」に入れていた（困りごとが得たいことに入る）。
 //   ヒアリングが無かったとき（相談だけで推薦した）は、得たいことは空のまま（本人に書いてもらう）。
-//   2026-10-08: 悩みを確かめた（confirmed＝{ summary, correction }）ときは、現在の課題＝本人の直し＋受け取ったまとめ
-//   （直しが先＝本人の言葉を優先）。「まだ言葉にできない」と答えた問い（unsure）は答えに数えない。
+//   2026-10-08: 悩みを確かめた（confirmed＝{ summary, correction }）ときは、本人の直しを先に（2026-11-26 から受け取ったまとめ＝AI の文は入れない）。「まだ言葉にできない」と答えた問い（unsure）は答えに数えない。
 const IDEAL_Q = /理想|なりたい|得たい|目指|ゴール|どうなれ|どうなって/;
 export function advisorSetupFields(concern, answers, confirmed = null) {
   const c = String(concern || '').trim();
@@ -74,9 +73,11 @@ export function advisorSetupFields(concern, answers, confirmed = null) {
   let idealIdx = list.findIndex((x) => IDEAL_Q.test(x.q));
   if (idealIdx < 0 && list.length >= 2) idealIdx = 1;
   const first = list[0] && idealIdx !== 0 ? list[0].a : '';
-  const told = [String(confirmed?.correction || '').trim(), String(confirmed?.summary || '').trim()].filter(Boolean);
+  // 2026-11-26（体験した人の声）: 「受け取った悩み」は AI のまとめ（「…いちばん気になっているのでしょうか」など）なので、
+  //   本人の課題に入れない。課題は本人の言葉だけ＝直し（あれば先）＋最初の相談＋1 問目の答え。
+  const correction = String(confirmed?.correction || '').trim();
   return {
-    challenge: told.length ? told.join('\n') : [c, first].filter(Boolean).join('／'),
+    challenge: [correction, c, first].filter(Boolean).join('／'),
     purpose: idealIdx >= 0 ? list[idealIdx].a : '',
   };
 }

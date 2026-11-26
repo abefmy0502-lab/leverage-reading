@@ -19,6 +19,8 @@
 // ⚠️ src では正規表現の後読み（lookbehind）を使わない。
 
 // よくある困りごと（相談の形・LP の相談の流れ（LpFlow）と同じ「部下が報告をくれなくて困っています」など）
+import { ANSWER_TOKENS } from './tokenAmounts';
+
 export const WORRY_EXAMPLES = [
   '部下が報告をくれなくて困っています',
   '会議で話がまとまりません',
@@ -708,8 +710,9 @@ export function wantsMoreAsk(text) {
 // lastAnswer（2026-10-20 オーナー「はじめての人が課金するような動線を徹底的に」）: 無料プラン・7 日間無料で、残りのトークンが
 //   AI の答え 1 回ぶんだけのとき。聞き返したところでトークンが尽きると、答えと行動（相談のいちばんの価値）に届かないので、
 //   はじめの答えでも聞き返さずに結論＋行動を 1 つで答える（本を探す問い・見方を変える頼みは除く）。
-// 残りが AI の答え 1 回ぶんだけか（1 回 約 10 トークン・無料プランと 7 日間無料だけ・追加分も足す）。
-export const ONE_ANSWER_TOKENS = 10;
+// 残りが AI の答え 1 回ぶんだけか（1 回の目安は tokenAmounts.js の ANSWER_TOKENS＝約 3 トークン・無料プランと 7 日間無料だけ・追加分も足す）。
+//   2026-11-26（体験した人の声）: 10 のままで、残り 約 6 回ぶんのうちから聞き返しを飛ばしていた。
+export const ONE_ANSWER_TOKENS = ANSWER_TOKENS;
 export function isLastAnswer({ freeMode = false, plan = '', tokensRemaining = null, purchasedTokens = 0 } = {}) {
   if (!(freeMode || plan === 'trial') || !Number.isFinite(tokensRemaining)) return false;
   const left = tokensRemaining + (Number(purchasedTokens) || 0);

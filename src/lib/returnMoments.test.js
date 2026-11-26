@@ -59,17 +59,20 @@ describe('pickReturnMoment', () => {
     expect(m.question).toContain('3 か月前に「メモ a の本文」');
     expect(m.actionLabel).toBe('いまの考えと比べる');
   });
-  it('メモがまだ無く読み始めていない人の「はじめて N」は、ホームの一覧に出ていない本（読み始める）', () => {
+  it('メモがまだ無く読み始めていない人は、本棚で待っている本＋15 分だけ読む（一覧に出ていない本を先に）', () => {
     const bk = (id, status, d) => ({ id, title: `本${id}`, status, updated_at: `2026-11-${String(d).padStart(2, '0')}T00:00:00Z` });
-    // 積読 2 冊は一覧に出る → 読みたいのいちばん古い本
     const m = pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('b1', 'before', 20), bk('b2', 'before', 21), bk('w1', 'want', 5), bk('w2', 'want', 9)] });
-    expect(m.action).toBe('start');
+    expect(m.action).toBe('focus');
+    expect(m.actionLabel).toBe('15 分だけ読む');
     expect(m.book.id).toBe('w1');
-    expect(m.quote).toBe('『本w1』');
-    // 一覧に全部出ている（3 冊以下）ときは出さない
-    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('w1', 'want', 5), bk('w2', 'want', 9)] })).toBe(null);
-    // 読書中・読了の本があるときは、ホームのはじめの一歩がもう一文のメモを誘うので出さない
-    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('w', 'want', 1), bk('w2', 'want', 2), bk('w3', 'want', 3), bk('w4', 'want', 4), bk('r', 'reading', 5)] })).toBe(null);
+    // 1 冊だけでも出す（読書の習慣がない人の最初の 1 冊）
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('w1', 'want', 5)] }).book.id).toBe('w1');
+    // 2 日以上あけた日も（はじめて N でない日）
+    const back = pickReturnMoment({ now: NOW, createdAt: ago(5), prevDay: '2026-11-23', memos: [], books: [bk('w1', 'want', 5)] });
+    expect(back.kind).toBe('back');
+    expect(back.lead).toBe('本棚で待っている本');
+    // 読書中・読了の本があるときは出さない（ホームのはじめの一歩が一文のメモを誘う）
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('w', 'want', 1), bk('r', 'reading', 5)] })).toBe(null);
     expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [] })).toBe(null);
   });
   it('はじめて開いた日（前の日が無い）は出さない', () => {
@@ -91,5 +94,21 @@ describe('momentQuote', () => {
     expect(momentQuote({ text: 'あ'.repeat(60) }, 10)).toBe(`「${'あ'.repeat(9)}…」`);
     expect(momentQuote({ text: '条件は「本質的」であること' })).toBe('「条件は『本質的』であること」');
     expect(momentQuote(null)).toBe('');
+  });
+});
+
+describe('期限が来た行動（2026-11-26）', () => {
+  const day = (n) => new Date(NOW + n * DAY).toISOString().slice(0, 10);
+  it('期限が今日〜3 日前のまだの行動を 1 行に（1 日 1 回・それより古いものは出さない）', () => {
+    const books = [{ id: 'b', title: 'A', actions: [{ text: '1on1 で質問から入る', done: false, deadline: day(0) }] }];
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books });
+    expect(m.kind).toBe('action');
+    expect(m.lead).toBe('今日が期限の行動');
+    expect(m.quote).toBe('「1on1 で質問から入る」');
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books, done: new Set([m.key]) })).toBe(null);
+    const old = [{ id: 'b', title: 'A', actions: [{ text: 'x', done: false, deadline: day(-5) }] }];
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books: old })).toBe(null);
+    const doneA = [{ id: 'b', title: 'A', actions: [{ text: 'x', done: true, deadline: day(0) }] }];
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books: doneA })).toBe(null);
   });
 });

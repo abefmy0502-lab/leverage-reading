@@ -4937,6 +4937,31 @@ function AuthedApp() {
   // 📖 どこまで読んだかのシート（2026-11-26）
   const [progressBook, setProgressBook] = useState(null);
   const [focusRun, setFocusRun] = useState(null);
+  // ホームの「読み始める」（読書中が 0 冊のときの候補）と「15 分だけ読む」の共通: 本を開かずにその場で読書中へ。
+  //   読み始めたら true（得たいことを入力する・外を押した・積読で閉じた は false）。
+  const startReadingFromHome = async (b) => {
+    haptic.light();
+    // 本の詳細の「読み始める」と同じ決まり: 得たいことが無ければ先に決める（ホームからは素通りしていた・2026-11-22 点検）。
+    const purposeDraft = (buildFormFromBook(b).investPurpose || '').trim();
+    if (!purposeDraft) {
+      // 2026-11-26（継続の点検・体験した人の声）: 読みたいの本（気になる本＝AI 選書で見つけた最初の 1 冊など）は、
+      //   得たいことを誘いつつ「あとで決めて読み始める」も選べる（読書の習慣がない人の最初の 1 冊を止めない）。
+      //   積読の本は今までどおり得たいことを先に（本の詳細と同じ＝目的のある読書・本田さんの考え）。外を押したら何もしない。
+      const casual = b.status === 'want';
+      const ok = await confirm({
+        title: casual ? '読む前に、この本から得たいことを決めますか？' : '読む前に、この本から得たいことを決めましょう',
+        message: '1 行で十分です。読み終えたあとに見返す手がかりになります。',
+        confirmLabel: '得たいことを入力する',
+        cancelLabel: casual ? 'あとで決めて読み始める' : '閉じる',
+        dismissValue: null,
+      });
+      if (ok === true) { openSetup(b); return false; }
+      if (ok === false && casual) { setBookStatusQuiet(b, 'reading'); return true; }
+      return false;
+    }
+    setBookStatusQuiet(b, 'reading', (b.investPurpose || '').trim() ? null : { investPurpose: purposeDraft });
+    return true;
+  };
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
   // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
   // （「保存しました。」＋行動に追加などがシートの上に重なっていた・2026-10-10）。元に戻すなどの処理は走らせない。
@@ -6926,22 +6951,12 @@ function AuthedApp() {
               // ⏱ 読む（集中モード・読書中の本だけ・2026-10-09）
               onRead={openFocusStart}
               // 読書中が 0 冊のときの候補（積読）の「読書を開始する」: 本を開かずにその場で読書中へ（楽観的に変えて、失敗したら戻す）。
-              onStartReading={async (b) => {
-                haptic.light();
-                // 本の詳細の「読み始める」と同じ決まり: 得たいことが無ければ先に決める（ホームからは素通りしていた・2026-11-22 点検）。
-                const purposeDraft = (buildFormFromBook(b).investPurpose || '').trim();
-                if (!purposeDraft) {
-                  const ok = await confirm({
-                    title: '読む前に、この本から得たいことを決めましょう',
-                    message: '1 行で十分です。読み終えたあとに見返す手がかりになります。',
-                    confirmLabel: '得たいことを入力する',
-                    cancelLabel: '閉じる',
-                  });
-                  if (ok) openSetup(b);
-                  return;
-                }
-                setBookStatusQuiet(b, 'reading', (b.investPurpose || '').trim() ? null : { investPurpose: purposeDraft });
+              // 🌙 本棚で待っている本の「15 分だけ読む」（ホームの また開いたときの 1 行・2026-11-26）: 読み始めて、集中モードを 15 分で開く。
+              onReadFirst={async (b) => {
+                const started = await startReadingFromHome(b);
+                if (started) setFocusStartBook({ ...b, status: 'reading', planMinutes: 15 });
               }}
+              onStartReading={(b) => { startReadingFromHome(b); }}
               onOpenLibrary={() => startTransition(() => setShelfMode('library'))}
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onCoverRetry={triggerCoverAutoRetry}
