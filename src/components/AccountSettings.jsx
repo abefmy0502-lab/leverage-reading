@@ -510,6 +510,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   ) : null;
+  // ⭐ App Store でレビューを書く: iPhone のアプリと iPhone・iPad の Safari だけ（書けない端末には見せない・ui-critic）
+  const showReviewRow = isAppStoreLive && (isNative || (typeof navigator !== 'undefined' && /iPhone|iPad/.test(navigator.userAgent || '')));
   // 🌱 orime を友だちに教える（2026-11-26・全員）: コードの無いビルドでも、人にすすめる入口を 1 つ。
   //   App Store の URL（キャンペーン share_invite）か、まだ無ければ紹介のページ。紹介した人への特典は無い。
   const handleInvite = async () => {
@@ -1386,13 +1388,13 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             )}
             {/* ⭐ App Store でレビューを書く（2026-11-26・継続の点検）: iPhone のアプリの評価の依頼（InAppReview）は部品が無いと
                 出ないので、自分から書きたい人の入口を 1 つ。App Store の URL があるときだけ・特典なし・押しつけない（審査 5.6.1）。 */}
-            {isAppStoreLive && (
+            {showReviewRow && (
               <a
                 href={`${APP_STORE_URL.split('?')[0]}?action=write-review`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => track('review_link', { action: 'open' })}
-                style={{ ...rowButtonStyle, ...divider, textDecoration: 'none' }}
+                style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome || !showReferralRow ? divider : null), textDecoration: 'none' }}
               >
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block' }}>App Store でレビューを書く</span>
@@ -1406,7 +1408,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             {!!BUNDLED_RELEASE_ID && (
               <button
                 type="button"
-                style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome || !showReferralRow ? divider : null) }}
+                style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome || !showReferralRow || showReviewRow ? divider : null) }}
                 onClick={openWhatsNew}
               >
                 <span style={{ flex: 1, minWidth: 0 }}>

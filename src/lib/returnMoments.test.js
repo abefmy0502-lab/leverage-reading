@@ -59,12 +59,17 @@ describe('pickReturnMoment', () => {
     expect(m.question).toContain('3 か月前に「メモ a の本文」');
     expect(m.actionLabel).toBe('いまの考えと比べる');
   });
-  it('メモがまだ無く読み始めていない人の「はじめて N」は積読・読みたいの本（本を開く）', () => {
-    const want = pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [{ id: 'w', title: '読みたい本', status: 'want' }, { id: 'b', title: '積読の本', status: 'before' }] });
-    expect(want.action).toBe('book');
-    expect(want.quote).toBe('『積読の本』');
+  it('メモがまだ無く読み始めていない人の「はじめて N」は、ホームの一覧に出ていない本（読み始める）', () => {
+    const bk = (id, status, d) => ({ id, title: `本${id}`, status, updated_at: `2026-11-${String(d).padStart(2, '0')}T00:00:00Z` });
+    // 積読 2 冊は一覧に出る → 読みたいのいちばん古い本
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('b1', 'before', 20), bk('b2', 'before', 21), bk('w1', 'want', 5), bk('w2', 'want', 9)] });
+    expect(m.action).toBe('start');
+    expect(m.book.id).toBe('w1');
+    expect(m.quote).toBe('『本w1』');
+    // 一覧に全部出ている（3 冊以下）ときは出さない
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('w1', 'want', 5), bk('w2', 'want', 9)] })).toBe(null);
     // 読書中・読了の本があるときは、ホームのはじめの一歩がもう一文のメモを誘うので出さない
-    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [{ id: 'w', title: 'A', status: 'want' }, { id: 'r', title: 'B', status: 'reading' }] })).toBe(null);
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('w', 'want', 1), bk('w2', 'want', 2), bk('w3', 'want', 3), bk('w4', 'want', 4), bk('r', 'reading', 5)] })).toBe(null);
     expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [] })).toBe(null);
   });
   it('はじめて開いた日（前の日が無い）は出さない', () => {

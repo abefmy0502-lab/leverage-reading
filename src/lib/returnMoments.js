@@ -6,12 +6,13 @@
 // 出すもの（ホームの題の下・1 行・× で閉じる・AI なし・通知は送らない）:
 //   - はじめて 1 か月・3 か月・半年・1 年（その日から 14 日のうちに開いたとき・1 回だけ）
 //       「orime をはじめて 3 か月。最初に書いたメモ「…」」→「読み返す」＝そのメモを開く
-//   - 3 日以上あけて開いたとき（その日 1 回だけ）
-//       「おかえりなさい。2 週間前に書いたメモ「…」」→「読み返す」
+//   - 2 日以上あけて開いたとき（その日 1 回だけ・7 日以上あけたときだけ頭に「おかえりなさい。」）
+//       「2 週間前に書いたメモ「…」」→「読み返す」
 //     選ぶメモは思い出しカードと同じ（忘れかけたものから・自分の言葉だけ・AI のまとめは出さない）。
 //
 // 出さないもの: 連続日数・「N 日ぶり」の数・目標・バッジ・責める言葉（「しばらく開いていません」など）。
-//   空けた日数は数字にしない（「おかえりなさい」だけ）。メモが 1 件も無い人には出さない（はじめの一歩が出る）。
+//   空けた日数は数字にしない。はじめて N は、3 か月からは「いまの考えと比べる」（相談の下書き）。
+//   メモが無く読み始めていない人には、ホームの一覧に出ていない積読・読みたいの本を 1 冊（読み始める）。
 //
 // ⚠️ 純関数だけ（I/O なし）。端末に覚えるのは hooks/useReturnMoment.js。
 
@@ -67,21 +68,25 @@ function ownBookMemos(memos, bookIds) {
     && String(m.text || '').trim() && !isAiWritten(m) && Number.isFinite(new Date(m.createdAt).getTime()));
 }
 
-// メモがまだ無い人の「はじめて N」で見せる本（積読 → 読みたい の順・アーカイブは除く）。
-//   読書中・読了の本があれば、ホームの「相談相手をつくる」（はじめの一歩）が一文のメモをもう誘っているので出さない（2 度言わない）。
-const STATUS_ORDER = ['before', 'want'];
+// メモがまだ無い人の「はじめて N」で見せる本（アーカイブは除く）。
+//   - 読書中・読了の本があれば、ホームの「相談相手をつくる」（はじめの一歩）が一文のメモをもう誘っているので出さない（2 度言わない）。
+//   - ホームの一覧（積読があれば積読、無ければ読みたいの、新しく触った順の上から 3 冊・HomeScreen の ReadingNow と同じ並び）に
+//     出る本は選ばない（同じ本に 2 つの入口を並べない・2026-11-26 ui-critic）。残りから、いちばん長く待っている本（触ったのが古い順）。
+//     残りが無ければ出さない（すぐ下の一覧がもう同じ一歩）。
+const byUpdatedDesc = (a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
 function fallbackBook(books) {
   const list = (Array.isArray(books) ? books : []).filter((b) => b && b.id && b.title && !b.archivedAt);
   if (list.some((b) => b.status === 'reading' || b.status === 'done')) return null;
-  for (const st of STATUS_ORDER) {
-    const b = list.find((x) => x.status === st);
-    if (b) return b;
-  }
-  return null;
+  const before = list.filter((b) => b.status === 'before').sort(byUpdatedDesc);
+  const want = list.filter((b) => b.status === 'want').sort(byUpdatedDesc);
+  const onHome = new Set((before.length ? before : want).slice(0, 3).map((b) => b.id));
+  const rest = [...before, ...want].filter((b) => !onHome.has(b.id));
+  if (!rest.length) return null;
+  return rest.sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))[0];
 }
 
 // 今日出す 1 行を決める。出さないなら null。
-//   戻り値: { kind: 'anniv'|'back', key, lead, quote, memo?, book?, action: 'read'|'compare'|'memo'|'book', actionLabel, question? }
+//   戻り値: { kind: 'anniv'|'back', key, lead, quote, memo?, book?, action: 'read'|'compare'|'start', actionLabel, question? }
 //   memos: [{ id, bookId, text, createdAt, lastRecalledAt?, recallCount?, sourceType? }]
 //   prevDay: 前に開いた日（'YYYY-MM-DD'・はじめてなら null）
 //   done: もう出した印の集まり（Set）。'anniv:90'・'back:2026-11-26' など
@@ -104,11 +109,11 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
       }
       return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `orime をはじめて ${ann.label}。最初に書いたメモ`, quote: momentQuote(first) };
     }
-    // メモがまだ無く、まだ読み始めていない人（読書の習慣がない人に多い）: 積読・読みたいの本を 1 冊 → 本を開く（読み始める）。
+    // メモがまだ無く、まだ読み始めていない人（読書の習慣がない人に多い）: ホームの一覧に出ていない積読・読みたいの本を 1 冊 → 読み始める。
     const b = fallbackBook(books);
     if (b) {
       return {
-        kind: 'anniv', key: ann.key, label: ann.label, book: b, action: 'book', actionLabel: '本を開く',
+        kind: 'anniv', key: ann.key, label: ann.label, book: b, action: 'start', actionLabel: '読み始める',
         lead: `orime をはじめて ${ann.label}。本棚で待っている本`, quote: `『${b.title}』`,
       };
     }

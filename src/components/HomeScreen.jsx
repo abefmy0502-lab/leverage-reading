@@ -612,15 +612,14 @@ export default function HomeScreen({
   // 無料プランで先月のトークンを使い切った人に、月のはじめの 7 日間だけ「今月の相談が戻りました」（2026-10-20）。
   const tokensBack = useTokensBack(!!onOpenConsult && !loading && !loadError && books.length > 0);
   const reask = useReaskNudge(!!onConsultDraft && !loading && !loadError && books.length > 0);
-  // 🌙 また開いたときの 1 行（3 日以上あけた日の「おかえりなさい」・はじめて 1 か月〜1 年・lib/returnMoments.js・2026-11-26）。
+  // 🌙 また開いたときの 1 行（2 日以上あけた日の前のメモ・7 日以上で「おかえりなさい」・はじめて 1 か月〜1 年・lib/returnMoments.js・2026-11-26）。
   const returnMoment = useReturnMoment(!!onOpenMemo && !loading && !loadError && books.length > 0, books, MEMO_COUNT_WAIT_MS);
   const moment = returnMoment.moment;
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === moment.memo?.bookId) || null;
-  // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・メモを書く・本を開く）。押す先が用意されていなければ出さない。
+  // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
   const momentGo = !moment || !momentBook ? null
     : moment.action === 'compare' ? (onConsultDraft ? () => onConsultDraft(moment.question, 'moment') : null)
-    : moment.action === 'memo' ? (onWriteMemo ? () => onWriteMemo(momentBook) : null)
-    : moment.action === 'book' ? (onOpenBook ? () => onOpenBook(momentBook) : null)
+    : moment.action === 'start' ? (onStartReading ? () => onStartReading(momentBook) : null)
     : () => onOpenMemo(momentBook, moment.memo.id);
   // 年額の更新の前の 1 行（30 日前から）と、12〜1 月の月額の人への年額の 1 行（2026-10-22）。どちらも 1 行ずつ・ほかの 1 行より先。
   const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);

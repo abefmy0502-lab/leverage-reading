@@ -11,8 +11,8 @@ const VISITS = [1, 3, 5, 7, 30, 90, 180, 365];
 
 // 型ごとに、何日目にどの本・メモがあるか
 const PERSONAS = {
-  // 読書の習慣がない: 1 日目に AI 選書で読みたいを 1 冊・まだ読み始めていない・メモは書かない
-  none: () => ({ books: [{ id: 'b1', title: '最初の 1 冊', status: 'want' }], memos: [] }),
+  // 読書の習慣がない: AI 選書で読みたいを 4 冊（ホームの一覧は 3 冊まで）・まだ読み始めていない・メモは書かない
+  none: () => ({ books: [1, 2, 3, 4].map((i) => ({ id: `w${i}`, title: `読みたい本 ${i}`, status: 'want', updated_at: `2026-01-0${i}T00:00:00Z` })), memos: [] }),
   // 少し読む: 1 日目に 1 冊・メモ 2 件、30 日目にもう 1 件
   little: (day) => ({
     books: [{ id: 'b1', title: '本 A', status: 'reading' }],
@@ -56,10 +56,10 @@ describe('3 つの型 × 8 つの日（ホームの また開いたときの 1 �
       for (const d of [90, 180, 365]) expect(r[d]).toBe('anniv:compare');
     }
   });
-  it('読書の習慣がない人（メモ 0 件・まだ読み始めていない）は、1 か月〜1 年に本棚で待っている本（本を開く）', () => {
+  it('読書の習慣がない人（メモ 0 件・まだ読み始めていない）は、1 か月〜1 年に本棚で待っている本（読み始める）', () => {
     const r = walk('none');
     for (const d of [1, 3, 5, 7]) expect(r[d]).toBe(null); // この間はホームの「読みたい本 → 読み始める」が入口
-    for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:book');
+    for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:start');
   });
   it('読み始めたがメモが無い人には出さない（ホームの「相談相手をつくる」が一文のメモを誘う）', () => {
     const m = pickReturnMoment({ now: at(30), createdAt: new Date(START).toISOString(), prevDay: null, memos: [], books: [{ id: 'x', title: 'A', status: 'reading' }] });
