@@ -888,8 +888,9 @@ export default function ShareSheet({
   // 形（投稿 4:5／ストーリー 9:16）は、いつも「編集」の行の右に横並び（見本の行は見本だけで等分の幅・
   //   2026-10-11 リリース前の採点。以前は見本が 2 つ以上のとき見本の行の右に縦に 2 つ）。透明（形が無い）のときは出さない。
   const formatInEditRow = effStyle !== 'sticker';
+  // 編集の行は文字ボタンの左右 4 を負の余白で打ち消している＝面の切り替えは 4 戻して、折り返したときも左の 16 にそろえる（2026-11-26 ui-critic）。
   const formatSwitch = (
-    <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row' } : null), flexShrink: 0 }}>
+    <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row', marginLeft: 'var(--space-1)' } : null), flexShrink: 0 }}>
       <SegThumb activeKey={format} activeSelector='[role="radio"][aria-checked="true"]' variant="face-strong" />
       {FORMAT_OPTIONS.map((o) => (
         <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
