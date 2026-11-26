@@ -159,3 +159,15 @@ describe('期限が来た行動は節目より先（2026-11-26 3 回目）', () 
   });
 });
 
+describe('はじめて 1 年（2026-11-26 3 回目）', () => {
+  it('1 年からは読了の冊数とメモの件数を 1 行に添える（数だけ）', () => {
+    const memos = [memo('a', 360), memo('b', 100), memo('c', 3)];
+    const books = [{ id: 'b1', title: 'A', status: 'done' }, { id: 'b2', title: 'B', status: 'done' }, { id: 'b3', title: 'C', status: 'reading' }];
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(366), memos, books });
+    expect(m.lead).toBe('orime をはじめて 1 年。読了 2 冊・メモ 3 件。最初に書いたメモ');
+    expect(m.action).toBe('compare');
+    // 3 か月は添えない
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(91), memos, books }).lead).toBe('orime をはじめて 3 か月。最初に書いたメモ');
+  });
+});
+

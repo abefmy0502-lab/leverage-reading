@@ -158,11 +158,15 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
       const memoLabel = isFirst ? '最初に書いたメモ' : (recallFraming(first.createdAt, now) || '前に書いたメモ');
       // 3 か月からは「いまの考えと比べる」＝最初のメモを入れた相談の下書き（送らない・答えのもとは自分のメモ）。
       //   長く使うほど深まる（戦略の判断基準 8）。1 か月はまだ近いので読み返すだけ。
+      // 1 年からは、この間に積み重ねたもの（読了の冊数・自分のメモの件数）を 1 行に（365 日目に「1 年で何が変わったか」が
+      //   無かった・2026-11-26 体験した人の声 3 回目）。数だけ・順位・目標・%・前年比はしない（記録の画面と同じ数え方）。
+      const doneCount = (Array.isArray(books) ? books : []).filter((b) => b && b.status === 'done' && !b.archivedAt).length;
+      const yearLine = ann.days >= 365 ? `${[doneCount ? `読了 ${doneCount} 冊` : '', `メモ ${own.length} 件`].filter(Boolean).join('・')}。` : '';
       if (ann.days >= COMPARE_FROM_DAYS) {
         const excerpt = memoExcerpt(first.text || '', 60).replace(/「/g, '『').replace(/」/g, '』');
         return {
           kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'compare', actionLabel: 'いまの考えと比べる',
-          lead: `orime をはじめて ${ann.label}。${memoLabel}`, quote: momentQuote(first),
+          lead: `orime をはじめて ${ann.label}。${yearLine}${memoLabel}`, quote: momentQuote(first),
           question: `${isFirst ? `${ann.label}前` : (recallFraming(first.createdAt, now) || '前').replace(/に書いたメモ$/, '')}に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
         };
       }

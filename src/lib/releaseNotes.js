@@ -52,9 +52,17 @@ export const OPEN_TARGETS = ['profile', 'addBook', 'review:action'];
 
 const ALL_RELEASES = [
   {
-    id: '2026-11-26f',
+    id: '2026-11-26g',
     date: '2026-11-26',
     items: [
+      {
+        where: 'ホーム',
+        what: 'はじめて 1 年に、積み重ねを',
+        before: 'はじめて 1 年の 1 行は、最初に書いたメモだけでした。',
+        after: '「読了 6 冊・メモ 120 件」のように、この間に積み重ねた数も添えます。',
+        impact: 'orime をはじめて 1 年たつ方に。2 年目からも毎年、同じ日に出ます。',
+        intent: '1 年で何が積み重なったかに、出会えるようにするためです。',
+      },
       {
         where: '相談',
         what: 'メモの答えの一節が、長く読めます',
@@ -72,6 +80,12 @@ const ALL_RELEASES = [
         intent: '決めた一歩を、ほかの案内より先に思い出せるようにするためです。',
         quiet: true,
       },
+    ],
+  },
+  {
+    id: '2026-11-26f',
+    date: '2026-11-26',
+    items: [
       {
         where: 'AI 選書',
         what: '見つけた本を、人に教えられます',
