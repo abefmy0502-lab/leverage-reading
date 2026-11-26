@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { referralMessage, shareReferral, inviteMessage, advisorShareMessage } from './referral';
+import { referralMessage, shareReferral, inviteMessage, advisorShareMessage, consultShareMessage } from './referral';
 
 describe('友だちに紹介する（2026-10-22）', () => {
   it('コードが無ければ文は空・あればコードと使い方とサイトの URL', () => {
@@ -37,5 +37,15 @@ describe('AI 選書の本を教える（2026-11-26）', () => {
     expect(m.endsWith('https://x.example')).toBe(true);
     expect(advisorShareMessage({ title: '' }, 'u')).toBe('');
     expect(advisorShareMessage({ title: 'A' }, 'u')).toBe('『A』\norime の AI 選書で、いまの悩みに合う 1 冊として見つけました。\nu');
+  });
+});
+
+describe('相談の答えを渡す（2026-11-26）', () => {
+  it('結論と一歩と URL だけ・強調の印は外す・結論が無ければ空', () => {
+    const m = consultShareMessage({ conclusion: '**まず聞く**ことから。', action: '明日の 1on1 で最初に質問する' }, 'https://x.example');
+    expect(m).toBe('まず聞くことから。\n\n明日からの一歩: 明日の 1on1 で最初に質問する\n\norime の AI が、自分の読書メモをもとに答えたものです。\nhttps://x.example');
+    expect(consultShareMessage({ conclusion: '' }, 'u')).toBe('');
+    expect(consultShareMessage({ conclusion: 'x', voice: true }, 'u')).toContain('著者本人の言葉ではありません。');
+    expect(consultShareMessage({ conclusion: 'あ'.repeat(500) }, 'u')).toContain(`${'あ'.repeat(399)}…`);
   });
 });

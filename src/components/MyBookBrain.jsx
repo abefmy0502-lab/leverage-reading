@@ -37,7 +37,10 @@ import { createSendGuard } from '../lib/sendGuard';
 import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
 import PoolOutCard from './PoolOutCard';
 import { SkeletonBlock } from './Skeleton';
-import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal, FileText } from 'lucide-react';
+import { consultShareMessage, shareReferral } from '../lib/referral';
+import { isAppStoreLive, storeLinkFor } from '../lib/appStore';
+import { SITE_URL } from '../lib/legalLinks';
+import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, Share as ShareIcon, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal, FileText } from 'lucide-react';
 import PromptMakerSheet from './PromptMakerSheet';
 import { rememberConsultAsk } from '../lib/lastConsultAsk';
 import ContextMenu from './ContextMenu';
@@ -2130,6 +2133,20 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   行動を決めた答えのあとは、これまでの深掘りのチップ。次にすることは入力欄の上のこの 1 行だけ（lib/consultHelpers.js）。
   const lastParsed = answerDone ? parseAnswer(lastVisible.content) : null;
   const lastAsksBack = !!lastParsed?.question;
+  // 答えへの操作の行（気づきを書き残す・共有）を出すか。
+  const answerToolsShown = answerDone && lastIsAssistant && !busy && !lastIsMemoAnswer && !isNoInfoAnswer(lastVisible);
+  const shareLastAnswer = async () => {
+    track('consult_share', { action: 'open' });
+    const v = lastVisible ? (lastVisible.voice || decodeVoice(lastVisible.refs)) : null;
+    const msg = consultShareMessage({ conclusion: lastParsed?.conclusion, action: lastParsed?.action, voice: !!v }, isAppStoreLive ? storeLinkFor('share_consult') : `${SITE_URL}/lp`);
+    if (!msg || await shareReferral(msg)) return;
+    try {
+      await navigator.clipboard?.writeText(msg);
+      toast.success('答えをコピーしました。');
+    } catch {
+      toast.error('コピーできませんでした。もう一度押してください。');
+    }
+  };
   // 🔎 最後の相談が本を探す問いなら、そのあとのチップは「いまにどう活かす？」「ほかにも書いてた？」だけ（2026-09-30）。
   const lastLookup = answerDone && isBookLookup(lastAsked);
   const lookupFound = lastLookup
@@ -2884,10 +2901,19 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 🫶 命に関わる言葉が相談に書かれたら、答えの下に相談窓口（AI 選書と同じ・App 審査 1.4.1・2026-11-21）。 */}
           {careShown && <CareNote style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />}
           {/* ✍️ 気づきを書き残す（2026-11-25 対話の世界）: 答えが出きったら、自分の言葉で気づきを学びとして残す（AI なし）。 */}
-          {answerDone && lastIsAssistant && !busy && !lastIsMemoAnswer && !isNoInfoAnswer(lastVisible) && (
-            <button type="button" onClick={() => { track('dialogue_insight_open', {}); setInsightFor(lastAsked || ''); }} style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
-              <PencilLine size="1em" aria-hidden="true" />気づきを書き残す
-            </button>
+          {/* 📤 共有（2026-11-26 体験した人の声「1on1 で効いた答えをチームに見せる手段が無い」）: 結論と決めた一歩だけ（相談した文は入れない）。 */}
+          {answerToolsShown && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
+              <button type="button" onClick={() => { track('dialogue_insight_open', {}); setInsightFor(lastAsked || ''); }} style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)' }}>
+                <PencilLine size="1em" aria-hidden="true" />気づきを書き残す
+              </button>
+              {/* 聞き返しの途中の答えは出さない（結論が次の返事で変わる・共有するのは出きった答え・ui-critic） */}
+              {lastParsed?.conclusion && !lastAsksBack && (
+                <button type="button" onClick={shareLastAnswer} aria-label="この答えを共有" style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)' }}>
+                  <ShareIcon size="1em" aria-hidden="true" />共有
+                </button>
+              )}
+            </div>
           )}
           {insightFor != null && <KeepInsightSheet question={insightFor} onClose={() => setInsightFor(null)} />}
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
@@ -2953,7 +2979,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {answerRowShown && !lastActionAdded && (
             // 答えのカード → 文字ボタンの文字まで約 20（8 ＋ 押せる範囲 44 の上の空き）。文字の左端は余白 16 に揃える。
             // メモの答えの下に「AI に答えてもらう（プラン）」が出ているときは、別のまとまりとして 24 離す（2026-10-01 ui-critic）。
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: lastIsMemoAnswer && freeMode && visibleMessages[visibleMessages.length - 1]?.id === firstMemoAnswerId ? MEMO_PLAN_GAP : 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
+            // 上に答えへの操作の行（気づきを書き残す・共有）があるときは 16 離す＝「この答えへの操作」と「会話を区切る」を別のまとまりに（ui-critic）。
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', marginTop: lastIsMemoAnswer && freeMode && visibleMessages[visibleMessages.length - 1]?.id === firstMemoAnswerId ? MEMO_PLAN_GAP : answerToolsShown ? 'var(--space-4)' : 'var(--space-2)', marginLeft: ANSWER_COLUMN }}>
               {/* 無料のトークンを使い切ったら、できない操作を出さない */}
               {/* 失敗した答えには吹き出しの「もう一度」があるので、ここでは出さない */}
               {/* 関係するメモが無かった答えは、角度を変えても答えられないので「本を追加」「学びを書く」へ（2026-09-29） */}

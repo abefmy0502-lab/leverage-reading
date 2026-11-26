@@ -47,6 +47,27 @@ export function advisorShareMessage(book, url) {
   ].filter(Boolean).join('\n');
 }
 
+// 💬 相談の答えを人に渡す文（2026-11-26 体験した人の声「1on1 で効いた答えをチームに見せる手段が無い」）。
+//   入れるのは答えの【結論】と、決めた一歩だけ。相談した文そのもの・聞き返し・根拠のメモの一覧は入れない
+//   （結論の中で AI が状況を言い直すことはあるので、共有シートで送る前に本人が見て直せる形で渡す）。最後に orime の入手先。
+//   AI の答えであることはいつも書く。本の語り口の答え（voice）は、著者本人の言葉ではないことも添える（GLOSSARY の「必ず添える」）。
+export function consultShareMessage({ conclusion = '', action = '', voice = false } = {}, url = '') {
+  const clean = (t, max) => {
+    const v = String(t || '').replace(/\*\*/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    return v.length > max ? `${v.slice(0, max - 1)}…` : v;
+  };
+  const c = clean(conclusion, 400);
+  if (!c) return '';
+  const a = clean(action, 160);
+  return [
+    c,
+    a ? `\n明日からの一歩: ${a}` : '',
+    '\norime の AI が、自分の読書メモをもとに答えたものです。',
+    voice ? '本の語り口をまねた AI の答えで、著者本人の言葉ではありません。' : '',
+    url,
+  ].filter(Boolean).join('\n');
+}
+
 // 端末の共有シートで渡す。渡せなければ false（呼び手がコピーに切り替える）。
 export async function shareReferral(message) {
   if (!message) return false;

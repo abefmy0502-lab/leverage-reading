@@ -68,6 +68,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `referral_share` | 設定の「友だちに紹介する」を押した（2026-10-22） | `action`: `open` | `AccountSettings.jsx` |
 | `review_link` | 設定の「App Store でレビューを書く」を押した（2026-11-26） | `action`: `open` | `AccountSettings.jsx` |
 | `invite_share` | 設定の「orime を友だちに教える」を押した（2026-11-26・全員） | `action`: `open` | `AccountSettings.jsx` |
+| `consult_share` | 相談の答えの下の「共有」を押した（2026-11-26・結論と一歩だけ・相談した文は送らない・App Store のキャンペーン `share_consult`） | `action`: `open` | `MyBookBrain.jsx` |
 | `advisor_share` | AI 選書の本のカードの「共有」を押した（2026-11-26・全員・本と核心の 1 文だけ・悩みは送らない・App Store のキャンペーン `share_advisor`） | `action`: `open` | `AdvisorStoreLinks.jsx` |
 | `return_moment` | ホームの また開いたときの 1 行（2026-11-26・3 日以上あけた日の「おかえりなさい」／はじめて 1 か月〜1 年） | `kind`: `back` / `anniv`、`action`: `shown` / `open` / `dismiss`、`to`（shown だけ・`read` / `compare` / `memo` / `book`）、`gap`（back の shown だけ・あけた日数）・`days`（anniv の shown だけ・30/90/180/365…） | `HomeScreen.jsx`・`hooks/useReturnMoment.js` |
 | `mcp_connect` | AI と連携（MCP）のシート（2026-11-07） | `action`: `open` / `create` / `revoke` | `McpConnectSheet.jsx` |

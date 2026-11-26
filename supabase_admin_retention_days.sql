@@ -84,6 +84,7 @@ begin
     ),
     'invite', (select count(*) from public.analytics_events where event = 'invite_share'),
     'advisor_share', (select count(*) from public.analytics_events where event = 'advisor_share'),
+    'consult_share', (select count(*) from public.analytics_events where event = 'consult_share'),
     'review_link', (select count(*) from public.analytics_events where event = 'review_link')
   ) into result;
   return result;
