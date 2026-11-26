@@ -16,6 +16,7 @@ import { withPhraseBreaks } from './TightBubble';
 import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
 import { resolveListBooks, setGuessedStatus, hasNotes } from '../lib/importLookup';
 import { BOOKMETER_BOOKMARKLET } from '../lib/bookmeterBookmarklet';
+import { KINDLE_BOOKMARKLET } from '../lib/kindleBookmarklet';
 import { searchBooksOnServer } from '../lib/bookSearch';
 import { input as uiInput } from '../styles/ui';
 import { autoGrowTextarea } from '../hooks/useComposerHeight';
@@ -187,6 +188,11 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   const copyBookmarklet = async () => {
     try { await navigator.clipboard.writeText(BOOKMETER_BOOKMARKLET); setCopied(true); track('import_bookmarklet_copied', {}); } catch { setCopied(false); }
   };
+  // Kindle のノートブックの全部の本を 1 回で保存するコードをコピー（2026-11-26・lib/kindleBookmarklet.js）。
+  const [kindleCopied, setKindleCopied] = useState(false);
+  const copyKindleBookmarklet = async () => {
+    try { await navigator.clipboard.writeText(KINDLE_BOOKMARKLET); setKindleCopied(true); track('import_bookmarklet_copied', { source: 'kindle' }); } catch { setKindleCopied(false); }
+  };
 
   // 📋 一覧を貼り付ける（2026-11-25）: 書名か ISBN を 1 行に 1 冊。読書メーターの「テキストのみ」のコピーや、
   //   スプレッドシートの列のコピーもそのまま（書名に見えない行は書店で確かめて外せる）。
@@ -290,6 +296,18 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             {/* 初めての人がたどり着ける手順（2026-10-08 オーナー承認・ui-critic）。補足は手順の後ろに小さく。 */}
             <p style={{ ...body, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('Kindle アプリで本を開き、画面を押して上のノートブックのアイコン ')}<span style={nowrap}>→ エクスポート。</span>{withPhraseBreaks('届いた HTML ファイルを「ファイル」に保存して、ここで選びます。')}</p>
             <p style={{ ...body, fontSize: 'var(--text-meta)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んでいる途中でも取り込めます。同じメモは二重に入りません。何冊分かをまとめて選べます。')}</p>
+            {/* 全部の本を 1 回で（2026-11-26・lib/kindleBookmarklet.js）。本人のブラウザで本人のノートブックを読むだけ・外へは送らない。 */}
+            <details style={{ marginTop: 'var(--space-1)' }}>
+              <summary style={{ ...body, color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center' }}>全部の本を 1 回で保存する（パソコン）</summary>
+              <ol style={{ ...body, margin: 'var(--space-2) 0 0', paddingLeft: '1.2em', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <li>{withPhraseBreaks('下のボタンでコードをコピーし、ブラウザにブックマークを作って、URL の欄に貼ります。')}</li>
+                <li>{withPhraseBreaks('read.amazon.co.jp/notebook を開いてログインし、そのブックマークを押します。')}</li>
+                <li>{withPhraseBreaks('全部の本のハイライトとメモを読んで、1 つのファイルに保存します。そのファイルをここで選びます。')}</li>
+              </ol>
+              <button type="button" onClick={copyKindleBookmarklet} style={{ ...btnLink, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+                {kindleCopied ? 'コピーしました' : 'コードをコピー'}
+              </button>
+            </details>
           </li>
           <li style={howItem}>
             <p style={howTitle}>Kindle 端末</p>

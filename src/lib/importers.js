@@ -249,7 +249,24 @@ const decodeEntities = (s) => decodeHtmlEntities(String(s || '')
   .replace(/<br\s*\/?>/gi, '\n')
   .replace(/<[^>]+>/g, ''));
 
+// 1 つのファイルに何冊も並んでいても読む（ノートブックをまとめて保存するブックマークレット・lib/kindleBookmarklet.js・2026-11-26）。
+//   本の区切りは .bookTitle。Kindle アプリの「エクスポート」は 1 冊なので、今までと同じ結果。
 export function parseKindleNotebookHtml(html) {
+  const all = String(html || '');
+  const starts = [];
+  const reTitle = /<[^>]+class=["']bookTitle["']/gi;
+  let t;
+  while ((t = reTitle.exec(all))) starts.push(t.index);
+  if (starts.length <= 1) return parseKindleNotebookOne(all);
+  const books = [];
+  for (let i = 0; i < starts.length && books.length < IMPORT_MAX_PARSE_BOOKS; i += 1) {
+    const one = parseKindleNotebookOne(all.slice(starts[i], starts[i + 1] ?? all.length));
+    books.push(...one.books);
+  }
+  return { source: 'kindle', books };
+}
+
+function parseKindleNotebookOne(html) {
   const s = String(html || '');
   const pick = (cls) => {
     const m = s.match(new RegExp(`class=["']${cls}["'][^>]*>([\\s\\S]*?)</div>`, 'i'));
