@@ -17,14 +17,11 @@
 import { progressLabel, progressSpoken, hasProgress } from '../lib/readingProgress';
 import { useEffect, useMemo, useState } from 'react';
 import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
 import { firstConsultDone, takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder, grownLinePending, markGrownLineDone, GROWTH_GOAL } from '../lib/firstDay';
-import { useAllActions } from '../hooks/useAllActions';
-import { homeActionsSummary } from '../lib/homeActions';
-import { stripInlineMd } from '../lib/text';
 import { displayTitle } from '../lib/bookTitle';
 import { appNow } from '../lib/appNow';
 import { firstConsultQuestion } from '../lib/consultHelpers';
@@ -334,49 +331,6 @@ function HomePlanRow({ plan, onOpen }) {
   );
 }
 
-function HomeActionsRow({ summary, onOpen }) {
-  if (!summary) return null;
-  const firstText = stripInlineMd(String(summary.first?.text || '')).replace(/\s+/g, ' ').trim();
-  return (
-    <button
-      type="button"
-      data-home-actions=""
-      onClick={() => onOpen?.(summary)}
-      aria-label={`${summary.label} ${summary.count} 件。${firstText ? `${firstText.replace(/[。．.！!？?]+$/, '')}。` : ''}行動を開く`}
-      style={navRow}
-    >
-      <Target size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>{summary.label}</span>
-        {firstText && (
-          // 1 行で … （SPEC §1・2 行目が「誰か／に話す」と語の途中で折れていた・2026-11-18 ui-critic）
-          <span style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 1, marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, overflow: 'hidden', overflowWrap: 'anywhere' }}>{firstText}</span>
-        )}
-      </span>
-      {/* 数は右の › と同じ高さの中央に（行の右の値・iOS の設定の一覧と同じ） */}
-      <span style={navValue}>{summary.count} 件</span>
-      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-    </button>
-  );
-}
-
-// 💬 相談の 1 行（2026-11-26 全体の UX 監査「ホームに一番の価値＝積み重ねた相談相手が見えない」）。
-//   メモが 1 件以上あるときだけ、行動とすべての本の間に。2 行目は「あなたのメモ N 件から答えます」（相談の上の行と同じ言葉）。
-//   会話の欄ではない（ホームに相談のチャットは置かない＝2026-10-01 のまま）。押すと相談タブ。
-function HomeConsultRow({ count, onOpen }) {
-  const sub = count > 0 ? `あなたのメモ ${count}\u00a0件から答えます` : '';
-  return (
-    <button type="button" data-home-consult="" onClick={onOpen} aria-label={sub ? `相談。${sub}。相談を開く` : '相談を開く'} style={navRow}>
-      <MessageCircle size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
-      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <span style={{ whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>相談</span>
-        {sub && <span style={{ marginTop: 'var(--space-1)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{sub}</span>}
-      </span>
-      <ChevronRight size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-    </button>
-  );
-}
-
 // 🌱 相談相手が育ちました（2026-10-10）: メモが 10 件になったのを見たあと 1 回だけ、題の下（育つまでの一行と同じ場所）に。
 //   見た目は育つまでの一行（芽 1.2em・--text-3＋13/--text-2）＋右に文字ボタン「相談してみる」と ×。押しても閉じても二度と出さない。
 //   7 日間無料はここではすすめない（ホームではすすめない・相談の画面の案内 ③ はそのまま）。
@@ -678,9 +632,6 @@ export default function HomeScreen({
     setGrown(false);
     track('grown_card', { action });
   };
-  // 🎯 今日の行動（本の行動から作る＝本と一緒に分かる・あとから差し込まない）。
-  const { allActions } = useAllActions(books);
-  const actionsSummary = useMemo(() => homeActionsSummary(allActions, appNow()), [allActions]);
   // 前回の件数（開いたときに 1 回だけ読む）。数えている間の形は、前回 1〜9 件だった人にだけ出す。
   const [lastCount] = useState(lastHomeMemoCount);
   useEffect(() => {
@@ -792,7 +743,7 @@ export default function HomeScreen({
         <>
           {!memoState.hasMemos && <HomeFirstStep bookCount={books.length} onQuickstart={onQuickstart} onImport={onImport} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
-          {/* 今日の行動とすべての本は、1 枚のまとまりの 2 行（区切り線でつなぐ）。 */}
+          {/* 読書計画とすべての本は、1 枚のまとまりの行（区切り線でつなぐ）。 */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {planToday && (
             <>
@@ -800,21 +751,7 @@ export default function HomeScreen({
               {navDivider}
             </>
           )}
-          {onOpenActions && actionsSummary && (
-            <>
-              <HomeActionsRow
-                summary={actionsSummary}
-                onOpen={(sm) => { track('home_actions_row', { kind: sm.kind, count: sm.count }); onOpenActions(); }}
-              />
-              {navDivider}
-            </>
-          )}
-          {onOpenConsult && memoState.hasMemos && memoState.count > 0 && (
-            <>
-              <HomeConsultRow count={memoState.count} onOpen={() => { track('home_consult_row', {}); onOpenConsult(); }} />
-              {navDivider}
-            </>
-          )}
+          {/* 今日までの行動・相談の行は 2026-11-26 オーナー「読書計画と全ての本のみにしよう」でやめた（行動は振り返り、相談は下のタブから）。 */}
           <button type="button" onClick={onOpenLibrary} style={navRow}>
             <Library size="1.2em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />
             <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)' }}>すべての本</span>
