@@ -43,7 +43,7 @@ describe('AI 選書の本を教える（2026-11-26）', () => {
 describe('相談の答えを渡す（2026-11-26）', () => {
   it('結論と一歩と URL だけ・強調の印は外す・結論が無ければ空', () => {
     const m = consultShareMessage({ conclusion: '**まず聞く**ことから。', action: '明日の 1on1 で最初に質問する' }, 'https://x.example');
-    expect(m).toBe('まず聞くことから。\n\n明日からの一歩: 明日の 1on1 で最初に質問する\n\norime の AI が、自分の読書メモをもとに答えたものです。\nhttps://x.example');
+    expect(m).toBe('まず聞くことから。\n\n明日からの一歩：明日の 1on1 で最初に質問する\n\norime の AI が、自分の読書メモをもとに答えたものです。\nhttps://x.example');
     expect(consultShareMessage({ conclusion: '' }, 'u')).toBe('');
     expect(consultShareMessage({ conclusion: 'x', voice: true }, 'u')).toContain('著者本人の言葉ではありません。');
     expect(consultShareMessage({ conclusion: 'あ'.repeat(500) }, 'u')).toContain(`${'あ'.repeat(399)}…`);

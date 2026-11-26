@@ -61,7 +61,7 @@ export function consultShareMessage({ conclusion = '', action = '', voice = fals
   const a = clean(action, 160);
   return [
     c,
-    a ? `\n明日からの一歩: ${a}` : '',
+    a ? `\n明日からの一歩：${a}` : '',
     '\norime の AI が、自分の読書メモをもとに答えたものです。',
     voice ? '本の語り口をまねた AI の答えで、著者本人の言葉ではありません。' : '',
     url,
