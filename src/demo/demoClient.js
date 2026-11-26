@@ -373,8 +373,9 @@ export function createDemoClient() {
     },
     app_metadata: { provider: 'email' },
     // ?demo=freenew: 登録したばかりの人（無料プランのはじめの月＝今月は 60 トークン・2026-10-09）。
+    //   &joined=90d: アカウントを作ったのが 90 日前（はじめて 3 か月の 1 行・2026-11-26）。
     //   &joined=new: ほかのシナリオでも、今月アカウントを作った人にする（例 ?demo=fewmemos&joined=new・?demo=freeused&joined=new）。
-    created_at: new Date(Date.now() - (scenario === 'freenew' || params.get('joined') === 'new' ? 600000 : 200 * 86400000)).toISOString(),
+    created_at: new Date(Date.now() - (scenario === 'freenew' || params.get('joined') === 'new' ? 600000 : /^\d+d$/.test(params.get('joined') || '') ? parseInt(params.get('joined'), 10) * 86400000 : 200 * 86400000)).toISOString(),
   };
 
   const db = buildSeed(scenario);

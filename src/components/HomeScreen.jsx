@@ -17,7 +17,9 @@
 import { progressLabel, progressSpoken, hasProgress } from '../lib/readingProgress';
 import { useEffect, useMemo, useState } from 'react';
 import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
-import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
+import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera, History } from 'lucide-react';
+import { useReturnMoment } from '../hooks/useReturnMoment';
+import { momentQuote } from '../lib/returnMoments';
 import HomeFirstStep, { useHomeMemoState, MEMO_COUNT_WAIT_MS } from './HomeFirstStep';
 import GrowthMeter from './GrowthMeter';
 import ShareNudge, { useShareNudge } from './ShareNudge';
@@ -101,8 +103,10 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan =
         <div style={{ borderTop: '1px solid var(--separator)', margin: 'var(--space-4) 0 calc(-1 * var(--space-2))', paddingTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-1)' }}>
           {/* 前の文は付随情報の強さ（13/--text-3）に下げ、ボタンは灰の文字＋ › で押せると分かる形に
               （同じ強さだと 1 つの文に見えた・2026-11-26 ui-critic）。強弱は 塗り → 枠 → 文字 の 3 段のまま。 */}
-          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>これから読書を始めるなら</span>
-          <button type="button" onClick={onAdvisor} style={{ ...btnLinkQuiet, gap: 'var(--space-1)' }}>最初の 1 冊を探す<ChevronRight size="1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} /></button>
+          {/* 2026-11-26（継続の点検）: 読書の習慣がない人の入口が灰の小さな文字だけだったので、ボタンを栗色の文字（btnLink）に上げた。
+              強弱は 塗り（一文をメモする）→ 枠（本棚の写真）→ 文字 の 3 段のまま。 */}
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>まだ読んだ本がなければ</span>
+          <button type="button" onClick={onAdvisor} style={{ ...textRow, gap: 'var(--space-1)' }}>最初の 1 冊を探す<ChevronRight size="1em" aria-hidden="true" style={{ flexShrink: 0 }} /></button>
         </div>
       )}
     </section>
@@ -353,9 +357,20 @@ export function authorNewsText({ fav, book, more = 0 }) {
 }
 
 function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', mark = 'grown', stack = false }) {
+  // 積み重ねの形（stack）は × を右上の角に（「読み返す ×」が 1 つの組に見えない・iOS の閉じる位置・2026-11-26 ui-critic）。
+  const closeBtn = (
+    <button
+      type="button"
+      onClick={onDismiss}
+      aria-label="この案内を閉じる"
+      style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', padding: 0, cursor: 'pointer', color: 'var(--text-3)', ...(stack ? { position: 'absolute', top: 'calc((var(--text-meta) * 1.5 - var(--tap-min)) / 2)', right: 0 } : null) }}
+    >
+      <X size="1.2em" aria-hidden="true" />
+    </button>
+  );
   return (
-    <div data-grown-line={mark} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0' }}>
-      <p style={{ flex: stack ? '1 1 100%' : '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
+    <div data-grown-line={mark} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0', ...(stack ? { position: 'relative' } : null) }}>
+      <p style={{ flex: stack ? '1 1 100%' : '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, ...(stack ? { paddingRight: 'var(--tap-min)' } : null) }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
           <Icon size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
         </span>
@@ -364,15 +379,9 @@ function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, act
       {/* 1 行に収まるときは右へ（文が伸びて押す）。折り返したときは文の頭（芽の右）にそろえる（2026-10-10 ui-critic）。 */}
       <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 'calc(var(--text-meta) * 1.2)' }}>
         <button type="button" onClick={onConsult} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>{actionLabel}</button>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="この案内を閉じる"
-          style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 'var(--radius-full)', padding: 0, cursor: 'pointer', color: 'var(--text-3)' }}
-        >
-          <X size="1.2em" aria-hidden="true" />
-        </button>
+        {!stack && closeBtn}
       </span>
+      {stack && closeBtn}
     </div>
   );
 }
@@ -604,13 +613,16 @@ export default function HomeScreen({
   // 無料プランで先月のトークンを使い切った人に、月のはじめの 7 日間だけ「今月の相談が戻りました」（2026-10-20）。
   const tokensBack = useTokensBack(!!onOpenConsult && !loading && !loadError && books.length > 0);
   const reask = useReaskNudge(!!onConsultDraft && !loading && !loadError && books.length > 0);
+  // 🌙 また開いたときの 1 行（3 日以上あけた日の「おかえりなさい」・はじめて 1 か月〜1 年・lib/returnMoments.js・2026-11-26）。
+  const returnMoment = useReturnMoment(!!onOpenMemo && !loading && !loadError && books.length > 0, books, MEMO_COUNT_WAIT_MS);
+  const momentBook = returnMoment.moment ? books.find((b) => b.id === returnMoment.moment.memo.bookId) || null : null;
   // 年額の更新の前の 1 行（30 日前から）と、12〜1 月の月額の人への年額の 1 行（2026-10-22）。どちらも 1 行ずつ・ほかの 1 行より先。
   const renewal = useRenewalReview(!!onOpenRecord && !loading && !loadError && books.length > 0, books);
   const annual = useAnnualNudge(!!onOpenPlan && !loading && !loadError && books.length > 0);
   const planToday = usePlanToday(books, !!onOpenReadingPlan && !loading && !loadError && books.length > 0);
   // 🧭 目標を書いていない人に、ホームで 1 行（初日のメモがまだの人には出さない）。
   const goalNudge = useGoalNudge(!!onOpenGoals && !loading && !loadError && books.length > 0 && memoState.known && memoState.hasMemos, user?.id);
-  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready && renewal.ready;
+  const homeKnown = memoState.known && shareNudge.ready && tokensBack.ready && reask.ready && renewal.ready && returnMoment.ready;
   // ✍️ お気に入りの著者の新しい本は、ホームが落ち着いたときにもう分かっていたときだけ出す（裏で聞き直して
   //   あとから分かった本は、次にホームを開いたときに＝見ている途中で中身を押し下げない・2026-11-26 点検）。
   const [newsAllowed, setNewsAllowed] = useState(null);
@@ -704,8 +716,20 @@ export default function HomeScreen({
             onDismiss={() => reask.close('dismiss')}
           />
         )}
+        {/* 🌙 また開いたときの 1 行（ほかの時期の案内が出ている日は出さない＝2 行にしない・押すとそのメモを開く）。 */}
+        {homeKnown && momentBook && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
+          <GrownLine
+            mark={`moment-${returnMoment.moment.kind}`}
+            stack
+            icon={returnMoment.moment.kind === 'anniv' ? Sprout : History}
+            text={<>{withPhraseBreaks(returnMoment.moment.lead)}<span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(momentQuote(returnMoment.moment.memo))}</span></>}
+            actionLabel="読み返す"
+            onConsult={() => { const m = returnMoment.moment; returnMoment.close('open'); onOpenMemo(momentBook, m.memo.id); }}
+            onDismiss={() => returnMoment.close('dismiss')}
+          />
+        )}
         {/* ✍️ お気に入りの著者の新しい本（2026-11-25・hooks/useFavoriteAuthors.js）。押すと著者のシート・× でその本はもう知らせない。 */}
-        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
+        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && !momentBook && (
           <GrownLine
             mark="author-news"
             stack

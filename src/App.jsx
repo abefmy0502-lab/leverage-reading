@@ -7370,12 +7370,17 @@ function AuthedApp() {
                     actions={[
                       { label: '本を追加', onClick: openAdd, variant: 'primary', icon: <IcPlus size="1.2em" aria-hidden="true" /> },
                     ]}
-                    // 脇の入口は「読んだ本の一文をメモする」（ホームの本 0 冊と同じ入口・無料で使える）。
-                    // AI 選書は有料プランだけなので、最初の一歩には出さない。
+                    // 脇の入口は「読んだ本の一文をメモする」（ホームの本 0 冊と同じ入口・無料で使える）と、
+                    // まだ読んだ本が無い人の「最初の 1 冊を探す」（AI 選書は 2026-11-25 から無料プランも・2026-11-26 に足した）。
                     tip={(
-                      <button type="button" onClick={() => setShowQuickstart(true)} style={btnLink}>
-                        読んだ本の一文をメモする
-                      </button>
+                      <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-4)' }}>
+                        <button type="button" onClick={() => setShowQuickstart(true)} style={btnLink}>
+                          読んだ本の一文をメモする
+                        </button>
+                        <button type="button" onClick={() => openAdvisorWithDraft('本を読む習慣をつけたい。最初の 1 冊におすすめの本は？')} style={btnLinkQuiet}>
+                          最初の 1 冊を探す
+                        </button>
+                      </span>
                     )}
                   />
                 ) : (

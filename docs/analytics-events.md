@@ -66,6 +66,8 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | `renewal_review` | ホームの「年額プランの更新まで N 日。この 1 年で、…」を押した／閉じた（2026-10-22） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
 | `annual_nudge` | ホームの 12〜1 月の「来年も読むなら、年額プランは…」を押した／閉じた（2026-10-22） | `action`: `open` / `dismiss` | `HomeScreen.jsx` |
 | `referral_share` | 設定の「友だちに紹介する」を押した（2026-10-22） | `action`: `open` | `AccountSettings.jsx` |
+| `invite_share` | 設定の「orime を友だちに教える」を押した（2026-11-26・全員） | `action`: `open` | `AccountSettings.jsx` |
+| `return_moment` | ホームの また開いたときの 1 行（2026-11-26・3 日以上あけた日の「おかえりなさい」／はじめて 1 か月〜1 年） | `kind`: `back` / `anniv`、`action`: `shown` / `open` / `dismiss`、`gap`（back の shown だけ・あけた日数）・`days`（anniv の shown だけ・30/90/180/365…） | `HomeScreen.jsx`・`hooks/useReturnMoment.js` |
 | `mcp_connect` | AI と連携（MCP）のシート（2026-11-07） | `action`: `open` / `create` / `revoke` | `McpConnectSheet.jsx` |
 | `prompt_maker` | AI への指示文のシート（2026-10-21） | `action`: `open` / `create` / `copy` / `open_chatgpt` / `open_claude`、`from`: `book` / `consult`、`books`（create だけ・9 まで）、`format`（create だけ） | `PromptMakerSheet.jsx` |
 | `brain_reask` | 過去の相談（14 日より前）の「いまのメモで、もう一度相談する」を押した（2026-10-20） | なし | `MyBookBrain.jsx` |

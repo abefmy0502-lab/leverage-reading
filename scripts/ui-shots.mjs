@@ -185,6 +185,11 @@ const SCREENS = [
   ...REL10,
   ...REL10B,
   { name: 'home', url: '/' },
+  // 🌙 また開いたときの 1 行（2026-11-26）: 3 日以上あけた日の「おかえりなさい」と、はじめて 3 か月
+  { name: 'home-return-back', url: '/?lastvisit=5' },
+  { name: 'home-return-anniv', url: '/?joined=95d' },
+  // 設定のいちばん下「orime を友だちに教える」
+  { name: 'settings-invite', url: '/', steps: [{ css: 'button[aria-label="設定を開く"]' }, { scrollTo: 'button:has-text("orime を友だちに教える")' }] },
   // ✍️ お気に入りの著者（2026-11-25）: ホームの新しい本の 1 行・著者のシート（本の詳細の著者の名前から）・設定の一覧。
   { name: 'author-news', url: '/?authors=on', steps: [{ wait: 7000 }] },
   { name: 'author-sheet', url: '/?authors=on', steps: [{ wait: 7000 }, { css: '[data-grown-line="author-news"] button:has-text("見る")' }, { wait: 1200 }] },

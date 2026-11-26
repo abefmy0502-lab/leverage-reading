@@ -19,7 +19,7 @@ import { clearDeviceData } from '../lib/deviceData';
 import { readingSessions } from '../hooks/useReadingSessions';
 import { clearLocalProfile } from '../lib/profile';
 import { finishAccountDeletion } from '../lib/deleteAccount';
-import { TERMS_URL, PRIVACY_URL, SCT_URL } from '../lib/legalLinks';
+import { TERMS_URL, PRIVACY_URL, SCT_URL, SITE_URL } from '../lib/legalLinks';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { supabase, isSupabaseConfigured, isDemo } from '../lib/supabase';
@@ -45,14 +45,15 @@ import { openBillingPortal, PLAN_LABELS } from '../lib/billing';
 import { deleteConfirmTarget, deleteConfirmMatches } from '../lib/deleteConfirm';
 import { purchasePlan } from '../lib/iap';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
-import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral } from '../lib/referral';
+import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral, inviteMessage } from '../lib/referral';
+import { isAppStoreLive, storeLinkFor } from '../lib/appStore';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { FREE_TOKENS } from '../lib/tokens';
 import { FREE_OCR_PER_MONTH, remainingAnswersLabel } from '../lib/tokenAmounts';
 import { nextResetLabelJa } from '../lib/freeTrial';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnDanger, btnLink, input as uiInput, srOnly } from '../styles/ui';
-import { ChevronRight, Download as IcDownload, ExternalLink, RefreshCw as IcRefresh } from 'lucide-react';
+import { ChevronRight, Download as IcDownload, ExternalLink, RefreshCw as IcRefresh, Share } from 'lucide-react';
 import { useNoteLinks } from '../hooks/useNoteLinks';
 import { SkeletonBlock } from './Skeleton';
 import { withPhraseBreaks } from './TightBubble';
@@ -509,6 +510,20 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
   ) : null;
+  // 🌱 orime を友だちに教える（2026-11-26・全員）: コードの無いビルドでも、人にすすめる入口を 1 つ。
+  //   App Store の URL（キャンペーン share_invite）か、まだ無ければ紹介のページ。紹介した人への特典は無い。
+  const handleInvite = async () => {
+    track('invite_share', { action: 'open' });
+    const url = isAppStoreLive ? storeLinkFor('share_invite') : `${SITE_URL}/lp`;
+    const msg = inviteMessage(url);
+    if (await shareReferral(msg)) return;
+    try {
+      await navigator.clipboard?.writeText(msg);
+      toast.success('紹介の文をコピーしました。');
+    } catch {
+      toast.error('紹介の文を用意できませんでした。');
+    }
+  };
   // 🪙➕ 追加トークンの行（残りがあるときだけ・期限なし＝2026-10-11 App Store 3.1.1）。
   const lotRow = purchasedTokens > 0 ? (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', minHeight: 44, padding: 'var(--space-3) 0', ...divider }}>
@@ -1357,11 +1372,23 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 <ExternalLink size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </a>
             )}
+            {/* 🌱 orime を友だちに教える（オファーコードの行があるビルドでは、そちらが同じ役目）。 */}
+            {!showReferralRow && (
+              <button type="button" style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome ? divider : null) }} onClick={handleInvite}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ ...rowTitleStyle, display: 'block' }}>orime を友だちに教える</span>
+                  <span style={{ ...rowDescStyle, display: 'block' }}>紹介の文を送る</span>
+                  <span style={srOnly}>（共有のシートを開きます）</span>
+                </span>
+                {/* 画面へ進む › ではなく、共有のシートを開く印（2026-11-26 ui-critic） */}
+                <Share size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </button>
+            )}
             {/* 新しくなったこと（2026-10-05）: 版ごとの どこの・何が・これまで → これから・影響・意図。下はいちばん新しい版の日付。 */}
             {!!BUNDLED_RELEASE_ID && (
               <button
                 type="button"
-                style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome ? divider : null) }}
+                style={{ ...rowButtonStyle, ...(onOpenHelp || noteHome || !showReferralRow ? divider : null) }}
                 onClick={openWhatsNew}
               >
                 <span style={{ flex: 1, minWidth: 0 }}>

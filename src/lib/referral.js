@@ -19,6 +19,17 @@ export function referralMessage(code = REFERRAL_CODE, site = SITE_URL) {
   ].join('\n');
 }
 
+// 🌱 orime を友だちに教える（2026-11-26・コードが無くても全員）。点検で、コードの無いビルドでは
+//   「人にすすめる」入口がアプリのどこにも無かった。文は事実だけ（何ができるか・無料プランで始められる）・
+//   URL は App Store（キャンペーン share_invite）か、まだ無ければ紹介のページ。紹介した人への特典は作らない。
+export function inviteMessage(url) {
+  return [
+    'orime という読書メモのアプリを使っています。',
+    '読んだ本の一文を残しておくと、困ったときにそのメモから答えてくれる相談相手になります。無料プランで始められます。',
+    url,
+  ].filter(Boolean).join('\n');
+}
+
 // 端末の共有シートで渡す。渡せなければ false（呼び手がコピーに切り替える）。
 export async function shareReferral(message) {
   if (!message) return false;
