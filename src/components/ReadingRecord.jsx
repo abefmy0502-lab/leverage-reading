@@ -32,6 +32,7 @@ import { applyLocalRecall } from '../lib/recall';
 import { loadRecallLocal } from '../lib/recallLocal';
 import { buildFieldRecord } from '../lib/bookFields';
 import { BookFieldsRecord } from './BookFields';
+import KnowledgeMapCard from './KnowledgeMapCard';
 import ReadingTimeCard from './ReadingTimeCard';
 import { useReadingSessions } from '../hooks/useReadingSessions';
 import { hasReadingTime } from '../lib/readingStats';
@@ -795,6 +796,9 @@ export default function ReadingRecord({
         </ul>
       </section>
       )}
+
+      {/* 🗺 知識の地図（2026-11-26・似たメモでつながる本が 3 冊以上のときだけ・components/KnowledgeMapCard.jsx）。 */}
+      <KnowledgeMapCard books={books} likely={(books || []).filter((b) => b.status === 'reading' || b.status === 'done').length >= 3} />
 
       {/* 🏷 分野（分野の付いた本があるときだけ・押すと、すべての本をその分野で絞る）。 */}
       {fieldRecord.any && (

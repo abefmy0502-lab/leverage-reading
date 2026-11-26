@@ -830,6 +830,10 @@ const SCREENS = [
   // 記録の下の区画（読書の足あと・月別の読了・分野）を見せる（2026-11-26 オーナー「デザインちっくに直感的に」）
   { name: 'review-record-foot', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { eval: RT_SCROLL('[data-record-foot]') }, { wait: 400 }] },
   { name: 'review-record-day', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { eval: RT_SCROLL('[data-record-foot]') }, { eval: "(() => { const c = [...document.querySelectorAll('[data-record-foot] [data-day]')]; const t = c.find((x) => !String(x.style.background).includes('accent')); const r = (t || c[0]).getBoundingClientRect(); const g = document.querySelector('[data-record-foot] [role=slider]'); g.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true })); g.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); })()" }, { wait: 400 }] },
+  // 🗺 知識の地図（2026-11-26）: 地図・本を押して選び直したところ
+  { name: 'knowledge-map', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 400 }] },
+  { name: 'knowledge-map-pick', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { css: '[data-knowledge-map] button[aria-label*="数値化の鬼"] >> nth=0' }, { wait: 400 }, { eval: RT_SCROLL('[data-knowledge-map]') }, { wait: 300 }] },
+  { name: 'knowledge-map-list', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 2500 }, { eval: RT_SCROLL('[data-knowledge-map] h4') }, { wait: 400 }] },
   { name: 'review-record-fields', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { wait: 400 }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   // 一部の区画だけ（読了が 1 冊も無い人＝「月別の読了」は出さない・2026-10-04）
