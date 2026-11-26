@@ -61,7 +61,15 @@ export default function KnowledgeMapCard({ books = [], likely = false, onWriteMe
 
   if (!map) {
     if (status === 'error' || !likely) return null;
-    return <SkeletonBlock height={360} radius="var(--radius)" aria-label="知識の地図を読み込み中" />;
+    // 出来上がりと同じ形（カードの中に題の行と正方形の地図）で待つ（大きな灰の板だと何を待っているか分からない・2026-11-26）。
+    return (
+      <div data-knowledge-map-loading="" role="status" aria-label="知識の地図を読み込み中" style={{ ...card, padding: 'var(--space-4)' }}>
+        <SkeletonBlock width="40%" height={20} radius="var(--radius)" />
+        <div style={{ width: '100%', maxWidth: 360, aspectRatio: '1 / 1', margin: 'var(--space-3) auto 0' }}>
+          <SkeletonBlock width="100%" height="100%" radius="var(--radius)" />
+        </div>
+      </div>
+    );
   }
   if (!map.nodes.length) return null;
 

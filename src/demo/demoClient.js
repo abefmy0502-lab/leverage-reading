@@ -175,6 +175,8 @@ class Query {
       || (qs.get('load') === 'memocount' && this.table === 'book_memos' && this.head)
       // &load=bookmemos: 本の詳細のメモ一覧（book_id で絞る読み出し）だけ遅らせる（本の詳細の読み込み中の形の確認用・2026-10-04）。
       || (qs.get('load') === 'bookmemos' && this.table === 'book_memos' && !this.head && (this.eqCols || []).includes('book_id'))
+      // &load=allmemos: 全メモの読み出し（useAllMemoRows＝source_type を含む select）だけ遅らせる（知識の地図の読み込み中の形の確認用・2026-11-26）。
+      || (qs.get('load') === 'allmemos' && this.table === 'book_memos' && /source_type/.test(String(this.selectStr || '')))
       // &load=usage: トークンの使い方のシートの読み込み（使い道の内訳）だけ遅らせる（読み込み中の形の確認用・2026-10-11）。
       || (qs.get('load') === 'usage' && this.table === 'ai_usage' && /purpose_mjpy/.test(String(this.selectStr || ''))));
     // &writefail=book_memos: 指定した表への書き込みを失敗させる（保存の失敗の表示の確認用）。
