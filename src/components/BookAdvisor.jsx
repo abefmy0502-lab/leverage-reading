@@ -188,7 +188,9 @@ function SummaryText({ text }) {
   }, [large, open, text]);
   return (
     <>
-      <p ref={ref} style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(large && !open ? summaryClamp : null) }}>{lead && <span style={{ fontFeatureSettings: '"halt"' }}>{lead}</span>}{withPhraseBreaks(String(text || '').slice(lead.length))}</p>
+      {/* AI が書いた文なので、文節で止めずに流す（相談の答えと同じ＝word-break: normal・line-break: strict・
+          keep-all だと「いまいちばん気に／なっているのでしょうか」のように右が大きく空いていた・2026-11-26 点検）。 */}
+      <p ref={ref} style={{ ...questionText, fontWeight: 400, margin: 'var(--space-2) 0 0', ...(large && !open ? summaryClamp : null) }}>{lead && <span style={{ fontFeatureSettings: '"halt"' }}>{lead}</span>}{String(text || '').slice(lead.length)}</p>
       {large && (cut || open) && (
         <button
           type="button"

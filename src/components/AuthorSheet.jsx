@@ -210,8 +210,9 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
               return (
                 <li key={b.isbn} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3) 0', ...(b === state.books[0] ? { paddingTop: 0 } : null), borderBottom: '1px solid var(--separator)' }}>
                   <MiniCover title={b.title} cover={b.cover} width={44} />
+                  {/* 書名は 3 行まで・長い語はカタカナと漢字の境で割る（「エリック・シュミットの、…」で本が見分けられなかった・2026-11-26 点検）。 */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(b.title)}</p>
+                    <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(b.title, { scriptBreaks: true })}</p>
                     <p style={{ ...note, color: 'var(--text-3)', marginTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)' }}>
                       {fresh && <span style={{ color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>{isUpcoming(b) ? 'これから出る本' : '新しい本'}</span>}
                       <span style={{ whiteSpace: 'nowrap' }}>{releaseLabel(b)}</span>
