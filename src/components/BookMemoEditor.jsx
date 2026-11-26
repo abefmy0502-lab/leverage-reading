@@ -659,7 +659,8 @@ export default function BookMemoEditor({
                 style={btnRow}
               >
                 <ImagePlus size="1.2em" aria-hidden="true" style={{ flexShrink: 0 }} />
-                写真を選ぶ
+                {/* 何が起きるかをボタンの言葉で（上の「写真から書き起こす」＝本文に文字を入れる、と見分ける・2026-11-26 全体の UX 監査） */}
+                写真をメモに残す
               </button>
               <input
                 ref={fileInputRef}

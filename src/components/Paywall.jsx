@@ -148,12 +148,13 @@ const PLAN_COMPARE = [
   { name: 'プラン', amount: `AI の答え ${answerCountLabel(PAID_TOKENS)}`, scope: `毎月 ${PAID_TOKENS.toLocaleString()} トークン`, lead: '無料プランの AI に加えて：', items: ['読書計画シート', 'メモの凝縮・まとめ', '写真から書き起こし（毎月 10 回を超えても）'] },
 ];
 // 7 日間無料で使えるトークン（期間まるごと・2026-09-29 オーナー裁定で下の固定の欄に出す）。
-// SPEC §1-3 の書き方「最初の 7 日間は無料（150 トークン・AI の答え 約 15 回）」。かっこの中は 1 かたまり
+// SPEC §1-3 の書き方「最初の 7 日間は無料（AI の答え 約 50 回）」（2026-11-26 にトークンの数を外した）。かっこの中は 1 かたまり
 // （以前は「…無料・150 トークン・」と「・」で続けたので、行末に「・」が残って次の行へ割れていた・2026-10-04）。
 //   数と単位の間は折り返さない空白（狭い画面でかっこの中を割るときも「・」の後だけ）。
 // 文字が大きいときは「・」の後ろで割れるよう、そこにだけ幅のない空白（U+200B）を入れる（1 かたまりのまま画面からはみ出した・2026-10-10 ui-critic）。
 // 割れてよいのは「・」の後ろだけ＝2 つの塊に分け、それぞれ折り返さない（keep-all だけでは暗い設定の撮影で「答／え」と割れた・2026-10-10 ui-critic）。
-const TRIAL_TOKENS_PARTS = [`（${TRIAL_TOKENS.toLocaleString('ja-JP')}\u00a0トークン・`, `AI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`];
+// 2026-11-26 全体の UX 監査: 初めての人に「150 トークン」は分かりにくいので、量は「AI の答え 約 N 回」だけに（トークンの数は上の比較の行で言う）。
+const TRIAL_TOKENS_PARTS = [`（AI\u00a0の答え\u00a0${answerCountLabel(TRIAL_TOKENS).replace(/ /g, '\u00a0')}）`];
 const TRIAL_TOKENS_NOTE = TRIAL_TOKENS_PARTS.join('');
 // トークンの目安（1 行）。
 // 相談 1 つが何回の答えかの補足（CONSULT_ANSWERS_NOTE）は、この目安の行で 1 回だけ（2026-10-09）。
