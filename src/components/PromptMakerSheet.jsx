@@ -5,6 +5,7 @@
 //   ① どの本から？  この本／すべての本／本を選ぶ（メモのある本の一覧にチェック）。無料プランは 1 冊まで（複数は「（プラン）」）
 //   ② 何についてまとめる？  自分の言葉の欄（80 字）＋候補のチップ（得たいこと・メモのタグ）
 //   ③ どんな形で？  1 枚の要約／本ごとの比較（2 冊以上）／明日からの行動／人に説明する資料／反対の意見も入れる
+//   ③' 図解のときだけ: 図の形（おまかせ／流れ／関係／比較／ピラミッド）・どの AI で描く？（Claude／ChatGPT／どれでも）（2026-11-26）
 //   ④ 誰が読む？ 自分／上司／チーム ・ 長さ 短く／ふつう／詳しく
 //   下の主ボタン「指示文をつくる」→ できあがり（指示文の全文・「コピー」・「ChatGPT で開く」「Claude で開く」＝コピーしてから開く）
 // AI は使わない（トークンを使わない）。どこにも送らない（送るのは本人）。
@@ -25,7 +26,7 @@ import { usePaywall } from '../state/PaywallContext';
 import { track } from '../lib/analytics';
 import {
   buildExternalPrompt, cleanTheme, isThemeReady, THEME_MAX,
-  PROMPT_FORMATS, PROMPT_AUDIENCES, PROMPT_LENGTHS, EXTERNAL_AI_LINKS,
+  PROMPT_FORMATS, PROMPT_AUDIENCES, PROMPT_LENGTHS, EXTERNAL_AI_LINKS, DIAGRAM_SHAPES, DIAGRAM_TARGETS,
 } from '../lib/externalPrompt';
 import { btnPrimary, btnPrimaryOff, btnGhost, btnLink, fieldNote, groupTitle, input as uiInput } from '../styles/ui';
 
@@ -79,6 +80,9 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
   const [format, setFormat] = useState('one');
   const [audience, setAudience] = useState('self');
   const [length, setLength] = useState('normal');
+  // 🧩 図解のときだけ: 図の形・どの AI で描くか（2026-11-26 オーナー「図解で頭に残るようなものを作れるように」）
+  const [diagramShape, setDiagramShape] = useState('auto');
+  const [diagramTarget, setDiagramTarget] = useState('claude');
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -110,12 +114,12 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
     if (!ready) return;
     // 無料プランは 1 冊まで（複数の本はプランの機能・すすめてよい ②）。
     if (multi && freeMode && !requirePlan('複数の本の指示文')) return;
-    const r = buildExternalPrompt({ books: selectedBooks, memos: rows, theme, format, audience, length });
-    setResult({ ...r, format });
+    const r = buildExternalPrompt({ books: selectedBooks, memos: rows, theme, format, audience, length, diagramShape, diagramTarget });
+    setResult({ ...r, format, diagramTarget: format === 'diagram' ? diagramTarget : null });
     setCopied(false);
     // できあがりは先頭から見せる（フォームの下のほうで押しても、指示文の頭から）。
     requestAnimationFrame(() => { try { document.querySelector('[data-prompt-result]')?.scrollIntoView({ block: 'start' }); } catch { /* ignore */ } });
-    track('prompt_maker', { action: 'create', from, books: Math.min(r.books, 9), format });
+    track('prompt_maker', { action: 'create', from, books: Math.min(r.books, 9), format, ...(format === 'diagram' ? { shape: diagramShape, target: diagramTarget } : null) });
   };
   const doCopy = async (where = 'copy') => {
     if (!result) return false;
@@ -169,7 +173,7 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
       </pre>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-          {EXTERNAL_AI_LINKS.map((l) => (
+          {[...EXTERNAL_AI_LINKS].sort((x, y) => (y.key === result.diagramTarget) - (x.key === result.diagramTarget)).map((l) => (
             <a
               key={l.key}
               href={l.url}
@@ -183,7 +187,9 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
           ))}
         </div>
         {result.format === 'diagram' && (
-          <p style={meta}>{withPhraseBreaks('図がコードのまま出たときは、「図にして」と頼んでください。')}</p>
+          <p style={meta}>{withPhraseBreaks(result.diagramTarget === 'any'
+            ? '図がコードのまま出たときは、「図にして」と頼んでください。'
+            : `${result.diagramTarget === 'chatgpt' ? 'ChatGPT' : 'Claude'} で開いて貼ると、図そのものが出ます。出ないときは「図にして」と頼んでください。`)}</p>
         )}
         <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks('コピーしてから開きます。貼りつけて送るのはあなたです（扱いはそれぞれの決まりに従います）。')}</p>
       </div>
@@ -256,6 +262,27 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
           ))}
         </div>
       </section>
+
+      {format === 'diagram' && (
+        <>
+          <section style={section} aria-label="図の形は？">
+            <h3 style={question}>図の形は？</h3>
+            <div role="radiogroup" style={chipRow}>
+              {DIAGRAM_SHAPES.map((d) => (
+                <Chip key={d.key} size="select" role="radio" aria-checked={diagramShape === d.key} active={diagramShape === d.key} onClick={() => setDiagramShape(d.key)}>{d.label}</Chip>
+              ))}
+            </div>
+          </section>
+          <section style={section} aria-label="どの AI で描く？">
+            <h3 style={question}>どの AI で描く？</h3>
+            <div role="radiogroup" style={chipRow}>
+              {DIAGRAM_TARGETS.map((d) => (
+                <Chip key={d.key} size="select" role="radio" aria-checked={diagramTarget === d.key} active={diagramTarget === d.key} onClick={() => setDiagramTarget(d.key)}>{d.label}</Chip>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       <section style={section} aria-label="誰が読む？">
         <h3 style={question}>誰が読む？</h3>

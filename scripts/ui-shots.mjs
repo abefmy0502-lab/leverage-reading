@@ -262,6 +262,9 @@ const SCREENS = [
   // 全画面のメモの編集（タグは本の編集と同じ選ぶチップ・つながるメモ）
   // 選ぶためのチップの枠（2026-11-17）: 読む時間の目安・AI への指示文のシート
   { name: 'chip-read-target', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("数値化の鬼")' }, { css: 'button[aria-label="読む時間の目安を決める"]' }, { wait: 600 }] },
+  // 🧩 図解を選んだ形（図の形・どの AI で描く？）と、できあがり（2026-11-26）
+  { name: 'prompt-diagram', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: '[role=menuitem]:has-text("AI への指示文をつくる")' }, { wait: 800 }, { fill: ['[role=dialog] input[aria-label="何についてまとめる？"]', '部下の育て方'] }, { css: '[role=dialog] [role=radio]:has-text("図解")' }, { wait: 300 }, { eval: "document.querySelector('[role=dialog] [aria-label=\"図の形は？\"]')?.scrollIntoView({ block: 'center' })" }, { wait: 300 }] },
+  { name: 'prompt-diagram-result', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: '[role=menuitem]:has-text("AI への指示文をつくる")' }, { wait: 800 }, { fill: ['[role=dialog] input[aria-label="何についてまとめる？"]', '部下の育て方'] }, { css: '[role=dialog] [role=radio]:has-text("図解")' }, { css: '[role=dialog] button:has-text("指示文をつくる")' }, { wait: 600 }] },
   { name: 'chip-prompt-maker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button[aria-label="その他の操作"]' }, { css: '[role=menuitem]:has-text("AI への指示文をつくる")' }, { wait: 800 }] },
   { name: 'book-memo-editor-tags', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: '[data-memo-id] p >> nth=1' }, { wait: 800 }, { scrollTo: 'label:has-text("タグ")' }] },
   // メモの「ページ順 ▾」メニュー（✓ と空きだけ）

@@ -65,12 +65,32 @@ describe('AI への指示文', () => {
     expect(text).toContain('- a b c');
   });
 
-  it('図解を選ぶと、Mermaid の図と言葉の短さの決まりを入れる（ほかの形には入れない）', () => {
+  it('図解を選ぶと、頭に残る図の決まり（核心の 1 文・3〜7 個・関係の言葉・思い出すための問い）を入れる（ほかの形には入れない）', () => {
     const { text } = buildExternalPrompt({ books, memos, theme: '部下への任せ方', format: 'diagram' });
-    expect(text).toContain('```mermaid');
+    expect(text).toContain('アーティファクト'); // 既定は Claude で 1 枚の SVG
     expect(text).toContain('15 字以内');
+    expect(text).toContain('3〜7 個');
+    expect(text).toContain('関係を表す短い言葉');
+    expect(text).toContain('## 思い出すための問い');
     expect(text).toContain('の図解を、日本語でつくってください');
+    const any = buildExternalPrompt({ books, memos, theme: '部下への任せ方', format: 'diagram', diagramTarget: 'any', diagramShape: 'flow' }).text;
+    expect(any).toContain('```mermaid');
+    expect(any).toContain('流れ図');
+    expect(buildExternalPrompt({ books, memos, theme: 'x任せ方', format: 'diagram', diagramTarget: 'chatgpt' }).text).toContain('キャンバス');
     const other = buildExternalPrompt({ books, memos, theme: '部下への任せ方', format: 'one' }).text;
     expect(other).not.toContain('mermaid');
+    expect(other).not.toContain('3〜7 個');
+  });
+
+  it('材料はタグで囲んで先に・頼みごとと型と確かめは後に（2026-11-26）', () => {
+    const { text } = buildExternalPrompt({ books, memos, theme: '部下への任せ方', format: 'one' });
+    const iMat = text.indexOf('<材料>');
+    const iEnd = text.indexOf('</材料>');
+    expect(iMat).toBeGreaterThan(-1);
+    expect(iEnd).toBeGreaterThan(iMat);
+    expect(text.indexOf('# お願い')).toBeGreaterThan(iEnd);
+    expect(text).toContain('## ひと言で');
+    expect(text).toContain('# 出す前に確かめること');
+    expect(text).toContain('核心を、1 文で');
   });
 });
