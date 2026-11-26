@@ -20,7 +20,7 @@ const hintStyle = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin
 const infoStyle = { fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 0, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const inp = { ...uiInput, marginBottom: 'var(--space-2)' };
 // 間違えた欄は枠を --error に（入力中の --accent の枠のままだとエラーに見えない）
-const inpBad = { borderColor: 'var(--error)' };
+const inpBad = { border: '1px solid var(--error)' };
 // 主ボタンのすぐ上に置くエラー（どのボタンの話か分かるように・2026-11-19 ui-critic）
 const errAbove = { ...errStyle, margin: '0 0 var(--space-2)' };
 

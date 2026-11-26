@@ -38,6 +38,10 @@ function BookLine({ title, author, cover }) {
   );
 }
 
+// 文字の数で切る（絵文字を 1 字と数える＝数え方を下の「N / 上限」とデータベースにそろえる・2026-11-26 点検）。
+//   欄の maxLength は 2 倍にして、切るのはここで（絵文字を半分に割らない）。
+const cutChars = (v, max) => [...String(v ?? '')].slice(0, max).join('');
+
 export default function ProfileForm({ value, onChange, showBio = false, showAvatar = false, fromShelf = false, shelfBooks = [], loadMemos = null, showFavorite = true }) {
   const ids = { nick: useId(), book: useId(), line: useId(), bio: useId(), avatar: useId() };
   const set = (patch) => onChange({ ...value, ...patch });
@@ -84,7 +88,7 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
     setResults(null); setQuery(''); setChanging(false);
   };
   const useTyped = () => {
-    set({ favTitle: query.trim().slice(0, PROFILE_LIMITS.title), favAuthor: '', favIsbn: '', favCover: '' });
+    set({ favTitle: cutChars(query.trim(), PROFILE_LIMITS.title), favAuthor: '', favIsbn: '', favCover: '' });
     setResults(null); setQuery(''); setChanging(false);
   };
 
@@ -128,7 +132,7 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
       )}
       <div style={field}>
         <label htmlFor={ids.nick} style={label}>ニックネーム<span style={fieldNote}>（任意）</span></label>
-        <input id={ids.nick} value={value.nickname} onChange={(e) => set({ nickname: e.target.value })} maxLength={PROFILE_LIMITS.nickname} placeholder="例：ふみ" autoComplete="nickname" style={inputBase} />
+        <input id={ids.nick} value={value.nickname} onChange={(e) => set({ nickname: cutChars(e.target.value, PROFILE_LIMITS.nickname) })} maxLength={PROFILE_LIMITS.nickname * 2} placeholder="例：ふみ" autoComplete="nickname" style={inputBase} />
       </div>
 
       {showBio && (
@@ -137,8 +141,8 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
           <textarea
             id={ids.bio}
             value={value.bio || ''}
-            onChange={(e) => set({ bio: e.target.value })}
-            maxLength={PROFILE_LIMITS.bio}
+            onChange={(e) => set({ bio: cutChars(e.target.value, PROFILE_LIMITS.bio) })}
+            maxLength={PROFILE_LIMITS.bio * 2}
             rows={3}
             placeholder="例：メーカーで企画の仕事。チームづくりの本をよく読みます"
             style={{ ...inputBase, minHeight: 'calc(3 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
@@ -205,7 +209,7 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
     
           <div style={field}>
             <label htmlFor={ids.line} style={label}>その本のおすすめの 1 行<span style={fieldNote}>（任意）</span></label>
-            <input id={ids.line} value={value.favLine} onChange={(e) => set({ favLine: e.target.value })} maxLength={PROFILE_LIMITS.line} placeholder="例：仕事の見え方が変わった一冊" style={inputBase} />
+            <input id={ids.line} value={value.favLine} onChange={(e) => set({ favLine: cutChars(e.target.value, PROFILE_LIMITS.line) })} maxLength={PROFILE_LIMITS.line * 2} placeholder="例：仕事の見え方が変わった一冊" style={inputBase} />
             <p style={hint}>好きな本は読了として本棚に入ります。<br />この 1 行は、その本のメモに残ります。</p>
           </div>
           </>
@@ -290,8 +294,8 @@ function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
           ref={lineRef}
           id={ids.line}
           value={value.favLine}
-          onChange={(e) => set({ favLine: e.target.value })}
-          maxLength={PROFILE_LIMITS.line}
+          onChange={(e) => set({ favLine: cutChars(e.target.value, PROFILE_LIMITS.line) })}
+          maxLength={PROFILE_LIMITS.line * 2}
           rows={2}
           placeholder="例：心に残った一文を、そのまま"
           style={{ ...inputBase, minHeight: 'calc(2 * 1.5em + var(--space-6))', lineHeight: 1.5, resize: 'none' }}
@@ -319,7 +323,7 @@ function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
                       <button
                         type="button"
                         style={{ ...rowBtn, alignItems: 'flex-start' }}
-                        onClick={() => { set({ favLine: String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, PROFILE_LIMITS.line) }); setMemoOpen(false); }}
+                        onClick={() => { set({ favLine: cutChars(String(m.text || '').replace(/\s+/g, ' ').trim(), PROFILE_LIMITS.line) }); setMemoOpen(false); }}
                       >
                         <span style={{ display: 'block', minWidth: 0 }}>
                           <span style={{ display: 'block', fontSize: 'var(--text-body)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word', lineBreak: 'strict', whiteSpace: 'pre-line' }}>{withPhraseBreaks(String(m.text || '').trim())}</span>

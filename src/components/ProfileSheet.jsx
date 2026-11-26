@@ -50,7 +50,8 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   const toast = useToast();
   const confirm = useConfirm();
   useEffect(() => { if (!touched) setDraft(profile); }, [profile, touched]);
-  const change = (next) => { setTouched(true); setDraft(next); };
+  // 直したら、前の保存のエラーは消す（直したのに赤い文が残っていた・2026-11-26 点検）
+  const change = (next) => { setTouched(true); setDraft(next); setError(''); };
   const profileDirty = JSON.stringify(normalizeProfile(draft)) !== JSON.stringify(normalizeProfile(profile));
   const url = profileUrl(profile.publicId);
   // 登録せずに始めた人は公開できない（データベースでも止める・App 審査 1.2）。

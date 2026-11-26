@@ -4,6 +4,7 @@
 // アプリ全体で再利用できるよう最小の API（title / onClose / children / footer）
 // に絞った。Esc / 右上の文字 / 背景タップ / 下スワイプ で閉じる（ハンドルは目印だけ）。
 import { useEffect, useRef, useState } from 'react';
+import { pushEscape } from '../lib/escapeStack';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useBlockEdgeSwipe } from '../hooks/useEdgeSwipeBack';
 import { closeDelayMs, DURATION_FAST_MS } from '../lib/motion';
@@ -75,11 +76,8 @@ export default function BottomSheet({ title, eyebrow = '', onClose, beforeClose 
   // Escape はいつも最新の animateClose を呼ぶ（前は開いたときの関数を掴み、書いたあとでも確かめずに閉じていた・2026-11-21）。
   const animateCloseRef = useRef(animateClose);
   animateCloseRef.current = animateClose;
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing) animateCloseRef.current(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  //   Escape はいちばん上に開いている層だけ（下のシート・設定まで一緒に閉じない・lib/escapeStack.js・2026-11-26 点検）。
+  useEffect(() => pushEscape(() => animateCloseRef.current()), []);
 
   // 掴んで下に振ると閉じる（iOS シートの標準所作。ハンドル/ヘッダー起点のみ）。
   const onDragStart = (e) => {

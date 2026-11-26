@@ -876,6 +876,9 @@ function AuthedApp() {
     // テーマまとめ（'report'）は 2026-09-30 に廃止。前に開いていた人は相談から（下の一覧に無いので 'brain'）。
     ['advisor', 'brain'].includes(resumeNav?.aiSubTab) ? resumeNav.aiSubTab : 'brain'
   ));
+  // 相談タブに戻ったときは、前に見ていたサブタブへ（AI 選書の聞き取り・選んでいる途中が隠れていた・2026-11-26 点検）。
+  const lastAiSubRef = useRef(aiSubTab);
+  useEffect(() => { lastAiSubRef.current = aiSubTab; }, [aiSubTab]);
   // 相談の中で押し込まれた画面（過去の相談・学びを書く・根拠にできる情報）を開いている間は、
   // サブタブの行を隠す（押し込まれた画面は「‹ 相談」の 1 行だけ・切り替えを 2 段にしない）。
   // MyBookBrain が onPushedViewChange で知らせる。相談タブ・相談サブタブを離れたら戻す。
@@ -997,7 +1000,7 @@ function AuthedApp() {
     // 記録から開いた「すべての本」は寄り道なので、別のタブへ移ったらホームに戻しておく。
     if (tab === 'books' && libraryFrom) { setShelfMode('home'); setLibraryFrom(null); }
     if (t === 'review') { setActionShowDoneNonce(null); setReviewSubTab(lastReviewSubRef.current || reviewHomeSub); }
-    else if (t === 'ai') setAiSubTab('brain');
+    else if (t === 'ai') setAiSubTab(lastAiSubRef.current === 'advisor' ? 'advisor' : 'brain');
     setTab(t);
   };
   // 📊 記録の数字・タグ・著者から「すべての本」を開く（‹ 記録 で記録へ戻れるように印を付ける）。
@@ -6358,7 +6361,8 @@ function AuthedApp() {
             defaultText={fullEditorPrefill.text || ''}
             handedOver
             defaultTags={Array.isArray(fullEditorPrefill.tags) ? fullEditorPrefill.tags : []}
-            allTags={allTags}
+            // メモのタグの候補はこの本のメモから（本の詳細から開いた全画面と同じ・2026-11-26 点検）
+            allTags={frequentMemoTags(currentMemoOps.memos || [], allTags)}
             onClose={() => setFullEditorPrefill(null)}
             onCreate={async (payload, opts = {}) => {
               const result = await currentMemoOps.createMemo(payload);

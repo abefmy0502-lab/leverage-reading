@@ -14,7 +14,7 @@
 // （相談は下のタブ「相談」から）。思い出しカードはホームから外し「振り返り」へ（SPEC §1）。
 // 上の行の「写真で共有」は App.jsx の全体ヘッダー（ホーム・振り返り・相談で同じ場所）。
 // 見た目は DESIGN.md のトークンのみ。
-import { progressLabel } from '../lib/readingProgress';
+import { progressLabel, progressSpoken, hasProgress } from '../lib/readingProgress';
 import { useEffect, useMemo, useState } from 'react';
 import { isUpcoming, shortPubdate } from '../lib/favoriteAuthors';
 import { Library, ChevronRight, PencilLine, Plus, BookOpen, Timer, Target, Sprout, X, MessageCircle, CalendarCheck, CalendarDays, Compass, Camera } from 'lucide-react';
@@ -121,7 +121,8 @@ function BookRow({ book: b, sub, onOpenBook, onCoverRetry, action, footer, divid
       <button
         type="button"
         onClick={() => onOpenBook(b)}
-        aria-label={`『${b.title}』を開く`}
+        // 読んだところも読み上げる（名前がボタンの中身を置き換えるため・2026-11-26 点検）
+        aria-label={`『${b.title}』を開く${hasProgress({ unit: b.progressUnit, current: b.currentPage, total: b.totalPages }) ? `・${progressSpoken({ unit: b.progressUnit, current: b.currentPage, total: b.totalPages })}` : ''}`}
         // 書名の列は 7.5rem（約 8 字）＋表紙 40＋間 12。ふだんの大きさでは「メモを書く」と 1 行に並び（324 の行に 180＋12＋128）、
         // 文字を少しでも大きくしたらボタンを折り返して書名の列を広げる（2026-10-04 ui-critic）。
         style={{ flex: '1 1 100%', minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' }}

@@ -53,7 +53,7 @@ function TitleAuthorFold({ form, setForm }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-4)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <label htmlFor={titleId} style={groupTitle}>書名<span style={fieldNote}>（必須）</span></label>
-          <input id={titleId} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-invalid={empty || undefined} style={empty ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
+          <input id={titleId} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} aria-invalid={empty || undefined} style={empty ? { ...inp, border: '1px solid var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <label htmlFor={authorId} style={groupTitle}>著者<span style={fieldNote}>（任意）</span></label>
@@ -264,7 +264,7 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <label htmlFor={titleInputId} style={groupTitle}>書名<span style={fieldNote}>（必須）</span></label>
-            <input id={titleInputId} aria-label="書名（必須）" ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} aria-invalid={titleMissing || undefined} aria-describedby={titleMissing ? titleErrId : undefined} style={titleMissing ? { ...inp, borderColor: 'var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
+            <input id={titleInputId} aria-label="書名（必須）" ref={titleRef} value={form.title} onChange={(e) => { setTitleMissing(false); setForm({ ...form, title: e.target.value }); }} aria-invalid={titleMissing || undefined} aria-describedby={titleMissing ? titleErrId : undefined} style={titleMissing ? { ...inp, border: '1px solid var(--error)' } : inp} maxLength={LIMITS.bookTitle} />
             {titleMissing && <p id={titleErrId} role="alert" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--error)' }}>書名を入力してください</p>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>

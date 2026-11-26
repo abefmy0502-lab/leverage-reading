@@ -486,9 +486,12 @@ export default function ShareSheet({
     });
   };
   const [phrase, setPhraseState] = useState(null);
+  //   一文を隠すのは、言葉の中身が入ってから（入れる前に一文が消えて見えた・2026-11-26 点検）。
   const setPhrase = (next) => {
-    if (!phrase && next) setPhraseHidesQuote(true);
-    if (!next) setPhraseHidesQuote(false);
+    const had = !!(phrase && phraseDisplayText(phrase));
+    const has = !!(next && phraseDisplayText(next));
+    if (!had && has) setPhraseHidesQuote(true);
+    if (!has) setPhraseHidesQuote(false);
     setPhraseState(next);
   };
   const [editorOpen, setEditorOpen] = useState(false);
@@ -746,7 +749,25 @@ export default function ShareSheet({
     : null;
   const items = shareItemsFor({ record, variant, hasQuote: !!chosen && variant === 'record', hasAuthor: !!String(lineBook?.author || '').trim(), coverKey: coverItemKey, hasName: !!signature });
   const getEditorOpts = useCallback(() => cardOpts(), [drawKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openEditor = () => { if (status === 'ready') { haptic.light(); setEditorOpen(true); } };
+  // 編集を開いたときの状態（「キャンセル」で、端末に覚えた表示する項目まで含めて元に戻す＝一文を黙って隠したままにしない・2026-11-26 点検）
+  const editorSnapRef = useRef(null);
+  const openEditor = () => {
+    if (status !== 'ready') return;
+    haptic.light();
+    editorSnapRef.current = { view, phrase, savedHidden: [...savedHidden], phraseHidesQuote };
+    setEditorOpen(true);
+  };
+  const restoreFromEditor = () => {
+    const o = editorSnapRef.current;
+    if (o) {
+      setView(o.view);
+      setPhraseState(o.phrase);
+      setPhraseHidesQuote(o.phraseHidesQuote);
+      setHiddenState(o.savedHidden);
+      writeHiddenItems(safeStorage(), o.savedHidden);
+    }
+    setEditorOpen(false);
+  };
 
   // ---- 写真を選ぶ。「アルバム」「写真」は capture なし（iOS は「フォトライブラリ／写真を撮る」を選べる）、
   // 「撮り直す」は capture あり（すぐカメラ）。どちらも端末の中だけで使う。
@@ -887,10 +908,12 @@ export default function ShareSheet({
 
   // 形（投稿 4:5／ストーリー 9:16）は、いつも「編集」の行の右に横並び（見本の行は見本だけで等分の幅・
   //   2026-10-11 リリース前の採点。以前は見本が 2 つ以上のとき見本の行の右に縦に 2 つ）。透明（形が無い）のときは出さない。
-  const formatInEditRow = effStyle !== 'sticker';
+  //   透明のときも場所は残す（見えなくするだけ＝透明を選んだ瞬間にシートの並びが跳ねていた・2026-11-26 点検）。
+  const formatInEditRow = true;
+  const formatHidden = effStyle === 'sticker';
   // 編集の行は文字ボタンの左右 4 を負の余白で打ち消している＝面の切り替えは 4 戻して、折り返したときも左の 16 にそろえる（2026-11-26 ui-critic）。
   const formatSwitch = (
-    <div role="radiogroup" aria-label="画像の形" style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row', marginLeft: 'var(--space-1)' } : null), flexShrink: 0 }}>
+    <div role="radiogroup" aria-label="画像の形" aria-hidden={formatHidden || undefined} inert={formatHidden ? '' : undefined} style={{ ...segTrack, ...(formatInEditRow ? { flexDirection: 'row', marginLeft: 'var(--space-1)' } : null), flexShrink: 0, visibility: formatHidden ? 'hidden' : 'visible' }}>
       <SegThumb activeKey={format} activeSelector='[role="radio"][aria-checked="true"]' variant="face-strong" />
       {FORMAT_OPTIONS.map((o) => (
         <button key={o.v} type="button" role="radio" aria-checked={format === o.v} aria-label={o.aria} onClick={() => setFormat(o.v)} style={{ ...segBtn(format === o.v), padding: '0 var(--space-2)' }}>
@@ -1167,6 +1190,7 @@ export default function ShareSheet({
           onToggleItem={toggleItem}
           phrase={phrase}
           onPhrase={setPhrase}
+          onRestore={restoreFromEditor}
           onClose={() => {
             // 中身の無い言葉は捨てる（入れかけでやめた）。
             if (phrase && !phraseDisplayText(phrase)) setPhrase(null);

@@ -703,6 +703,13 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
       dismissible={step !== 'importing' && !undoing}
       // 選ぶ・確かめる: 決定は下のボタンなので右上は「キャンセル」。完了画面: 閉じるのは右上「完了」だけ（下は次にすること）。
       dismissLabel={step === 'done' ? '完了' : 'キャンセル'}
+      // 貼り付けた一覧・確かめた結果を、聞かずに捨てない（書店で確かめるのは数分かかることもある・2026-11-26 点検）
+      beforeClose={(step === 'paste' && pasteText.trim()) || step === 'preview' ? () => confirm({
+        title: '取り込まずに閉じますか？',
+        message: step === 'paste' ? '貼り付けた一覧は残りません。' : '確かめた本の一覧は残りません。',
+        confirmLabel: '閉じる',
+        cancelLabel: step === 'paste' ? '続ける' : '選び続ける',
+      }) : undefined}
     >
       <input
         ref={inputRef}

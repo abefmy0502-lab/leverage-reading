@@ -6,7 +6,9 @@ export const DEVICE_DATA_KEYS = [
   'orime.readingSessions.v1', 'orime.readingSessions.v1.moved', 'orime.focus.v1', 'orime.consult.actionAdded.v1',
 ];
 // orime.readingSessions.v1:<利用者 id>＝読書の時間の控え（利用者ごと・2026-10-10）。orime.booksCache.v1:<利用者 id>＝本の一覧の控え（起動を速くする・2026-11-20）。
-export const DEVICE_DATA_PREFIXES = ['orime.readingSessions.v1:', 'orime.booksCache.v1:', 'orime.memoCount.v1:', 'orime.consultStats.v1:', 'orime.bookBrief.v1:', 'orime.goalRoadmaps.v1:', 'orime.goals.v1:', 'orime.appPurpose.v1', 'orime.viewmap:', 'orime.fields.', 'orime.share.'];
+export const DEVICE_DATA_PREFIXES = ['orime.readingSessions.v1:', 'orime.booksCache.v1:', 'orime.memoCount.v1:', 'orime.consultStats.v1:', 'orime.bookBrief.v1:', 'orime.goalRoadmaps.v1:', 'orime.goals.v1:', 'orime.appPurpose.v1', 'orime.viewmap:', 'orime.fields.', 'orime.share.',
+  // 2026-11-26 点検: お気に入りの著者・読んだところ・アーカイブ・読む時間の目安・読了の問い・まとめの下書き・重なりの印・メモの並び
+  'orime.favAuthors.v1:', 'orime.progress.v1:', 'orime.archived.v1:', 'orime.readTarget.v1:', 'orime.doneQuestions.v1:', 'orime.summaryDraft.v1:', 'orime.overlaps.v1', 'orime.memoSort.v1'];
 
 function defaultStorage() {
   try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; }

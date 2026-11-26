@@ -712,12 +712,12 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       // IME 変換中の Esc はガード（変換キャンセルで設定ごと閉じない）。
       // 入力欄に書いている間（退会の確認のメール欄など）の Escape では閉じない（書いた文字が消えていた・2026-11-25 点検）。
       const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '') && !!document.activeElement?.value;
-      if (e.key === 'Escape' && !typing && !feedbackOpen && !whatsNewOpen && !usageOpen && !purposeEditOpen && !purposeCheck && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
+      if (e.key === 'Escape' && !typing && !feedbackOpen && !whatsNewOpen && !usageOpen && !mcpOpen && !purposeEditOpen && !purposeCheck && !e.isComposing && !e.nativeEvent?.isComposing) animateClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, feedbackOpen, whatsNewOpen, usageOpen, purposeEditOpen, purposeCheck, closing]);
+  }, [onClose, feedbackOpen, whatsNewOpen, usageOpen, mcpOpen, purposeEditOpen, purposeCheck, closing]);
 
   // 退会の確認で入れる言葉（メールアドレス／Apple でサインイン・メールを非公開の人は「削除」・lib/deleteConfirm.js・2026-10-11）。
   const deleteTarget = deleteConfirmTarget(user);
@@ -1114,7 +1114,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                     ariaLabel={`トークンの使い方を開く（${plan === 'trial' ? '無料期間' : '今月'}の残り ${fmtTokens(tokensRemaining)} / ${fmtTokens(tokenAllowance)} トークン）`}
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（戻るものが無い・2026-09-30）。
                     // 1 行目の下に「AI の答え 約 N 回」（相談の上の行と同じ物差し＝トークンだけだと何回使えるか分からない・2026-11-26 全体の UX 監査）。
-                    sub={<><span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答え ${remainingAnswersLabel(tokensRemaining)}`}</span></span>{plan === 'trial' || tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}</>}
+                    sub={<>{tokensRemaining > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答え ${remainingAnswersLabel(tokensRemaining)}`}</span></span>}{plan === 'trial' || tokensRemaining >= tokenAllowance ? null : <><span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}に</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークンに戻ります</span></>}</>}
                     style={divider}
                   />
                 ) : tokensLoading ? (
@@ -1199,7 +1199,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                     // まだ使っていない（残り＝その月の分）ときは「戻ります」を出さない（2026-09-30）。
                     // 🌱 はじめの月（アカウントを作った月）は、今月だけ多いことと来月からの量を（2026-10-09）。
                     // 1 行目の下に「AI の答え 約 N 回」（相談の上の行と同じ物差し・2026-11-26 全体の UX 監査）。
-                    sub={<><span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答え ${remainingAnswersLabel(tokensRemaining)}`}</span></span>{(freeFirstMonth && (tokenNextAllowance ?? FREE_TOKENS) === tokenAllowance
+                    sub={<>{tokensRemaining > 0 && <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>{`AI の答え ${remainingAnswersLabel(tokensRemaining)}`}</span></span>}{(freeFirstMonth && (tokenNextAllowance ?? FREE_TOKENS) === tokenAllowance
                       // 来月も同じ量なら、同じ数を 2 回言わない（2026-10-30 点検）
                       ? <><span style={{ whiteSpace: 'nowrap' }}>はじめの 2 か月は</span> <span style={{ whiteSpace: 'nowrap' }}>{fmtTokens(tokenAllowance)} トークン</span><span style={{ whiteSpace: 'nowrap' }}>使えます</span></>
                       : freeFirstMonth
@@ -1494,6 +1494,9 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   </p>
                   <input
                     type="text"
+                    // メールのときはメールのキーボード（＠がすぐ打てる・2026-11-26 点検）
+                    inputMode={deleteTarget.byWord ? undefined : 'email'}
+                    autoCapitalize="none"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
                     // 欄の中の例は短く（長いメールアドレスが欄からはみ出していた・2026-10-11 リリース前の採点）。

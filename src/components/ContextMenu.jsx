@@ -3,6 +3,7 @@
 // to the viewport.
 
 import { cloneElement, isValidElement, useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { pushEscape } from '../lib/escapeStack';
 import { withPhraseBreaks } from './TightBubble';
 
 // 幅は 220 か 14rem（文字の大きさの設定に追従）の広いほう。文字を大きくしたら広がり、画面の幅（左右 16 ずつ）を超えない（項目が 1 字ずつ割れないように・2026-10-08）。
@@ -85,14 +86,10 @@ export default function ContextMenu({ x = 0, y = 0, items: rawItems = [], onClos
     onClose?.();
   };
 
-  useEffect(() => {
-    const onKey = (e) => {
-      // IME 変換中の Escape は変換キャンセル。メニューを閉じない。
-      if (e.key === 'Escape' && !e.isComposing && !e.nativeEvent?.isComposing) onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Escape はいちばん上の層だけ（メニューだけを閉じ、下のシートは残す・lib/escapeStack.js・2026-11-26 点検）。IME 変換中は受けない。
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => pushEscape(() => onCloseRef.current?.()), []);
 
   // 位置は描く前に決める（useLayoutEffect）。useEffect だと、押した所に一度出てから画面の中へ跳ねる 1 フレームが見えていた。
   // 高さは実際のパネルを測る（2 行になる項目があっても下にはみ出さない・2026-09-30）。

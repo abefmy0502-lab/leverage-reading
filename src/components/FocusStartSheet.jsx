@@ -120,7 +120,7 @@ export default function FocusStartSheet({ book = null, onStart, onClose, initial
               onChange={(e) => { setUntilText(e.target.value); setNow(Date.now()); }}
               aria-describedby="focus-until-note"
               aria-invalid={check && !check.ok ? true : undefined}
-              style={{ ...input, ...(check && !check.ok ? { borderColor: 'var(--error)' } : null) }}
+              style={{ ...input, ...(check && !check.ok ? { border: '1px solid var(--error)' } : null) }}
             />
             <p id="focus-until-note" role={check && !check.ok ? 'alert' : undefined} style={{ margin: 0, fontSize: 'var(--text-meta)', lineHeight: 1.5, color: check && !check.ok ? 'var(--error)' : 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
               {check.ok ? `${fmtLen(check.minutes)} 読めます` : withPhraseBreaks(check.message)}

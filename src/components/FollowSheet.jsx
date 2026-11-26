@@ -1134,7 +1134,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 autoCapitalize="off"
                 autoCorrect="off"
                 enterKeyHint="go"
-                style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { borderColor: 'var(--error)' } : {}) }}
+                style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { border: '1px solid var(--error)' } : {}) }}
                 aria-invalid={preview?.missing || undefined}
               />
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>

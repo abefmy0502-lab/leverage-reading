@@ -90,7 +90,7 @@ const EDIT_ERROR = '「完了」で戻って紙・夜を選ぶか、もう一度
 
 export default function ShareEditor({
   getOpts, drawKey, ready, format, ground, canPan, photo, view, onView,
-  items = [], hidden = [], onToggleItem, phrase, onPhrase, onClose,
+  items = [], hidden = [], onToggleItem, phrase, onPhrase, onClose, onRestore = null,
 }) {
   useBlockEdgeSwipe(true);
   const trapRef = useFocusTrap(true);
@@ -473,6 +473,8 @@ export default function ShareEditor({
   const openedRef = useRef(null);
   if (openedRef.current === null) openedRef.current = { view, phrase, hidden: [...hidden] };
   const cancel = () => {
+    // 呼び出し元が開いたときの状態を持っていれば、それで戻して閉じる（端末に覚えた表示する項目を書き換えない）
+    if (onRestore) { onRestore(); return; }
     const o = openedRef.current;
     try {
       if (onView) onView(o.view || { panX: 0, panY: 0, zoom: 1 });

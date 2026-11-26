@@ -21,10 +21,11 @@ export const EMPTY_PROFILE = Object.freeze({
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // 自己紹介は改行を 2 つまで残す（ほかの欄は 1 行）。
-const cleanBio = (v) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ')
-  .split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{2,}/g, '\n').trim().slice(0, PROFILE_LIMITS.bio);
+const cleanBio = (v) => [...String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ')
+  .split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{2,}/g, '\n').trim()].slice(0, PROFILE_LIMITS.bio).join('');
 
-const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+// 文字の数で切る（絵文字を半分に割らない・2026-11-26 点検）
+const clean = (v, max) => [...String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, max).join('');
 
 /** 画面の値を保存できる形に（長さ・改行・表紙は https だけ・ISBN は数字だけ）。 */
 export function normalizeProfile(p = {}) {

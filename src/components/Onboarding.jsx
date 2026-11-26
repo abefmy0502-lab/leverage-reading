@@ -433,7 +433,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           {slide.sample && <OnboardSample />}
           {slide.id === 'profile' && (
             <div style={{ paddingTop: 'var(--space-2)' }}>
-              <ProfileForm value={profile} onChange={setProfile} showAvatar={SOCIAL_ON} showFavorite={!SOCIAL_ON} />
+              <ProfileForm value={profile} onChange={(next) => { setProfile(next); if (profileError) setProfileError(''); }} showAvatar={SOCIAL_ON} showFavorite={!SOCIAL_ON} />
               {profileError && <p role="alert" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-meta)', color: 'var(--error)' }}>{profileError}</p>}
             </div>
           )}
