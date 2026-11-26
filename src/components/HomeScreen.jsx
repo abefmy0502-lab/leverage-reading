@@ -355,7 +355,7 @@ export function authorNewsText({ fav, book, more = 0 }) {
   );
 }
 
-function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', mark = 'grown', stack = false }) {
+function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', actionAria = null, mark = 'grown', stack = false }) {
   // 積み重ねの形（stack）は × を右上の角に（「読み返す ×」が 1 つの組に見えない・iOS の閉じる位置・2026-11-26 ui-critic）。
   const closeBtn = (
     <button
@@ -377,7 +377,7 @@ function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, act
       </p>
       {/* 1 行に収まるときは右へ（文が伸びて押す）。折り返したときは文の頭（芽の右）にそろえる（2026-10-10 ui-critic）。 */}
       <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 'calc(var(--text-meta) * 1.2)' }}>
-        <button type="button" onClick={onConsult} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>{actionLabel}</button>
+        <button type="button" onClick={onConsult} aria-label={actionAria || undefined} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>{actionLabel}</button>
         {!stack && closeBtn}
       </span>
       {stack && closeBtn}
@@ -729,6 +729,8 @@ export default function HomeScreen({
             icon={moment.kind === 'anniv' ? Sprout : History}
             text={<>{withPhraseBreaks(moment.lead)}<span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span></>}
             actionLabel={moment.actionLabel}
+            // 読み上げは本の名前つき（同じ画面の一覧の「『書名』を読み始める」と見分ける・ui-critic）
+            actionAria={moment.action === 'start' ? `『${momentBook.title}』を読み始める` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
             onConsult={() => { returnMoment.close('open'); momentGo(); }}
             onDismiss={() => returnMoment.close('dismiss')}
           />
