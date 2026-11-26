@@ -35,6 +35,7 @@ import ErrorMessage from './ErrorMessage';
 import TightBubble, { withPhraseBreaks } from './TightBubble';
 import { createSendGuard } from '../lib/sendGuard';
 import TokensOutCard, { trialCancelLineStyle } from './TokensOutCard';
+import PoolOutCard from './PoolOutCard';
 import { SkeletonBlock } from './Skeleton';
 import { X, MessageCircle, History, BookOpenCheck, Target, Check, RotateCw, MoreHorizontal, ChevronLeft, ChevronDown, ChevronRight, PencilLine, ArrowUp, Square, Plus, Minus, Sprout, Trash2, SlidersHorizontal, FileText } from 'lucide-react';
 import PromptMakerSheet from './PromptMakerSheet';
@@ -163,6 +164,8 @@ const ANSWER_FAILED_TITLE = '答えを書けませんでした';
 const ANSWER_FAILED_DESC = '少し時間をおいて、送り直してください。';
 const topRow = { flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 52, paddingTop: 'var(--space-1)', paddingBottom: 'var(--space-1)', paddingLeft: 'var(--space-4)', paddingRight: 'var(--space-4)' }; // 押し込まれた画面で paddingTop だけ上書きするので、個別の指定で書く（padding と混ぜない＝React の警告）
 const iconBtn = { width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', borderRadius: 999, color: 'var(--text-2)', cursor: 'pointer', padding: 0, fontFamily: 'inherit', flexShrink: 0 };
+// 🧯 全体の予算が尽きたときの案内（components/PoolOutCard.jsx）の、戻る日のあとの 1 文
+const POOL_NOTE = 'それまでは、あなたのメモから探して答えます。';
 const cardStyle = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)' };
 const headingStyle = { fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 };
 // 相談例＝チップ（--fill 面・枠なし。入力欄と見分けがつくように。ホームと同じ）。
@@ -514,7 +517,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   プランの人も、残りが少ない（この相談が今月の最後）ときは入れるだけ（2026-10-21）。
   const examplesDraftOnly = freeMode || isLastAnswer({ freeMode, plan, tokensRemaining, purchasedTokens });
   // 上部の 1 行の言葉: 無料のトークンを使い切ったら AI ではなくメモから探す（メモが答える相談）ので「から探します」。
-  const answerVerb = freeUsedUp ? 'から探します' : 'から答えます';
+  const answerVerb = memoOnly ? 'から探します' : 'から答えます';
   // （プランの人が使い切ったときは planOut の後ろで上書き）
   // プランの人（有料・無料期間）がトークンを使い切った（サーバーの 429 か、残りが 0）。
   const planOut = canBuyTokens && (monthLimitHit || (tokensAvailable != null && tokensAvailable <= 0));
@@ -2360,7 +2363,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         )}
         {/* 残りのトークン（無料・有料は今月・無料期間は期間まるごと）。管理者・読めないときは出さない。
             使い切ったら出さない（「◯月1日に戻ります」の案内が答えの下にあるので「残り 0 トークン」は重ねない・2026-10-10 ui-critic）。 */}
-        {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && (
+        {/* 無料の AI の全体の予算が尽きている間は、残りの数を出さない（「残っているのに使えない」と見えないように・2026-11-26 ui-critic）。 */}
+        {tokensRemaining != null && tokensRemaining + (purchasedTokens || 0) > 0 && !(freeMode && poolOut) && (
           // 🪙📊 押すと「トークンの使い方」のシート（残り・追加分・使い道・追加課金の動線・2026-10-11）。
           //   残りが枠の 20% 以下は --warning（押せることを › で示す・押せる高さは上下に広げて 44 に）。
           <button
@@ -2650,6 +2654,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
                 {/* 🎁 無料プランで今月のトークンを使い切った（2026-10-01）: 相談はメモから探して答える（メモが答える相談）ので、
                     行き止まりにせず、案内カード（プランは文字ボタン）の下に見出しと相談例をいつもどおり出す。 */}
+                {/* 🧯 無料の AI の全体の予算がこの月は尽きた（本人のトークンは残っている）: 理由と戻る日を 1 枚で。プランは出さない（2026-11-26）。 */}
+                {freeMode && poolOut && !freeUsedUp && <PoolOutCard note={POOL_NOTE} style={{ marginBottom: 'var(--space-6)' }} />}
                 {freeUsedUp && (outSeenBefore
                   ? <OutLine label={freeUsedCta} onOpen={() => openPaywall('free_used')} style={{ marginBottom: 'var(--space-6)' }} />
                   : <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} onOpen={() => openPaywall('free_used')} onUsage={() => setUsageOpen(true)} style={{ marginBottom: 'var(--space-6)' }} />
@@ -2765,7 +2771,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     onOpenLearning={() => setView('knowledge')}
                     onRetry={() => runMemoAnswerInto(m.id, m.memoAnswer.question || precedingQuestion(visibleMessages, i), m.scopeIds || [], m.memoAnswer.searchQuestion || null)}
                     onPlan={() => { track('brain_memo_answer_plan', {}); openPaywall('free_used'); }}
-                    showPlan={freeMode && m.id === firstMemoAnswerId}
+                    // 全体の予算が尽きたせいでメモの答えになったときは、プランをすすめない（本人のトークンは残っている＝すすめてよい ① ではない・2026-11-26）
+                    showPlan={freeMode && m.id === firstMemoAnswerId && !(poolOut && !freeUsedUp)}
                     // 7 日間無料を使える人には「7 日間無料で試す」（GLOSSARY の ①・2026-10-12 機能の通し確認）
                     planLabel={freeUsedOffer ? `${freeUsedOffer}で試す` : ''}
                     // メモが 0 件の人だけ初日クイックスタートへ。メモのある人は AI の「関係するメモが無かった答え」と同じ「本を追加」。
@@ -2825,6 +2832,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (
             <FreeUsedCard tokenAllowance={tokenNextAllowance ?? tokenAllowance} cta={freeUsedCta} trial={freeUsedOffer || ''} primary={lastActionAdded || lastIsMemoAnswer} afterAnswer={!lastIsMemoAnswer} onOpen={() => openPaywall('free_used')} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
+          )}
+          {/* 🧯 無料の AI の全体の予算が尽きた月: メモの答えの下に理由と戻る日（AI が手を抜いたように見せない・2026-11-26 ui-critic）。 */}
+          {freeMode && poolOut && !freeUsedUp && !busy && lastIsAssistant && !isEmpty && (
+            <PoolOutCard note={POOL_NOTE} style={{ marginTop: 'var(--space-6)', marginLeft: ANSWER_COLUMN }} />
           )}
           {/* 🪙➕ プランの人がトークンを使い切ったら「トークンを追加」（答えの欄に案内が出ているのでボタンだけ。
               まだ話していないときの案内カードは、相談例の代わりに一番上に出す＝上の TokensOutCard） */}

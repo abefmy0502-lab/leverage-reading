@@ -3067,7 +3067,7 @@ function AuthedApp() {
     let memosAdded = 0;
     const createdMemoIds = []; // 「取り込みを取り消す」で消すのは、この取り込みで入れたメモだけ
     // メモの読み書きが途中で失敗しても、もう入れた本とメモは結果に残す（取り消せる・もう一度選べば続きが入る・2026-11-26 点検）。
-    let memosFailed = false;
+    let memosFailed = false; // false／入らなかった件数／true（件数が分からない）
     const rows = [];
     try {
     const ids = [...new Set(pending.map((p) => p.bookId))];
@@ -3105,7 +3105,8 @@ function AuthedApp() {
     }
     } catch (e) {
       console.warn('[import] memo step failed:', e?.message || e);
-      memosFailed = true;
+      // 入らなかった件数が分かるときは数（メモを読み比べる前に止まったときは true＝数は言わない）
+      memosFailed = rows.length > memosAdded ? rows.length - memosAdded : true;
     }
     // メモを足した「読みたい・積読」の本は読了にする（本の詳細はメモを読書中・読了でしか出さないため）
     //   （いま作った本は取り込み元の状態のまま。もとから本棚にあった本だけ）
@@ -7481,6 +7482,8 @@ function AuthedApp() {
                 <Suspense fallback={<TabPanelSkeleton />}>
                   <BookAdvisor
                     onAddBook={(rec, payload) => addFromAdvisor(rec, payload)}
+                    // 🧯 無料の AI の予算が尽きた月は、相談でメモから探す道へ（下書きを入れるだけ・送らない・2026-11-26）
+                    onConsult={(q) => { track('try_consult', { from: 'advisor_pool' }); openConsultWith(q || ''); }}
                     // 🔁 AI 選書からロードマップを見直したあと「ロードマップを見る」（2026-11-15）
                     onOpenGoals={(s) => setGoalScreen(s || { view: 'goals' })}
                     // 確認の候補に目当ての本が無いとき: 書名で探す（検索を開いて自動で探す）／手動で入力する。戻り先は「‹ AI 選書」。

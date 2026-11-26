@@ -22,3 +22,12 @@ describe('画面の文に全角の数字を使わない', () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe('保存は数字の幅だけの違いならデータベースの表記のまま（2026-11-26）', () => {
+  it('「７つの習慣」で入っている本は、書名を変えなければそのまま・書き換えたら半角', async () => {
+    const { keepDbSpelling } = await import('../hooks/useBooks');
+    expect(keepDbSpelling('7つの習慣', '７つの習慣')).toBe('７つの習慣');
+    expect(keepDbSpelling('7つの習慣 完訳', '７つの習慣')).toBe('7つの習慣 完訳');
+    expect(keepDbSpelling('７つの習慣', '')).toBe('7つの習慣');
+  });
+});

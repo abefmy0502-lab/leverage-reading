@@ -175,7 +175,15 @@ function computePhrasePieces(src, scriptBreaks) {
     // 8 字以上の文節は「ませんでした」「ません」「ました」「でした」の前でも折り返せる（「確かめられませんでし／た」と最後の 1 字だけ落ちていた・2026-11-18 文字最大の点検）。
     joined.forEach((ph) => { splitPoliteEnding(ph).forEach((part) => (scriptBreaks ? scriptBreakPieces(part) : [part]).forEach((pc) => out.push(pc))); });
   });
-  return out;
+  // 切れ端の終わりの開きかっこは次の切れ端の頭へ（行末に「（」を残さない＝行末禁則・<wbr> は CSS の禁則より強い・2026-11-26 ui-critic）。
+  for (let i = 0; i < out.length - 1; i += 1) {
+    if (out[i + 1] === '\n') continue;
+    const m = /[（「『【〈《［(]+$/.exec(out[i]);
+    if (!m) continue;
+    out[i + 1] = m[0] + out[i + 1];
+    out[i] = out[i].slice(0, m.index);
+  }
+  return out.filter((pc) => pc !== '');
 }
 
 // BudouX が 2 つの文節に分けるが、割ると読みにくい決まった言い回し（「もう／一度」）。前の文節の終わり＋次の文節の頭で見る。

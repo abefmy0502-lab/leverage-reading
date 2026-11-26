@@ -36,13 +36,14 @@ import { TASTE_PREFS, TASTE_LABELS, tasteNote, tasteResultLine, rankByTaste, tas
 import { searchBooksFlat as searchBooksAPIFlat } from '../lib/bookSearch';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
-import { nextResetLabelJa, requestPaywall } from '../lib/freeTrial';
+import { nextResetLabelJa, requestPaywall, isFreePoolOut, FREE_POOL_EVENT } from '../lib/freeTrial';
 import { monthDayLabelJa } from '../lib/tokens';
 import { showFreeTokenCount, remainingAdvisorLabel, canStartAdvisor } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import { fmtTokens } from '../lib/consultHelpers';
 import { trialCancelShortLine } from '../lib/trialNudge';
 import TokensOutCard from './TokensOutCard';
+import PoolOutCard from './PoolOutCard';
 import { groupTitle, btnPrimary as uiBtnPrimary, btnGhost as uiBtnGhost, btnGhostOff as uiBtnGhostOff, btnLink as uiBtnLink, btnLinkQuiet as uiBtnLinkQuiet, card as uiCard, segTrack, segOption } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
@@ -229,10 +230,10 @@ let appliedAdvisorDraft = null;
 // barSlot: App のサブタブ（相談｜AI 選書）の行の右端の要素。履歴・新規のアイコンはそこへ出す（🕒 だけの行を作らない・2026-10-01 ui-critic）。
 // onPushedViewChange(level): 過去の AI 選書（1）・その中身（2）を開いている間は、親が全体の見出しとサブタブを隠す
 //   （押し込まれた画面は「‹ 戻り先」の行 1 本だけ＝相談の過去の相談と同じ・2026-10-04）。0 で戻す。
-export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null, draftPreset = null, onOpenGoals = null }) {
+export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook, onManualBook, onOpenBook, barSlot = null, onPushedViewChange = null, draftPreset = null, onOpenGoals = null, onConsult = null }) {
   // 🎁 AI 選書は 2026-11-25 から無料プランも使える（相談と同じ無料のトークンから・オーナー方針「最初の 1 年は会員数」
   //    「何を読めばよいか分からない人にも」）。使い切ったら、相談と同じく有料プランの画面が 1 回だけ重なる（streamClaude）。
-  const { canBuyTokens, openTokenSheet, plan, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance } = usePaywall();
+  const { canBuyTokens, openTokenSheet, plan, tokensRemaining, purchasedTokens, trialEndsAt, tokenAllowance, freeMode } = usePaywall();
   // 🪙📊 トークンの使い方（使い切ったときの案内カードから開く・2026-10-11）。
   const [usageOpen, setUsageOpen] = useState(false);
   // 送るボタンのそばに残り（相談の上の行と同じ言い方「AI の答えは今月あと約 N 回 ›」・無料プランはプランの機能なので出さない・2026-09-29）。
@@ -438,6 +439,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [slowWait, setSlowWait] = useState(false);
   const [recoStream, setRecoStream] = useState(''); // 推薦生成中のライブ前置き文（体感速度）
   const [recoError, setRecoError] = useState(() => memo0.recoError || null);
+  // 🧯 無料の AI の全体の予算が今月は尽きた（サーバーの 402 free_pool を覚えた印・lib/freeTrial.js）。案内のカードはこの印で決める
+  //   （エラー文の言い回しに頼らない・2026-11-26 ui-critic）。
+  const [poolOut, setPoolOut] = useState(() => isFreePoolOut());
+  useEffect(() => {
+    const on = () => setPoolOut(isFreePoolOut());
+    window.addEventListener(FREE_POOL_EVENT, on);
+    return () => window.removeEventListener(FREE_POOL_EVENT, on);
+  }, []);
   // 月の上限・プラン案内は「失敗」ではないので、再試行ボタンのない案内として出す（相談と同じ）。
   const [recoNotice, setRecoNotice] = useState(() => !!memo0.recoNotice);
   // 画面を離れても戻れるように、いまの状態を覚えておく（上の advisorMemory）。
@@ -2231,7 +2240,18 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
 
       {/* 推薦生成エラー（リトライ可能） */}
       {recoError && !recoLoading && recoNotice && (
-        /^(今月のトークン|無料期間のトークン)/.test(recoError) ? (
+        ((freeMode && poolOut) || /^今月の無料の AI/.test(recoError)) ? (
+          // 🧯 無料の AI の全体の予算が今月は尽きた（本人のトークンは残っている・2026-11-26 ui-critic）: 理由と戻る日、
+          //   そして AI を使わずにできる次の一歩（相談でメモから探す・書名で探して本を足す）。プランはすすめない。
+          <PoolOutCard>
+            {onConsult && (
+              <button type="button" onClick={() => onConsult(concern || lastUserQuery || '')} style={uiBtnLink}>相談で、メモから探す</button>
+            )}
+            {onSearchBook && (
+              <button type="button" onClick={() => onSearchBook('', null)} style={uiBtnLinkQuiet}>書名で探す</button>
+            )}
+          </PoolOutCard>
+        ) : /^(今月のトークン|無料期間のトークン)/.test(recoError) ? (
           // 🪙➕ トークンを使い切った案内は相談と同じカード（題 → 戻る日 → カードの中に「トークンを追加」→ 解約の期限・
           //   components/TokensOutCard.jsx・2026-10-04）。追加できない人（無料プラン等）はボタンを出さない。
           <TokensOutCard
@@ -2549,6 +2569,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
             placeholder={tokensOut ? (monthOut ? `${nextResetLabelJa()}から探せます` : (monthDayLabelJa(trialEndsAt) ? `${monthDayLabelJa(trialEndsAt)}から探せます` : 'トークンを使い切りました')) : (rootTextLarge() ? ADVISOR_PLACEHOLDER_SHORT : ADVISOR_PLACEHOLDER)}
             rows={1}
             disabled={interviewLoading || tokensOut}
+            data-stopped={tokensOut ? '' : undefined}
             maxLength={LIMITS.aiQuestion}
             aria-label="AI 選書への相談内容"
             onKeyDown={(e) => {

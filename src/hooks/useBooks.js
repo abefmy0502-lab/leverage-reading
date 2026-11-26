@@ -10,6 +10,13 @@ import { captureBookReadingSessions, restoreBookReadingSessions } from '../lib/r
 import { planTaxonomyChange } from '../lib/bookFieldsAuto';
 import { toHalfWidthAlnum } from '../lib/halfWidth';
 
+// 数字の幅しか違わないなら、データベースの表記のまま（そうでなければ半角にして保存）。
+export function keepDbSpelling(value, dbValue) {
+  const half = toHalfWidthAlnum(value);
+  if (dbValue && dbValue !== half && toHalfWidthAlnum(dbValue) === half) return dbValue;
+  return half;
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const toHttps = (url) => {
@@ -63,6 +70,10 @@ const transformBook = (book) => ({
   // 🔢 書名・著者の全角の英数字は半角で見せる（「７つの習慣」→「7つの習慣」・次に保存したときに半角で残る・2026-11-25）。
   title: toHalfWidthAlnum(book.title),
   author: toHalfWidthAlnum(book.author),
+  // データベースの表記（全角の数字のまま入っている本）。数字の幅しか違わなければ、保存ではこの表記のまま書く
+  //   （「７つの習慣」と「7つの習慣」の 2 冊がある人で、同じ書名になって保存できなくなるのを防ぐ・2026-11-26 点検）。
+  dbTitle: book.title || '',
+  dbAuthor: book.author || '',
   cover: toHttps(book.cover),
   tags: (book.book_tags || []).map((t) => t.tag_name),
   collections: (book.book_collections || []).map((c) => c.collection_name),
@@ -264,8 +275,8 @@ export function useBooks() {
         user_id: user.id,
         // 保存境界で長さを clamp（AI 自動追加経路は maxLength を通らないため、
         // ここで防御的に上限をかける）。
-        title: clamp(toHalfWidthAlnum((book.title || '').trim()), LIMITS.bookTitle),
-        author: book.author ? clamp(toHalfWidthAlnum(String(book.author).trim()), LIMITS.bookAuthor) : null,
+        title: clamp(keepDbSpelling((book.title || '').trim(), book.dbTitle), LIMITS.bookTitle),
+        author: book.author ? clamp(keepDbSpelling(String(book.author).trim(), book.dbAuthor), LIMITS.bookAuthor) : null,
         cover: toHttps(book.cover) || null,
         status: book.status,
         rating: book.rating || 0,

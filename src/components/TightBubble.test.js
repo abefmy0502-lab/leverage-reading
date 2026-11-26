@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { glueInnerSpaces, glueClosers } from './TightBubble';
+import { glueInnerSpaces, glueClosers, phrasePieces } from './TightBubble';
 
 describe('glueInnerSpaces（文節の中の空きで折り返さない）', () => {
   it('数と助数詞の間の空きを折り返さない空きにする', () => {
@@ -26,5 +26,13 @@ describe('glueClosers（閉じかっこ・その後ろの助詞を行頭に置�
     expect(glueClosers('「会議」を')).toBe(`「会議」${J}を`);
     expect(glueClosers('『考え方』は')).toBe(`『考え方』${J}は`);
     expect(glueClosers('「会議」、')).toBe('「会議」、');
+  });
+});
+
+describe('開きかっこを行末に残さない（2026-11-26）', () => {
+  it('切れ端の終わりの開きかっこは次の切れ端の頭へ移る', () => {
+    const pieces = phrasePieces('エリック・シュミットの、これから出る本（お試し）', { scriptBreaks: true });
+    expect(pieces.join('')).toBe('エリック・シュミットの、これから出る本（お試し）');
+    pieces.forEach((pc) => expect(pc).not.toMatch(/[（「『【〈《［(]$/));
   });
 });

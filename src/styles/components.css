@@ -1194,6 +1194,13 @@ body:has(.bottom-nav:not(.is-hidden)):not(.chat-scroll-down) .ai-input-area {
 .ai-input-area textarea:focus {
   border-color: var(--accent);
 }
+/* 止めた入力欄（トークン・無料の AI の全体の予算が尽きた間＝送れない）は、使える欄と見分ける（2026-11-26 ui-critic）。
+   待っている間（disabled だけ）は見た目を変えない＝一瞬ちらつかせない。 */
+.ai-input-area textarea[data-stopped] {
+  border-color: var(--separator);
+  background: var(--fill);
+  cursor: not-allowed;
+}
 .ai-input-area .send-btn {
   flex-shrink: 0;
   /* LINE 風の丸ボタン。iOS HIG の最小タップ域 44×44。 */
