@@ -17,7 +17,7 @@ import { track } from '../lib/analytics';
 import { btnLink, card } from '../styles/ui';
 
 const COVER_W = 36; // 点の表紙の幅（押せる範囲は外側のボタンで 44 以上）
-const FAINT = 0.6; // メモの無い本の表紙の濃さ（ほかにメモのある本があるときだけ）
+const FAINT = 0.7; // メモの無い本の表紙の濃さ（ほかにメモのある本があるときだけ）
 const titleOf = (b) => String(b?.title || '').trim();
 // 「・」を行の頭に出さない（記録の分野の行と同じ決まり）
 const glueMiddot = (t) => String(t || '').replace(/(.)・/g, '$1\u2060・');
