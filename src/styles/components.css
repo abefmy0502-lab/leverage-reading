@@ -1842,3 +1842,11 @@ body.chat-active.chat-scroll-down .bottom-nav {
 @media (prefers-reduced-motion: reduce) {
   .kmap-node, .kmap-twinkle, .kmap-line { animation: none; }
 }
+
+/* 📷 バーコードで入れる（BarcodeScanner・2026-11-26）: 枠の中を上下に動く細い線（読んでいる合図）と、読めた瞬間の枠の光。
+   動きを減らす設定では止める。 */
+.barcode-scanline { position: absolute; left: 6%; right: 6%; top: 50%; height: 2px; border-radius: var(--radius-full); background: var(--accent); opacity: 0.85; animation: barcode-scan 1.6s ease-in-out infinite alternate; }
+@keyframes barcode-scan { from { transform: translateY(-36px); } to { transform: translateY(36px); } }
+.barcode-frame-hit { animation: barcode-hit var(--duration-base) var(--ease-out); }
+@keyframes barcode-hit { 0% { border-color: var(--accent); box-shadow: 0 0 0 100vmax var(--backdrop), 0 0 0 6px var(--accent); } 100% { box-shadow: 0 0 0 100vmax var(--backdrop), 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .barcode-scanline, .barcode-frame-hit { animation: none; } }

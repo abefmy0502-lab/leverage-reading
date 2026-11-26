@@ -8184,6 +8184,16 @@ function AuthedApp() {
             forPhoto={ocrIntentActive}
             onShelfScan={() => { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = false; setAddBookModalOpen(false); setShelfScanOpen(true); }}
             onImport={() => { setAddBookModalOpen(false); setShowImport(true); }}
+            // 📷 バーコードで続けて入れる（2026-11-26）: 読み取った本をその場で本棚へ（取り込みと同じ保存＝分野・表紙も同じ）。
+            onQuickAdd={(book, status) => importLibrary({ source: 'barcode', books: [{ title: book.title, author: book.author || '', isbn: book.isbn || '', cover: book.cover || '', pages: book.pages || 0, status, memos: [] }] })}
+            // 取り消しは入れた本だけを静かに消す（スキャナーのカードが元に戻るので知らせは出さない）。
+            onUndoQuickAdd={async (outcome) => {
+              for (const id of outcome?.createdBookIds || []) {
+                // eslint-disable-next-line no-await-in-loop
+                await enqueueBookMutation(id, () => deleteBook(id));
+              }
+              refreshBooks();
+            }}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
