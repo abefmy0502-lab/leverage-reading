@@ -19,7 +19,7 @@ export default function GoalEntry({ onOpen }) {
       <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: 'goals' })}>
         <span className="goal-entry-body">
           <span className="goal-entry-text" style={{ marginTop: 0 }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書く')}</span>
-          <span className="goal-entry-next">{withPhraseBreaks('目標から、読む本を決めます')}</span>
+          <span className="goal-entry-next">{withPhraseBreaks('目標に向けて、読む本と道のりを決めます')}</span>
         </span>
         <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />
       </button>

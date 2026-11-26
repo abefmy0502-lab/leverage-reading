@@ -1661,6 +1661,8 @@ function AuthedApp() {
   const currentMemoOps = useBookMemos(current?.id, { sortBy: 'page' });
   // この本のメモが 0 件と分かっている（読み込み済み、または前回 0 件だった）。右下の「メモを書く」は出さず、
   // 一覧の場所の空の案内の「メモを書く」を入口にする（SPEC §2・2026-09-30）。
+  // 読了にした直後（その本を開いている間）は、読了の問いと読む前に書いたことをメモの上に出す
+  const detailJustDoneTop = !!current && current.status === 'done' && justDoneId === current.id;
   const detailMemoEmpty = !!current?.id && (currentMemoOps.memos || []).length === 0 && !currentMemoOps.error
     && (!currentMemoOps.loading || appCache?.getMemoCountHint?.(current.id) === 0);
 
@@ -5757,11 +5759,13 @@ function AuthedApp() {
               {/* 🏷 分野・🗂 フォルダ（2026-10-11）: 書名の列の中に置く（表紙の左端・見出しの列・行の値の列と、左の端が 3 つに分かれていた・2026-10-16 ui-critic 第 2 回）。
                   分野は押すと、すべての本をその分野で絞る。フォルダは押すとそのフォルダで絞り、「変更」でフォルダに入れるシート（全状態）。 */}
               <BookFieldLinks fields={fieldsOf(current)} onPick={openLibraryByField} onEdit={() => setFieldsPickerBook(current)} />
-              <BookFolderLinks
+              {/* フォルダの行は、この本がフォルダに入っているか、フォルダを使っている人だけ（使っていない人には毎回の管理の行になっていた・
+                  2026-11-26 全体の UX 監査）。出さないときは「…」の「フォルダに入れる」から。 */}
+              {showFolderRowFor(current, books) && <BookFolderLinks
                 folders={current.collections || []}
                 onPick={openLibraryByFolder}
                 onEdit={() => { setNewFolderName(''); setFolderPickerBook(current); }}
-              />
+              />}
             </div>
           </div>
           {/* ⏱ 読む（集中モード・読書中だけ・2026-10-09）。主役の「メモを書く」（右下の塗り）より弱い、面の副ボタン。
@@ -5843,6 +5847,10 @@ function AuthedApp() {
             <div style={{ marginTop: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
               {/* SPEC §2 の並び: この本に相談する → メモ一覧 → （読了の問い）→ この本のまとめ → 行動（→ 計画・AI 解析は下）。
                   2026-11-26 に「この本に相談する」をメモ一覧の上へ（メモが 30 件あると一覧の下に沈んでいた）。 */}
+              {/* 📗 読了にした直後は、読了の 3 つの問いと「読む前に書いたこと」をいちばん上に（読み終えた瞬間に答え合わせ・
+                  メモが 30 件あると一覧の下に埋もれていた・2026-11-26 全体の UX 監査）。本を離れたら、ふだんの場所（メモの下）へ。 */}
+              {detailJustDoneTop && doneQuestionBlock}
+              {detailJustDoneTop && beforeAfterBlock}
               {/* 💬 この本に相談する（メモが 1 件以上のとき・メモ一覧の上＝メモが増えても遠くならない・2026-11-26 全体の UX 監査）。 */}
               {(currentMemoOps.memos || []).length > 0 && (
                 <button
@@ -5889,7 +5897,7 @@ function AuthedApp() {
                   onWriteMemo={() => setQuickMemoOpen(true)}
                   books={books}
                   savedMemo={detailSavedMemo}
-                  afterList={current.status !== 'done' || detailMemoEmpty ? null : (
+                  afterList={current.status !== 'done' || detailMemoEmpty || detailJustDoneTop ? null : (
                     // 📗 読了の 3 つの問い（メモ一覧のすぐ下・「この本のまとめ」より上＝SPEC §2）。
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                     {current.status === 'done' && !detailMemoEmpty && doneQuestionBlock}
@@ -5900,8 +5908,8 @@ function AuthedApp() {
               </section>
               {/* 📗 読了の 3 つの問い → 読む前に書いたこと（2026-10-11・SPEC §2・AI なし・lib/doneReflection.js） */}
               {/* メモがまだ無い本は「この本に相談する」が出ないので、問いはメモの区画のすぐ下に */}
-              {current.status === 'done' && detailMemoEmpty && doneQuestionBlock}
-              {current.status === 'done' && detailMemoEmpty && beforeAfterBlock}
+              {current.status === 'done' && detailMemoEmpty && !detailJustDoneTop && doneQuestionBlock}
+              {current.status === 'done' && detailMemoEmpty && !detailJustDoneTop && beforeAfterBlock}
             </div>
           ) : null}
           {/* 畳む見出しが続くときは 12（「この本のまとめ」の直後）。 */}
@@ -6349,6 +6357,8 @@ function AuthedApp() {
               // 表紙の 4 つ（選び直す・取り直す・手動でアップロード・削除）は 1 項目にまとめ、押すとその 4 択のシート
               //（「…」が 12 項目で、毎晩使う 編集・読書計画・共有 が埋もれていた・2026-10-30 点検）。
               { label: '表紙を変える', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: () => setCoverMenuBook(current) },
+              // フォルダの行を出していない人（フォルダを 1 つも使っていない）は、ここからフォルダに入れる（2026-11-26）。
+              ...(!showFolderRowFor(current, books) ? [{ label: 'フォルダに入れる', icon: <IcFolder size="1.1em" aria-hidden="true" />, onClick: () => { setNewFolderName(''); setFolderPickerBook(current); } }] : []),
               ...(current.status !== 'want'
                 ? [{ label: 'この本を買う', icon: <ShoppingBag size="1.1em" aria-hidden="true" />, onClick: () => setStoreSheetOpen(true) }]
                 : []),
@@ -8005,6 +8015,7 @@ function AuthedApp() {
             existingBooks={books}
             forPhoto={ocrIntentActive}
             onShelfScan={() => { shelfScanFromQuickstartRef.current = null; shelfScanFromHomeRef.current = false; setAddBookModalOpen(false); setShelfScanOpen(true); }}
+            onImport={() => { setAddBookModalOpen(false); setShowImport(true); }}
             onOpenExisting={(existing, query) => {
               setAddBookModalOpen(false);
               // 詳細の ‹ 検索・「戻る」で、さっきの言葉の検索結果へ戻れるように覚えておく。
@@ -8711,6 +8722,12 @@ function useLpRoute() {
 
 // 状態を進めた直後の二度押しを受け止める時間（2026-11-25 点検）。
 const STATUS_TAP_LOCK_MS = 450;
+
+// 本の詳細のフォルダの行を出すか（この本がフォルダに入っているか、どれかの本をフォルダに入れている人だけ・2026-11-26）
+function showFolderRowFor(book, books) {
+  if (!book) return false;
+  return (book.collections || []).length > 0 || (books || []).some((b) => (b.collections || []).some((c) => String(c || '').trim()));
+}
 
 export default function App() {
   const [authCallbackActive, setAuthCallbackActive] = useState(hashHasAuthParams);

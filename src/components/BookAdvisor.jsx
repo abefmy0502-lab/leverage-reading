@@ -170,6 +170,34 @@ export function spaceDurationUnits(text) {
 //   文字が大きいとき（rootTextLarge）は 4 行で切り、「全文を見る」で開く（長いまとめが「合っている／少し違う（直す）」を
 //   最初の画面の外へ押し出していた）。4 行に収まるときはボタンを出さない（目標の画面の「全文を見る」と同じ形）。
 const summaryClamp = { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 4, overflow: 'hidden' };
+// 2 行で切る 1 段落。切れているときだけ押せて、押すと全文（もう一度押すと閉じる）。
+function ClampedLine({ text }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [cut, setCut] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || open) return undefined;
+    const measure = () => { if (el.clientHeight > 0) setCut(el.scrollHeight - el.clientHeight > 1); };
+    measure();
+    if (typeof ResizeObserver !== 'function') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, text]);
+  const style = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(open ? null : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }) };
+  return (
+    <>
+      <p ref={ref} style={style}>{withPhraseBreaks(text)}</p>
+      {(cut || open) && (
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{ ...uiBtnLinkQuiet, minHeight: 'var(--tap-min)', padding: 0, fontSize: 'var(--text-meta)', marginBottom: 'calc(-1 * var(--space-3))' }}>
+          {open ? '閉じる' : '全文を見る'}
+        </button>
+      )}
+    </>
+  );
+}
+
 function SummaryText({ text }) {
   const ref = useRef(null);
   const [large] = useState(rootTextLarge);
@@ -2365,11 +2393,9 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           {confirmed?.summary || confirmed?.correction ? (
             <div>
               <p style={fieldLabel}>{confirmed.correction ? 'あなたの言葉' : '受け取った悩み'}</p>
-              {/* 2 行まで（本のカードを上げる・全文は title で）。 */}
-              <p title={confirmed.correction || confirmed.summary || ''} style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {/* 直したときは本人の直しだけ（まとめは「少し違う」と言われたので並べない・本人の言葉が主役） */}
-                {withPhraseBreaks(confirmed.correction || confirmed.summary || '')}
-              </p>
+              {/* 2 行まで（本のカードを上げる）。押すと全文（指の端末では title が出ない・2026-11-26 全体の UX 監査）。
+                  直したときは本人の直しだけ（まとめは「少し違う」と言われたので並べない・本人の言葉が主役） */}
+              <ClampedLine text={confirmed.correction || confirmed.summary || ''} />
               {/* 本の選び方を選んだ回は、何で選んだかを同じまとまりに 1 行（データの 1 行・13/--text-2・2026-11-19） */}
               {recoTaste !== 'auto' && (
                 <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, margin: 'var(--space-1) 0 0' }}>{tasteResultLine(recoTaste)}</p>

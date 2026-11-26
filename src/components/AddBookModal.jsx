@@ -392,7 +392,7 @@ function BarcodeScanner({ onDetect, onClose, onTypeIsbn }) {
 
 // forPhoto: 初回ガイドの「本のページを撮る」から開いたとき（題を「本を選ぶ」・上に「まず本を選びます」の 1 行・2026-10-09）。
 // onShelfScan: 📚 本棚の写真から追加（2026-11-22・ボタンの名前は 2026-11-23 にシートの題とそろえた）を開く。無ければボタンを出さない。
-export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '', forPhoto = false, onShelfScan = null }) {
+export default function AddBookModal({ onClose, onSelect, onManual, existingBooks = [], onOpenExisting, initialQuery = '', forPhoto = false, onShelfScan = null, onImport = null }) {
   // 本の追加フォームの「‹ 検索」で戻ってきたときは、さっきの言葉と結果をそのまま出す。
   const [query, setQuery] = useState(initialQuery);
   const [scanning, setScanning] = useState(false);
@@ -555,9 +555,17 @@ export default function AddBookModal({ onClose, onSelect, onManual, existingBook
           />
 
           {showManualLink && (
-            <button type="button" onClick={openManual} style={{ ...btnLink, alignSelf: 'center' }}>
-              手動で入力する
-            </button>
+            // 何も打っていない間は「ほかのアプリから取り込む」も同じ行に（まとめて持ってきたい人が最初に開くのは「＋」・2026-11-26 全体の UX 監査）。
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 'var(--space-6)' }}>
+              <button type="button" onClick={openManual} style={btnLink}>
+                手動で入力する
+              </button>
+              {onImport && !forPhoto && !hasQuery && !isSearching && (
+                <button type="button" onClick={onImport} style={btnLink}>
+                  ほかのアプリから取り込む
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
