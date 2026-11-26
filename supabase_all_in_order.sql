@@ -1088,7 +1088,9 @@ create policy "profiles_update_own" on public.profiles
 
 drop policy if exists "profiles_delete_own" on public.profiles;
 create policy "profiles_delete_own" on public.profiles
-  for delete to authenticated using (auth.uid() = user_id);
+  -- 運営に隠されたページは本人が消せない（消して新しい ID で作り直すと公開に戻れた・2026-11-26 監査）。
+  -- 退会はサーバーが service_role で消すので、この決まりの外。
+  for delete to authenticated using (auth.uid() = user_id and hidden = false);
 
 -- 登録せずに始めた（匿名の）アカウントか。ログインの印（JWT）の is_anonymous ではなく、auth.users の今の値で見る
 -- （2026-11-22: 登録せずに始めて、あとで Apple・メールでアカウントを作った人は、古い印が残っている間「匿名」に見え、
@@ -1140,6 +1142,11 @@ begin
   if auth.uid() is not null and tg_op = 'UPDATE' and current_user in ('authenticated', 'anon') then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
+    new.created_at := old.created_at;
+  end if;
+  -- 作った日時は利用者が決められない（通報を数えるかの「3 日」の条件をすり抜けられた・2026-11-26 監査）。
+  if auth.uid() is not null and tg_op = 'INSERT' and current_user in ('authenticated', 'anon') then
+    new.created_at := now();
   end if;
   -- 作り直し（INSERT）でも、隠された ID なら隠したまま（2026-11-22）。
   if auth.uid() is not null and tg_op = 'INSERT' and current_user in ('authenticated', 'anon') and public._public_id_held(new.public_id) then
@@ -1311,6 +1318,18 @@ as $$
     from public.profiles p where p.user_id = p_user
 $$;
 
+-- 申し込んだ記録（1 日 50 件の上限を数える・取り消しても残る＝申し込み → 取り消しを繰り返して上限をすり抜けられた・2026-11-26 監査）。
+-- RLS 有効・ポリシーなし＝関数（SECURITY DEFINER）だけが読み書きする。2 日より古い行は申し込むたびに本人の分を消す。
+create table if not exists public.follow_request_log (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+-- （まとめが自動で足した: 前からある表に足りない列を足す）
+ALTER TABLE public.follow_request_log ADD COLUMN IF NOT EXISTS user_id uuid references auth.users (id) on delete cascade;
+ALTER TABLE public.follow_request_log ADD COLUMN IF NOT EXISTS created_at timestamptz not null default now();
+create index if not exists follow_request_log_user_idx on public.follow_request_log (user_id, created_at desc);
+alter table public.follow_request_log enable row level security;
+
 -- ─── 申し込む・答える・やめる ─────────────────────────────
 -- 戻り値: 'pending'（申し込んだ）・'accepted'（もう承認されている）・'self'・'not_found'・'no_profile'・'anonymous'
 create or replace function public.follow_request(p_public_id text)
@@ -1333,12 +1352,15 @@ begin
   if target = me then return 'self'; end if;
   -- ブロックの有無は明かさない（見つからないのと同じ答え）。
   if public._blocked_between(me, target) then return 'not_found'; end if;
-  -- 申し込みは 1 人 1 日 50 件まで（いたずらの大量の申し込みを止める）。
-  if (select count(*) from public.follows where follower_id = me and created_at > now() - interval '1 day') >= 50 then
+  -- 申し込みは 1 人 1 日 50 件まで（いたずらの大量の申し込みを止める）。取り消した申し込みも数える（follow_request_log）。
+  delete from public.follow_request_log where user_id = me and created_at < now() - interval '2 days';
+  if (select count(*) from public.follow_request_log where user_id = me and created_at > now() - interval '1 day') >= 50
+     or (select count(*) from public.follows where follower_id = me and created_at > now() - interval '1 day') >= 50 then
     return 'too_many';
   end if;
   insert into public.follows (follower_id, followee_id) values (me, target)
     on conflict (follower_id, followee_id) do nothing;
+  if found then insert into public.follow_request_log (user_id) values (me); end if;
   select status into st from public.follows where follower_id = me and followee_id = target;
   return st;
 end;
@@ -1678,7 +1700,9 @@ begin
   key := encode(sha256(convert_to(me::text || ':' || pid, 'UTF8')), 'hex');
   insert into public.profile_reports (public_id, reason, reporter_key, counted)
     values (pid, trim(why), key, not public._is_anonymous() and exists (
-      select 1 from public.profiles where user_id = me and nickname <> '' and created_at < now() - interval '3 days'))
+      select 1 from public.profiles where user_id = me and nickname <> '')
+      -- 作って 3 日たったアカウントか（プロフィールの日時ではなく auth の日時で見る＝本人が書き換えられない・2026-11-26 監査）
+      and exists (select 1 from auth.users u where u.id = me and u.created_at < now() - interval '3 days'))
     on conflict (public_id, reporter_key) where reporter_key is not null and status = 'open' do nothing;
   select count(*) into n from public.profile_reports where public_id = pid and status = 'open' and counted;
   if n >= 3 then update public.profiles set hidden = true where public_id = pid and hidden = false; end if;
@@ -3680,17 +3704,27 @@ grant execute on function public.claim_ai_cache_refresh(text, integer, integer) 
 -- 未適用なら、中継は今までどおり 1 人ずつの上限だけで守る（fail-open・警告のログだけ）。冪等。
 
 create table if not exists public.ai_free_pool (
-  period_month text primary key check (period_month ~ '^[0-9]{4}-[0-9]{2}$'),
+  period_month text primary key,
   cost_mjpy bigint not null default 0,
   calls integer not null default 0,
   updated_at timestamptz not null default now()
 );
 -- （まとめが自動で足した: 前からある表に足りない列を足す）
-ALTER TABLE public.ai_free_pool ADD COLUMN IF NOT EXISTS period_month text check (period_month ~ '^[0-9]{4}-[0-9]{2}$');
+ALTER TABLE public.ai_free_pool ADD COLUMN IF NOT EXISTS period_month text;
 ALTER TABLE public.ai_free_pool ADD COLUMN IF NOT EXISTS cost_mjpy bigint not null default 0;
 ALTER TABLE public.ai_free_pool ADD COLUMN IF NOT EXISTS calls integer not null default 0;
 ALTER TABLE public.ai_free_pool ADD COLUMN IF NOT EXISTS updated_at timestamptz not null default now();
 alter table public.ai_free_pool enable row level security;
+
+-- 👤 登録せずに始めた人（匿名）の分の枠も同じ表で数える（'guest-YYYY-MM'・全体の予算の 30% まで・api/_freePool.js・2026-11-26 監査）。
+--   最初の版の CHECK は 'YYYY-MM' だけだったので、名前つきの CHECK に作り直す（冪等）。
+alter table public.ai_free_pool drop constraint if exists ai_free_pool_period_month_check;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'ai_free_pool_period_key_check') then
+    alter table public.ai_free_pool add constraint ai_free_pool_period_key_check
+      check (period_month ~ '^(guest-)?[0-9]{4}-[0-9]{2}$');
+  end if;
+end $$;
 
 create or replace function public.reserve_ai_free_pool(p_period_month text, p_amount bigint, p_budget bigint)
 returns bigint
@@ -6149,6 +6183,8 @@ begin
                             'fields_ai_calls', v_fields, 'paid_users_ai', v_dist);
 end $$;
 revoke all on function public._admin_profit_month(text) from public;
+-- Supabase は anon と authenticated にも実行権を直接付けるので、public からの取り消しだけでは閉じない（下請けは _require_admin を通らない・2026-11-26 監査）。
+revoke all on function public._admin_profit_month(text) from anon, authenticated;
 
 -- 今の契約の人数（subscriptions から）。
 create or replace function public._admin_profit_paid_now()
@@ -6164,6 +6200,8 @@ as $$
   where status = 'active' and user_id not in (select user_id from public.app_admins);
 $$;
 revoke all on function public._admin_profit_paid_now() from public;
+-- Supabase は anon と authenticated にも実行権を直接付けるので、public からの取り消しだけでは閉じない（下請けは _require_admin を通らない・2026-11-26 監査）。
+revoke all on function public._admin_profit_paid_now() from anon, authenticated;
 
 -- ── ① 今月 ─────────────────────────────────────────────────────────────────────────
 create or replace function public.admin_profit(p_month text default null)
@@ -6573,3 +6611,94 @@ revoke all on function public.admin_act_for(uuid, text, jsonb) from public;
 revoke all on function public.admin_act_for(uuid, text, jsonb) from anon;
 revoke all on function public.admin_act_for(uuid, text, jsonb) from authenticated;
 grant execute on function public.admin_act_for(uuid, text, jsonb) to service_role;
+
+
+-- ############################################################
+-- 70. supabase_hardening_2026_11.sql — 大きさの上限・運営の表は管理者だけ・記録の時刻はサーバーの今
+-- ############################################################
+-- 🛡 DB の守りの追加（2026-11-26 監査・M3／L4）
+--
+-- 1. 利用者が書ける列の大きさの上限（「登録せずに始める」でアカウントはタダで作れるので、1 つのアカウントが
+--    数 MB の行を繰り返し入れて DB を埋め、全体を読み取り専用にできた）。数字はアプリの上限（src/lib/limits.js）の約 2 倍。
+--    既にある行は壊さない（NOT VALID＝これから入れる・直す行だけを確かめる）。表・列が無ければ飛ばす。
+-- 2. 運営の表（ops_tasks・ops_advisor_messages）は管理者だけ（前は誰でも自分の行を書けた）。
+--    書き手は運営の道具（service_role）なので、ふつうの利用者は使わない。
+-- 3. 記録の時刻は利用者が決められない（analytics_events・chat_messages の created_at をサーバーの今にする＝
+--    ローンチの数字をずらせた）。service_role と SQL Editor（運営の作業）はそのまま。
+-- 冪等。何度流しても同じ。
+
+-- ─── 1. 大きさの上限 ─────────────────────────────
+do $$
+declare
+  r record;
+begin
+  for r in
+    select * from (values
+      ('chat_messages',        'chat_messages_size_chk',        'content',          'char_length(content) <= 20000'),
+      ('chat_messages',        'chat_messages_refs_size_chk',   'refs',             'refs is null or pg_column_size(refs) < 16384'),
+      ('book_memos',           'book_memos_text_len',           'text',             'text is null or char_length(text) <= 10000'),
+      ('books',                'books_memo_len',                'leverage_memo',    'leverage_memo is null or char_length(leverage_memo) <= 100000'),
+      ('advisor_sessions',     'advisor_sessions_size_chk',     'messages',         'pg_column_size(messages) + pg_column_size(recommended_books) < 262144'),
+      ('analytics_events',     'analytics_events_event_len',    'event',            'char_length(event) <= 64'),
+      ('ops_advisor_messages', 'ops_advisor_messages_len',      'content',          'char_length(content) <= 20000'),
+      ('ops_tasks',            'ops_tasks_title_len',           'title',            'char_length(title) <= 500'),
+      ('theme_reports',        'theme_reports_content_len',     'content',          'content is null or char_length(content) <= 100000')
+    ) as t(tbl, conname, col, expr)
+  loop
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = r.tbl and column_name = r.col)
+       and not exists (select 1 from pg_constraint where conname = r.conname) then
+      execute format('alter table public.%I add constraint %I check (%s) not valid', r.tbl, r.conname, r.expr);
+    end if;
+  end loop;
+end $$;
+
+-- ─── 2. 運営の表は管理者だけ ─────────────────────────────
+do $$
+begin
+  if to_regclass('public.ops_tasks') is not null and to_regprocedure('public.is_app_admin()') is not null then
+    drop policy if exists "ops_tasks_all_own" on public.ops_tasks;
+    create policy "ops_tasks_all_own" on public.ops_tasks for all to authenticated
+      using (auth.uid() = user_id and public.is_app_admin())
+      with check (auth.uid() = user_id and public.is_app_admin());
+  end if;
+  if to_regclass('public.ops_advisor_messages') is not null and to_regprocedure('public.is_app_admin()') is not null then
+    drop policy if exists "ops_advisor_select_own" on public.ops_advisor_messages;
+    create policy "ops_advisor_select_own" on public.ops_advisor_messages for select to authenticated
+      using (auth.uid() = user_id and public.is_app_admin());
+    drop policy if exists "ops_advisor_insert_own" on public.ops_advisor_messages;
+    create policy "ops_advisor_insert_own" on public.ops_advisor_messages for insert to authenticated
+      with check (auth.uid() = user_id and public.is_app_admin());
+    drop policy if exists "ops_advisor_delete_own" on public.ops_advisor_messages;
+    create policy "ops_advisor_delete_own" on public.ops_advisor_messages for delete to authenticated
+      using (auth.uid() = user_id and public.is_app_admin());
+  end if;
+end $$;
+
+-- ─── 3. 記録の時刻はサーバーの今 ─────────────────────────────
+create or replace function public.force_created_now()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  -- 利用者（authenticated・anon）が入れるときだけ。service_role と SQL Editor はそのまま（運営の作業・移し替え）。
+  if current_user in ('authenticated', 'anon') then
+    new.created_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+do $$
+begin
+  if to_regclass('public.analytics_events') is not null then
+    drop trigger if exists analytics_events_created_now on public.analytics_events;
+    create trigger analytics_events_created_now before insert on public.analytics_events
+      for each row execute function public.force_created_now();
+  end if;
+  if to_regclass('public.chat_messages') is not null then
+    drop trigger if exists chat_messages_created_now on public.chat_messages;
+    create trigger chat_messages_created_now before insert on public.chat_messages
+      for each row execute function public.force_created_now();
+  end if;
+end $$;

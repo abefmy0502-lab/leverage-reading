@@ -107,7 +107,9 @@ create policy "profiles_update_own" on public.profiles
 
 drop policy if exists "profiles_delete_own" on public.profiles;
 create policy "profiles_delete_own" on public.profiles
-  for delete to authenticated using (auth.uid() = user_id);
+  -- 運営に隠されたページは本人が消せない（消して新しい ID で作り直すと公開に戻れた・2026-11-26 監査）。
+  -- 退会はサーバーが service_role で消すので、この決まりの外。
+  for delete to authenticated using (auth.uid() = user_id and hidden = false);
 
 -- 登録せずに始めた（匿名の）アカウントか。ログインの印（JWT）の is_anonymous ではなく、auth.users の今の値で見る
 -- （2026-11-22: 登録せずに始めて、あとで Apple・メールでアカウントを作った人は、古い印が残っている間「匿名」に見え、
@@ -159,6 +161,11 @@ begin
   if auth.uid() is not null and tg_op = 'UPDATE' and current_user in ('authenticated', 'anon') then
     new.hidden := old.hidden;
     new.public_id := old.public_id;
+    new.created_at := old.created_at;
+  end if;
+  -- 作った日時は利用者が決められない（通報を数えるかの「3 日」の条件をすり抜けられた・2026-11-26 監査）。
+  if auth.uid() is not null and tg_op = 'INSERT' and current_user in ('authenticated', 'anon') then
+    new.created_at := now();
   end if;
   -- 作り直し（INSERT）でも、隠された ID なら隠したまま（2026-11-22）。
   if auth.uid() is not null and tg_op = 'INSERT' and current_user in ('authenticated', 'anon') and public._public_id_held(new.public_id) then

@@ -236,6 +236,8 @@ export function BookFolderLinks({ folders = [], onPick, onEdit }) {
 // 振り返り › 記録の「分野」。record: lib/bookFields.js の buildFieldRecord の結果。
 export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
   const { groups } = record;
+  // 棒の長さは、いちばん本の多い分野を 1 とした割合（本棚の形＝どこに本が寄っているかを一目で・2026-11-26 オーナー「直感的に」）。
+  const maxBooks = groups.reduce((m, g) => g.fields.reduce((mm, f) => Math.max(mm, f.books || 0), m), 0);
   return (
     <section
       data-book-fields-record=""
@@ -251,39 +253,45 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
             <span>{c.name}</span>
             {/* 本の合計は、その大分類の分野を 1 つでも持つ本の数（2 つの分野の本を二重に数えない）。分野が 1 つだけの大分類は、
                 すぐ下の行と同じ数になるので出さない（2026-11-17 ui-critic） */}
-            {c.fields.length > 0 && c.size > 1 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`本棚 ${c.books} 冊`}</span>}
+            {c.fields.length > 0 && c.size > 1 && <span style={{ fontWeight: 400, fontSize: 'var(--text-meta)', letterSpacing: 0, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', paddingRight: 'calc(var(--text-sub) * 1.1 + var(--space-2))' }}>{`本棚 ${c.books} 冊`}</span>}
           </p>
           {c.fields.length > 0 && (
           <ul style={{ listStyle: 'none', margin: 'var(--space-1) 0 0', padding: 0 }}>
             {c.fields.map((f, i) => {
-              const parts = [`本棚 ${f.books} 冊`];
-              if (f.memos > 0) parts.push(`メモ ${f.memos} 件`);
+              const sub = [];
+              if (f.memos > 0) sub.push(`メモ ${f.memos} 件`);
               // ★ 評価の平均（評価の付いた本が 2 冊以上のときだけ・小数 1 桁・押すと評価順で並ぶ・2026-10-11）
               const avg = Number.isFinite(f.avgRating) ? `★${f.avgRating.toFixed(1)}` : null;
-              if (avg) parts.push(avg);
+              if (avg) sub.push(avg);
+              const ratio = maxBooks > 0 ? (f.books || 0) / maxBooks : 0;
               return (
                 <li key={f.name} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
                   <button
                     type="button"
                     onClick={() => onOpenField?.(f.name)}
-                    aria-label={`${f.name}・${parts.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}・本を見る`}
+                    aria-label={`${f.name}・本棚 ${f.books} 冊${sub.length ? `・${sub.map((x) => (x === avg ? `評価の平均 ${f.avgRating.toFixed(1)}` : x)).join('・')}` : ''}・本を見る`}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%', minHeight: 'var(--tap-min)',
-                      // 行の上下は 4（2 行の中身で 48 以上になる・8 だと行が間延びして見えた・2026-11-09）
-                      padding: 'var(--space-1) 0', background: 'none', border: 'none', cursor: 'pointer',
+                      padding: 'var(--space-2) 0', background: 'none', border: 'none', cursor: 'pointer',
                       fontFamily: 'inherit', fontSize: 'var(--text-sub)', textAlign: 'left', color: 'var(--text)',
                     }}
                   >
-                    {/* 1 行目＝分野の名前・2 行目＝「本 N 冊 · メモ N 件」（区切りは「 · 」に統一）（どの行も同じ位置・2026-10-11 ui-critic）。
+                    {/* 1 行目＝分野の名前（左）と冊数（右）・その下に冊数の棒・あれば「メモ N 件 · ★4.2」（2026-11-26 作り直し）。
                         分野ごとの読書の時間は「読書の時間」カードの「分野ごと」に一本化した（同じ数を 2 か所に出さない・2026-10-11 オーナー裁定）。 */}
-                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
-                      <span style={{ fontSize: 'var(--text-sub)', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
-                      <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                        {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
-                        {parts.map((seg, i, all) => (
-                          <span key={i} style={{ whiteSpace: 'nowrap' }}>{i ? ' ' : ''}{seg}{i < all.length - 1 ? '\u00A0·' : ''}</span>
-                        ))}
+                    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                      <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-3)' }}>
+                        <span style={{ flex: '1 1 auto', minWidth: 'min(100%, 8em)', fontSize: 'var(--text-sub)', lineHeight: 1.35, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{f.name}</span>
+                        <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`${f.books} 冊`}</span>
                       </span>
+                      <FieldBar ratio={ratio} />
+                      {sub.length > 0 && (
+                        <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1.3, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+                          {/* 「·」は前の塊の末尾に付け、折り返すのは記号の後ろの空白だけ（行頭に「·」を出さない・2026-10-11 ui-critic）。 */}
+                          {sub.map((seg, k, all) => (
+                            <span key={k} style={{ whiteSpace: 'nowrap' }}>{k ? ' ' : ''}{seg}{k < all.length - 1 ? '\u00A0·' : ''}</span>
+                          ))}
+                        </span>
+                      )}
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
@@ -297,6 +305,17 @@ export function BookFieldsRecord({ record, onOpenField, onFindBooks }) {
         </div>
       ))}
     </section>
+  );
+}
+
+// 冊数の細い棒（読書の時間の「分野ごと」と同じ形＝高さ 6・溝 --fill・中身はアクセントを 65% に薄めた色・角丸 3＝グラフの形の例外）。
+const FIELD_BAR_SOFT = 'color-mix(in srgb, var(--accent) 65%, var(--surface))';
+function FieldBar({ ratio }) {
+  const pct = Math.max(0, Math.min(1, ratio || 0)) * 100;
+  return (
+    <span aria-hidden="true" style={{ display: 'block', height: 6, borderRadius: 3, background: 'var(--fill)', overflow: 'hidden' }}>
+      <span style={{ display: 'block', width: `${pct}%`, minWidth: pct > 0 ? 3 : 0, height: '100%', borderRadius: 3, background: FIELD_BAR_SOFT }} />
+    </span>
   );
 }
 

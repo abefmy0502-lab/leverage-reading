@@ -827,6 +827,10 @@ const SCREENS = [
   { name: 'import-xxl-text', url: '/', steps: [{ eval: () => { document.documentElement.style.fontSize = '40px'; } }, { wait: 300 }, { css: 'button[aria-label="設定を開く"]' }, { css: 'button:has-text("ほかのアプリから取り込む")' }, { wait: 500 }] },
   { name: 'action-add', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button:has-text("追加")' }, { css: '[role=dialog] button:has-text("1兆ドルコーチ")' }, { wait: 400 }] },
   { name: 'review-memo-menu', url: '/',steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("メモ")' }, { css: 'button[aria-label="このメモの操作"]' }] },
+  // 記録の下の区画（読書の足あと・月別の読了・分野）を見せる（2026-11-26 オーナー「デザインちっくに直感的に」）
+  { name: 'review-record-foot', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { eval: RT_SCROLL('[data-record-foot]') }, { wait: 400 }] },
+  { name: 'review-record-day', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { eval: RT_SCROLL('[data-record-foot]') }, { eval: "(() => { const c = [...document.querySelectorAll('[data-record-foot] [data-day]')]; const t = c.find((x) => !String(x.style.background).includes('accent')); const r = (t || c[0]).getBoundingClientRect(); const g = document.querySelector('[data-record-foot] [role=slider]'); g.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true })); g.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); })()" }, { wait: 400 }] },
+  { name: 'review-record-fields', url: '/', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }, { wait: 1200 }, { scrollTo: '[data-book-fields-record]' }, { wait: 400 }] },
   { name: 'review-record-empty', url: '/?demo=nomemo', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },
   // 一部の区画だけ（読了が 1 冊も無い人＝「月別の読了」は出さない・2026-10-04）
   { name: 'review-record-partial', url: '/?demo=noreadingnone', steps: [{ css: nav('振り返り') }, { css: 'button[role=tab]:has-text("記録")' }] },

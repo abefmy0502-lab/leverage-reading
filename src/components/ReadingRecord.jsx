@@ -19,7 +19,7 @@
 //     fallback（recall 列が無い DB では定着セクションを静かに隠す）。
 
 import { withPhraseBreaks } from './TightBubble';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { isSchemaError } from '../lib/errors';
 import { useAuth } from '../hooks/useAuth';
@@ -247,12 +247,14 @@ function FlowRow({ cells }) {
 }
 
 // 月別バー（読了 or メモ）。unit は読み上げの数え方（読了は「冊」・2026-09-29）。
+// 今月の棒はアクセント、それより前は 65% に薄めた色（足あとのいちばん薄い段・分野の棒と同じ）（いまの位置が一目で分かる）。読了の無い月は棒を出さず、下の基線だけ（2026-11-26）。
+const MONTH_BAR_SOFT = 'color-mix(in srgb, var(--accent) 65%, var(--surface))';
 function MonthBars({ buckets, activeColor, unit = '冊' }) {
   const peak = buckets.reduce((m, k) => Math.max(m, k.count), 0);
   const lastIdx = buckets.length - 1;
   return (
     <div
-      style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', justifyContent: 'space-between', marginTop: 'var(--space-3)' }}
+      style={{ display: 'flex', alignItems: 'flex-end', gap: 0, justifyContent: 'space-between', marginTop: 'var(--space-4)' }}
       role="img"
       aria-label={`月別の推移: ${buckets.map((k) => `${k.month + 1}月 ${k.count} ${unit}`).join(', ')}`}
     >
@@ -263,21 +265,25 @@ function MonthBars({ buckets, activeColor, unit = '冊' }) {
         return (
           <div key={`${k.year}-${k.month}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flex: 1, minWidth: 0 }} aria-hidden="true">
             {/* 件数は棒のすぐ上（4）に乗せる。枠の高さ＝棒の最大＋件数 1 行（13）＋間 4。 */}
-            <div style={{ width: '100%', maxWidth: 22, height: BAR_MAX_H + 17, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)' }}>
+            {/* 列の間は 0 にして、棒の左右の余白（4）で離す＝下の基線が途切れずに 1 本につながる */}
+            <div style={{ width: '100%', boxSizing: 'border-box', padding: '0 var(--space-1)', height: BAR_MAX_H + 17, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', borderBottom: '1px solid var(--separator)' }}>
               {active && (
                 <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                   {k.count}
                 </span>
               )}
-              <div
-                style={{
-                  width: '100%',
-                  height: h,
-                  borderRadius: CHART_RADIUS,
-                  background: active ? activeColor : 'var(--border)',
-                  transition: 'height var(--duration-base, 0.3s) var(--ease-out, ease)',
-                }}
-              />
+              {active && (
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: 28,
+                    height: h,
+                    borderRadius: `${CHART_RADIUS}px ${CHART_RADIUS}px 0 0`,
+                    background: isCurrent ? activeColor : MONTH_BAR_SOFT,
+                    transition: 'height var(--duration-base, 0.3s) var(--ease-out, ease)',
+                  }}
+                />
+              )}
             </div>
             <span style={{ fontSize: 'var(--text-meta)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', fontWeight: isCurrent ? 600 : 400, color: isCurrent ? 'var(--text)' : 'var(--text-3)' }}>
               {k.month + 1}月
@@ -303,8 +309,11 @@ function heatColor(n) {
   return HEAT_COLORS[3];
 }
 
-function Heatmap({ dateStrings, weeks = 16 }) {
-  const { cols, activeDays } = useMemo(() => {
+function Heatmap({ dateStrings, weeks = 16, title = '' }) {
+  // 押した日（その日の日付と記録の数を下の 1 行に出す・もう一度押すと戻す・2026-11-26 オーナー「直感的に」）。
+  // はじめは今日を選んでおく（下の 1 行がいつもデータ＝今日の記録の数。今日の縁と文が対になり、押すと替わると伝わる）。
+  const [picked, setPicked] = useState(null);
+  const { cols, activeDays, todayKey } = useMemo(() => {
     const counts = new Map();
     for (const s of dateStrings) {
       const d = parseLocalDate(s);
@@ -347,8 +356,66 @@ function Heatmap({ dateStrings, weeks = 16 }) {
     for (const col of out) {
       for (const d of col.days) { if (d && d.count > 0) act += 1; }
     }
-    return { cols: out, activeDays: act };
+    return { cols: out, activeDays: act, todayKey: dayKey(today) };
   }, [dateStrings, weeks]);
+  // 古い日から今日までの並び（キーボード・読み上げで 1 日ずつ／1 週ずつ動かす）。
+  const dayList = useMemo(() => cols.flatMap((c) => c.days).filter(Boolean), [cols]);
+  const pickedIdx = Math.max(0, dayList.findIndex((d) => d.key === (picked || todayKey)));
+  const pickedDay = dayList[pickedIdx] || null;
+  // 📍 なぞって選ぶ（2026-11-26 ui-critic: マスは 14pt で押すには小さい）。並びのどこに触れても、指にいちばん近いマスを選び、
+  //    押したまま横・縦に滑らせると指の下の日に替わる（iOS のヘルスケアのグラフと同じ）。縦の送りは止めない（touch-action: pan-y）。
+  const gridRef = useRef(null);
+  const draggingRef = useRef(false);
+  const pickAt = (x, y) => {
+    const g = gridRef.current;
+    if (!g) return;
+    let best = null; let bestD = Infinity;
+    g.querySelectorAll('[data-day]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      const dx = x - (r.left + r.width / 2); const dy = y - (r.top + r.height / 2);
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = el; }
+    });
+    if (best) setPicked(best.getAttribute('data-day'));
+  };
+  //    指のときは、置いただけでは選ばない（ページを縦に送るつもりで触れても日が替わらない・2026-11-26 ui-critic）:
+  //    離したときに 8 以内の動きならそこを選ぶ（タップ）・横に 8 を超えて縦より大きく動いたら、なぞりを始める。
+  //    縦に送り始めたら pointercancel が来るので何もしない。マウスとペンは押したときに選ぶ。
+  const startRef = useRef(null);
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'touch') { startRef.current = { x: e.clientX, y: e.clientY }; draggingRef.current = false; return; }
+    startRef.current = null; draggingRef.current = true; pickAt(e.clientX, e.clientY);
+  };
+  const onPointerMove = (e) => {
+    const st = startRef.current;
+    if (st && !draggingRef.current) {
+      const dx = Math.abs(e.clientX - st.x); const dy = Math.abs(e.clientY - st.y);
+      if (dx > 8 && dx > dy) draggingRef.current = true; else return;
+    }
+    if (draggingRef.current) pickAt(e.clientX, e.clientY);
+  };
+  const onPointerUp = (e) => {
+    const st = startRef.current;
+    if (st && !draggingRef.current && Math.hypot(e.clientX - st.x, e.clientY - st.y) <= 8) pickAt(e.clientX, e.clientY);
+    startRef.current = null; draggingRef.current = false;
+  };
+  const endDrag = () => { startRef.current = null; draggingRef.current = false; };
+  // ⌨️ ← → で 1 日・↑ ↓ で 1 週（読み上げは上下のスワイプで 1 日ずつ＝調整できる部品）。
+  const onKeyDown = (e) => {
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7, Home: -Infinity, End: Infinity }[e.key];
+    if (step === undefined) return;
+    e.preventDefault();
+    const next = Math.min(dayList.length - 1, Math.max(0, Number.isFinite(step) ? pickedIdx + step : (step < 0 ? 0 : dayList.length - 1)));
+    if (dayList[next]) setPicked(dayList[next].key);
+  };
+  const dayLabel = (key) => {
+    const d = parseLocalDate(key);
+    if (!d) return '';
+    return `${d.getMonth() + 1}月${d.getDate()}日（${'日月火水木金土'[d.getDay()]}）`;
+  };
+  const pickedText = pickedDay
+    ? `${dayLabel(pickedDay.key)}${pickedDay.key === todayKey ? '・今日' : ''}　${pickedDay.count > 0 ? `記録 ${pickedDay.count} 件` : '記録なし'}`
+    : `直近 ${weeks} 週で記録した日 ${activeDays} 日`;
 
   const CELL = 14; // マスの最大（「形そのもの」DESIGN §4 の例外）。狭い画面では幅に合わせて縮む
   const GAP = 'var(--space-1)';
@@ -356,7 +423,14 @@ function Heatmap({ dateStrings, weeks = 16 }) {
   const LABEL_H = 'max(var(--space-4), calc(var(--text-meta) * 1.2))';
   const label = { fontSize: 'var(--text-meta)', lineHeight: 1, color: 'var(--text-3)', whiteSpace: 'nowrap', alignSelf: 'center' };
   return (
-    <div role="img" aria-label={`直近 ${weeks} 週間の活動。読書の記録があった日は ${activeDays} 日`}>
+    <div>
+      {title && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
+          <h3 style={cardTitle}>{title}</h3>
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`直近 ${weeks}\u00a0週で ${activeDays}\u00a0日`}</span>
+        </div>
+      )}
+    <div>
       {/* 列は「曜日ラベル＋週の数」の格子。マスは幅に合わせて最大 14 まで（320px でもカードからはみ出さない）。
           左端は曜日ラベルを本文の左にそろえ、右端のマスは凡例の右端にそろえる（space-between）。 */}
       <div
@@ -368,8 +442,24 @@ function Heatmap({ dateStrings, weeks = 16 }) {
           gap: GAP,
           justifyContent: 'space-between',
           marginTop: 'var(--space-3)',
+          touchAction: 'pan-y',
+          cursor: 'pointer',
+          borderRadius: CHART_RADIUS,
         }}
-        aria-hidden="true"
+        ref={gridRef}
+        role="slider"
+        tabIndex={0}
+        aria-label="読書の足あとの日"
+        aria-valuemin={1}
+        aria-valuemax={Math.max(1, dayList.length)}
+        aria-valuenow={pickedIdx + 1}
+        aria-valuetext={pickedText}
+        onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={endDrag}
+        onPointerLeave={endDrag}
       >
         {/* 曜日ラベル列（月曜はじまり） */}
         <span />
@@ -389,9 +479,12 @@ function Heatmap({ dateStrings, weeks = 16 }) {
           ...col.days.map((d, di) => (
             <span
               key={`d-${ci}-${di}`}
+              data-day={d ? d.key : undefined}
               style={{
                 width: '100%', aspectRatio: '1 / 1', alignSelf: 'center', borderRadius: CHART_RADIUS,
                 background: d ? heatColor(d.count) : 'transparent',
+                                // 今日は細い縁（いまどこかが分かる）・押した日は濃い縁（2026-11-26）
+                boxShadow: d && d.key === (picked || todayKey) ? 'inset 0 0 0 2px var(--text)' : (d && d.key === todayKey ? 'inset 0 0 0 1.5px var(--text-2)' : 'none'),
               }}
             />
           )),
@@ -399,7 +492,10 @@ function Heatmap({ dateStrings, weeks = 16 }) {
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
       {/* 色だけに頼らない（DESIGN §6）: 記録があった日数を文字でも。 */}
-      <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>直近 {weeks} 週で記録した日 {activeDays} 日</p>
+      {/* 選んだ日（はじめは今日）の記録の数。読み上げは上の部品の aria-valuetext で伝えるので、ここは見せるだけ。 */}
+      <p aria-hidden="true" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+        {pickedText}
+      </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginLeft: 'auto' }} aria-hidden="true">
         <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>少</span>
         {HEAT_COLORS.map((c) => (
@@ -408,6 +504,7 @@ function Heatmap({ dateStrings, weeks = 16 }) {
         <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)' }}>多</span>
       </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -666,9 +763,8 @@ export default function ReadingRecord({
 
       {/* データが無い区画は出さない（SPEC §5-5・2026-10-04: 読了が直近 6 か月に 1 冊も無いのに 0 の棒だけの区画が出ていた）。 */}
       {footprints.length > 0 && (
-      <section style={card}>
-        <h3 style={cardTitle}>読書の足あと</h3>
-        <Heatmap dateStrings={footprints} weeks={16} />
+      <section style={card} data-record-foot="">
+        <Heatmap dateStrings={footprints} weeks={16} title="読書の足あと" />
       </section>
       )}
 
@@ -676,8 +772,10 @@ export default function ReadingRecord({
       <section style={card}>
         {/* 直近 6 か月だけなので、見出しで範囲を言う（それより前の読了は数に入らない・2026-09-29）。 */}
         {/* 見出しは「月別の読了」だけ、範囲は下の小さな 1 行に（文字を大きくすると「（直近」が割れていた・2026-10-10 ui-critic）。 */}
-        <h3 style={cardTitle}>月別の読了</h3>
-        <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{'直近 6\u00a0か月'}</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 'var(--space-3)' }}>
+          <h3 style={cardTitle}>月別の読了</h3>
+          <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{`直近 6\u00a0か月で ${doneBuckets.reduce((n, b) => n + b.count, 0)}\u00a0冊`}</span>
+        </div>
         <MonthBars buckets={doneBuckets} activeColor="var(--accent)" />
       </section>
       )}

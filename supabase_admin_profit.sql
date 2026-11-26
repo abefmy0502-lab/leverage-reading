@@ -90,6 +90,8 @@ begin
                             'fields_ai_calls', v_fields, 'paid_users_ai', v_dist);
 end $$;
 revoke all on function public._admin_profit_month(text) from public;
+-- Supabase は anon と authenticated にも実行権を直接付けるので、public からの取り消しだけでは閉じない（下請けは _require_admin を通らない・2026-11-26 監査）。
+revoke all on function public._admin_profit_month(text) from anon, authenticated;
 
 -- 今の契約の人数（subscriptions から）。
 create or replace function public._admin_profit_paid_now()
@@ -105,6 +107,8 @@ as $$
   where status = 'active' and user_id not in (select user_id from public.app_admins);
 $$;
 revoke all on function public._admin_profit_paid_now() from public;
+-- Supabase は anon と authenticated にも実行権を直接付けるので、public からの取り消しだけでは閉じない（下請けは _require_admin を通らない・2026-11-26 監査）。
+revoke all on function public._admin_profit_paid_now() from anon, authenticated;
 
 -- ── ① 今月 ─────────────────────────────────────────────────────────────────────────
 create or replace function public.admin_profit(p_month text default null)

@@ -29,6 +29,18 @@ export function freePoolBudgetMjpy({ paidCount = null, env = process.env } = {})
   return Math.round(Math.min(max, base + per * paid) * 1000);
 }
 
+// 👤 登録せずに始めた人（匿名のアカウント）の分の上限＝全体の予算のうち AI_FREE_POOL_GUEST_SHARE（既定 0.3）まで。
+//   匿名のアカウントはいくつでも作れるので、使い捨てのアカウントを量産して全体の予算を使い切り、無料会員全員の AI を
+//   止めることができた（2026-11-26 監査）。匿名の人は全体の予算とは別に、この枠（'guest-YYYY-MM'）からも予約する。
+export function guestPoolShare(env = process.env) {
+  const n = Number(env.AI_FREE_POOL_GUEST_SHARE);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.3;
+}
+export function guestPoolBudgetMjpy(budgetMjpy, env = process.env) {
+  return Math.round((Number(budgetMjpy) || 0) * guestPoolShare(env));
+}
+export const guestPoolKey = (monthKey) => `guest-${monthKey}`;
+
 /** 使った割合の段（ログと運営ダッシュボード用）。'ok' | 'warn'（70% 以上）| 'high'（90% 以上）| 'out'（尽きた）。 */
 export function freePoolLevel(usedMjpy, budgetMjpy) {
   const b = Number(budgetMjpy) || 0;

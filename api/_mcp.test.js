@@ -129,6 +129,13 @@ describe('JSON-RPC', () => {
     expect(out).toHaveLength(1);
     expect(await handleBatch({ jsonrpc: '2.0', method: 'notifications/initialized' }, ctx())).toEqual([]);
   });
+  it('まとめ送りは 20 件まで（それより多いと何もせず -32600・2026-11-26 監査）', async () => {
+    const many = Array.from({ length: 21 }, (_, i) => ({ jsonrpc: '2.0', id: i, method: 'ping' }));
+    const out = await handleBatch(many, ctx());
+    expect(out).toHaveLength(1);
+    expect(out[0].error.code).toBe(-32600);
+    expect(await handleBatch(many.slice(0, 20), ctx())).toHaveLength(20);
+  });
   it('知らない道具は -32602', async () => {
     expect((await call('delete_everything')).error.code).toBe(-32602);
   });

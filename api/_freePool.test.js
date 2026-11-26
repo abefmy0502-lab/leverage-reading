@@ -38,3 +38,14 @@ describe('無料プランの AI の全体の予算（2026-11-25）', () => {
     expect(await paidMemberCount(null)).toBe(null);
   });
 });
+
+describe('登録せずに始めた人の分の枠（2026-11-26 監査）', () => {
+  it('全体の予算の 30% が既定・env で変えられる・おかしな値は既定', async () => {
+    const { guestPoolBudgetMjpy, guestPoolShare, guestPoolKey } = await import('./_freePool.js');
+    expect(guestPoolBudgetMjpy(10_000_000, {})).toBe(3_000_000);
+    expect(guestPoolShare({ AI_FREE_POOL_GUEST_SHARE: '0.5' })).toBe(0.5);
+    expect(guestPoolShare({ AI_FREE_POOL_GUEST_SHARE: '2' })).toBe(0.3);
+    expect(guestPoolKey('2026-11')).toBe('guest-2026-11');
+    expect(/^(guest-)?[0-9]{4}-[0-9]{2}$/.test(guestPoolKey('2026-11'))).toBe(true);
+  });
+});

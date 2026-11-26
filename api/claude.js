@@ -16,7 +16,7 @@ import { resolveRoute, isJevPurpose } from './_aiRouting.js';
 import { handleJevRelay } from './_jevRelay.js';
 import { openRoute, ProviderError } from './_providers.js';
 import { refreshConsultWarm, touchConsultWarm, isWarmableSystem } from './_consultWarm.js';
-import { freePoolOn, freePoolBudgetMjpy, freePoolLevel, paidMemberCount, reserveFreePool, adjustFreePool } from './_freePool.js';
+import { freePoolOn, freePoolBudgetMjpy, freePoolLevel, paidMemberCount, reserveFreePool, adjustFreePool, guestPoolBudgetMjpy, guestPoolKey } from './_freePool.js';
 
 // 画像として通す種類（2026-10-11）。ほかの種類は落とす（AI の会社が受け付ける画像だけ・アプリは JPEG に縮めて送る）。
 export const IMAGE_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -697,6 +697,7 @@ export default async function handler(req, res) {
   //    登録せずに始めた人（匿名・is_anonymous）は、はじめの月の多い量にしない（いくつも作って無料の AI を集められないように・2026-11-19）。
   //    Apple かメールにつないだら、作った日からのはじめの月が効く。
   const userCreatedAt = userData.user.is_anonymous ? null : (userData.user.created_at || null);
+  const isGuestUser = !!userData.user.is_anonymous;
 
   // 🗑 退会をその場で終える（2026-11-21・api/_deleteAccount.js・App 審査 5.1.1(v)）。AI は使わない。
   if (req.body?.op === 'delete_account') {
@@ -889,6 +890,8 @@ export default async function handler(req, res) {
   // 🧯 無料プランの AI の全体の予算（api/_freePool.js）。予約した額と、精算したか。
   let poolReserved = 0;
   let poolSettled = false;
+  // 👤 登録せずに始めた人の分の枠（'guest-YYYY-MM'）に予約した額（全体の予算と同じ差で精算する）。
+  let guestReserved = 0;
   // refund=true: 関係するメモが無かった相談の払い戻し。予約をまるごと戻し（この 1 回は 0 円として数える）、
   // 追加分（買い足したトークン）からも差し引かない（settle_token_overflow を呼ばない）。
   // poolActual: 全体の予算に数える実際の原価（省略＝actualMjpy）。全体の予算は払い戻し（refund）でも戻さない
@@ -899,6 +902,7 @@ export default async function handler(req, res) {
       poolSettled = true;
       const spent = poolActual !== undefined ? poolActual : actualMjpy;
       track(adjustFreePool(getServiceSupabase(), { periodMonth: monthKey, deltaMjpy: (spent == null ? 0 : spent) - poolReserved }));
+      if (guestReserved) track(adjustFreePool(getServiceSupabase(), { periodMonth: guestPoolKey(monthKey), deltaMjpy: (spent == null ? 0 : spent) - guestReserved }));
     }
     if (!costMetered || costSettled) return;
     costSettled = true;
@@ -964,16 +968,35 @@ export default async function handler(req, res) {
       .reduce((a, v) => Math.max(a, v), 0);
     const sb = getServiceSupabase();
     const budget = freePoolBudgetMjpy({ paidCount: await paidMemberCount(sb) });
-    const pool = await reserveFreePool(sb, { periodMonth: monthKey, amountMjpy: poolEst, budgetMjpy: budget });
+    // 👤 登録せずに始めた人は、先に匿名の分の枠（全体の 30%）から予約する。尽きていれば全体の予算は使わずに止める。
+    let guestOut = false;
+    if (isGuestUser) {
+      const g = await reserveFreePool(sb, { periodMonth: guestPoolKey(monthKey), amountMjpy: poolEst, budgetMjpy: guestPoolBudgetMjpy(budget) });
+      if (g.metered && !g.allowed) guestOut = true;
+      else if (g.metered) guestReserved = poolEst;
+    }
+    const pool = guestOut ? { metered: true, allowed: false } : await reserveFreePool(sb, { periodMonth: monthKey, amountMjpy: poolEst, budgetMjpy: budget });
+    if (pool.metered && !pool.allowed && guestReserved) {
+      // 全体の予算が尽きていた: 匿名の分の予約を戻す
+      track(adjustFreePool(sb, { periodMonth: guestPoolKey(monthKey), deltaMjpy: -guestReserved }));
+      guestReserved = 0;
+    }
     if (pool.metered && !pool.allowed) {
-      console.warn('[ai-free-pool] out of budget for', monthKey);
+      console.warn(guestOut ? '[ai-free-pool] guest share out for' : '[ai-free-pool] out of budget for', monthKey);
       settleCost(null);
       if (usage.reserved && usage.allowed) track(releaseMonthlyUsage(userId, periodKey));
       await flush();
       return res.status(402).json({
-        error: { message: `今月の無料の AI は、使う方がとても多く、ここまでになりました。${nextResetLabel()}に戻ります。あなたのメモから探す答えは、いつでも使えます。` },
+        error: { message: guestOut
+          ? `今月の無料の AI は、使う方がとても多く、ここまでになりました。${nextResetLabel()}に戻ります。アカウントを作ると、続けて使えることがあります。あなたのメモから探す答えは、いつでも使えます。`
+          : `今月の無料の AI は、使う方がとても多く、ここまでになりました。${nextResetLabel()}に戻ります。あなたのメモから探す答えは、いつでも使えます。` },
         error_code: 'free_limit_reached', free_pool: true, reset_label: nextResetLabel(),
       });
+    }
+    if (!pool.metered && guestReserved) {
+      // 全体の予算を数えられない（SQL が無い）ときは、匿名の分も数えない（予約を戻す）
+      track(adjustFreePool(sb, { periodMonth: guestPoolKey(monthKey), deltaMjpy: -guestReserved }));
+      guestReserved = 0;
     }
     if (pool.metered) {
       poolReserved = poolEst;

@@ -13,12 +13,22 @@
 -- 未適用なら、中継は今までどおり 1 人ずつの上限だけで守る（fail-open・警告のログだけ）。冪等。
 
 create table if not exists public.ai_free_pool (
-  period_month text primary key check (period_month ~ '^[0-9]{4}-[0-9]{2}$'),
+  period_month text primary key,
   cost_mjpy bigint not null default 0,
   calls integer not null default 0,
   updated_at timestamptz not null default now()
 );
 alter table public.ai_free_pool enable row level security;
+
+-- 👤 登録せずに始めた人（匿名）の分の枠も同じ表で数える（'guest-YYYY-MM'・全体の予算の 30% まで・api/_freePool.js・2026-11-26 監査）。
+--   最初の版の CHECK は 'YYYY-MM' だけだったので、名前つきの CHECK に作り直す（冪等）。
+alter table public.ai_free_pool drop constraint if exists ai_free_pool_period_month_check;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'ai_free_pool_period_key_check') then
+    alter table public.ai_free_pool add constraint ai_free_pool_period_key_check
+      check (period_month ~ '^(guest-)?[0-9]{4}-[0-9]{2}$');
+  end if;
+end $$;
 
 create or replace function public.reserve_ai_free_pool(p_period_month text, p_amount bigint, p_budget bigint)
 returns bigint

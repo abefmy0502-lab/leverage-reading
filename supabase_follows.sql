@@ -105,6 +105,15 @@ as $$
     from public.profiles p where p.user_id = p_user
 $$;
 
+-- 申し込んだ記録（1 日 50 件の上限を数える・取り消しても残る＝申し込み → 取り消しを繰り返して上限をすり抜けられた・2026-11-26 監査）。
+-- RLS 有効・ポリシーなし＝関数（SECURITY DEFINER）だけが読み書きする。2 日より古い行は申し込むたびに本人の分を消す。
+create table if not exists public.follow_request_log (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists follow_request_log_user_idx on public.follow_request_log (user_id, created_at desc);
+alter table public.follow_request_log enable row level security;
+
 -- ─── 申し込む・答える・やめる ─────────────────────────────
 -- 戻り値: 'pending'（申し込んだ）・'accepted'（もう承認されている）・'self'・'not_found'・'no_profile'・'anonymous'
 create or replace function public.follow_request(p_public_id text)
@@ -127,12 +136,15 @@ begin
   if target = me then return 'self'; end if;
   -- ブロックの有無は明かさない（見つからないのと同じ答え）。
   if public._blocked_between(me, target) then return 'not_found'; end if;
-  -- 申し込みは 1 人 1 日 50 件まで（いたずらの大量の申し込みを止める）。
-  if (select count(*) from public.follows where follower_id = me and created_at > now() - interval '1 day') >= 50 then
+  -- 申し込みは 1 人 1 日 50 件まで（いたずらの大量の申し込みを止める）。取り消した申し込みも数える（follow_request_log）。
+  delete from public.follow_request_log where user_id = me and created_at < now() - interval '2 days';
+  if (select count(*) from public.follow_request_log where user_id = me and created_at > now() - interval '1 day') >= 50
+     or (select count(*) from public.follows where follower_id = me and created_at > now() - interval '1 day') >= 50 then
     return 'too_many';
   end if;
   insert into public.follows (follower_id, followee_id) values (me, target)
     on conflict (follower_id, followee_id) do nothing;
+  if found then insert into public.follow_request_log (user_id) values (me); end if;
   select status into st from public.follows where follower_id = me and followee_id = target;
   return st;
 end;
@@ -472,7 +484,9 @@ begin
   key := encode(sha256(convert_to(me::text || ':' || pid, 'UTF8')), 'hex');
   insert into public.profile_reports (public_id, reason, reporter_key, counted)
     values (pid, trim(why), key, not public._is_anonymous() and exists (
-      select 1 from public.profiles where user_id = me and nickname <> '' and created_at < now() - interval '3 days'))
+      select 1 from public.profiles where user_id = me and nickname <> '')
+      -- 作って 3 日たったアカウントか（プロフィールの日時ではなく auth の日時で見る＝本人が書き換えられない・2026-11-26 監査）
+      and exists (select 1 from auth.users u where u.id = me and u.created_at < now() - interval '3 days'))
     on conflict (public_id, reporter_key) where reporter_key is not null and status = 'open' do nothing;
   select count(*) into n from public.profile_reports where public_id = pid and status = 'open' and counted;
   if n >= 3 then update public.profiles set hidden = true where public_id = pid and hidden = false; end if;

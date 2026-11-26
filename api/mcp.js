@@ -18,11 +18,12 @@ import { searchBooksServer } from './_bookSearch.js';
 const USER_WINDOW_MS = 60 * 1000;
 const USER_MAX = 120;
 const userRate = new Map();
-function allowUser(userId) {
+// n: この 1 回で数える数（まとめ送りの道具の呼び出しは 1 件ずつ数える・2026-11-26 監査）。
+export function allowUser(userId, n = 1) {
   const now = Date.now();
   const arr = (userRate.get(userId) || []).filter((t) => now - t < USER_WINDOW_MS);
-  if (arr.length >= USER_MAX) return false;
-  arr.push(now);
+  if (arr.length + n > USER_MAX) return false;
+  for (let i = 0; i < n; i += 1) arr.push(now);
   userRate.set(userId, arr);
   if (userRate.size > 5000) for (const [k, v] of userRate) if (!v.some((t) => now - t < USER_WINDOW_MS)) userRate.delete(k);
   return true;
@@ -78,6 +79,9 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   if (!body || typeof body !== 'object') return res.status(400).json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+  // まとめ送りの道具の呼び出しは 1 件ずつ数える（入口の 1 回は上で数えた）。
+  const calls = Array.isArray(body) ? body.filter((m) => m && m.method === 'tools/call').length : 0;
+  if (calls > 1 && !allowUser(who.userId, calls - 1)) { res.setHeader('Retry-After', '30'); return res.status(429).json({ jsonrpc: '2.0', id: null, error: { code: -32000, message: '短い時間にたくさん送られました。少し待ってください。' } }); }
 
   // add_book の書誌の検索は、本の検索と同じサーバーの道（楽天 → Google → NDL・6 秒まで）。
   const searchBooks = (q) => searchBooksServer(q, { budgetMs: 6000 });
