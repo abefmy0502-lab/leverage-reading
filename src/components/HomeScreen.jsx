@@ -103,7 +103,8 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan =
       {onAdvisor && (
         <div style={{ borderTop: '1px solid var(--separator)', margin: 'var(--space-4) 0 calc(-1 * var(--space-2))', paddingTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 'var(--space-1)' }}>
           <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>これから読書を始めるなら</span>
-          <button type="button" onClick={onAdvisor} style={textRow}>最初の 1 冊を探す</button>
+          {/* 強弱は 塗り → 枠 → 文字（灰）の 3 段にそろえる（脇道は灰・2026-11-26 ui-critic） */}
+          <button type="button" onClick={onAdvisor} style={btnLinkQuiet}>最初の 1 冊を探す</button>
         </div>
       )}
     </section>

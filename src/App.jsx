@@ -8014,7 +8014,7 @@ function AuthedApp() {
             <button
               type="button"
               onClick={clearAllFilters}
-              style={{ ...btnLinkQuiet, alignSelf: 'center' }}
+              style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }}
             >
               条件をクリア（{activeFilterCount}）
             </button>

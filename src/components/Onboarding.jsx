@@ -50,7 +50,7 @@ const slides = [
     //   本のページを撮るが副・ほかのアプリから取り込むは文字ボタン（ホームのはじめの一歩と同じ順）。
     //   どの道も、終えたら「相談してみる」（lib/firstDay.js）。（前は 2026-10-02 の 取り込む → 撮る → 一文 の順）
     title: 'まずはメモを入れましょう',
-    body: '読んだ本の、心に残った一文から始められます。まだ読んだ本がなければ、最初の 1 冊から探せます。',
+    body: '読んだ本の、心に残った一文から始められます。まだ読んだ本がなければ、最初の\u00a01\u00a0冊から探せます。',
   },
 ];
 
@@ -465,7 +465,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               {/* まだ読んだ本が無い人の入口（最初の 1 冊を探す）と、ほかのアプリの記録がある人の入口を 1 行に並べる（2026-11-25）。 */}
               <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-4)' }}>
                 {onAdvisor && (
-                  <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startAdvisor}>
+                  <button type="button" style={{ ...btnLinkQuiet, textAlign: 'center' }} onClick={startAdvisor}>
                     最初の 1 冊を探す
                   </button>
                 )}
