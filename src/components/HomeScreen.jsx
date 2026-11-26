@@ -630,6 +630,8 @@ export default function HomeScreen({
   const moment = returnMoment.moment;
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === (moment.memo?.bookId || moment.bookId)) || null;
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
+  // 期限が来た行動は、月末の共有の 1 行より先（使う目的が「仕事で使う」人に、共有の案内が行動を押しのけていた・2026-11-26 体験した人の声）。
+  //   その日は共有の 1 行を出さない（題の下は 1 行）。
   const momentGo = !moment || !momentBook ? null
     : moment.action === 'compare' ? (onConsultDraft ? () => onConsultDraft(moment.question, 'moment') : null)
     : moment.action === 'focus' ? (onReadFirst ? () => onReadFirst(momentBook) : null)
@@ -658,6 +660,9 @@ export default function HomeScreen({
     }
   }, [loading, loadError, memoState.known, memoState.count]);
   const showGrown = grown && !!onConsultDraft && memoState.known && (memoState.count == null || memoState.count >= GROWTH_GOAL);
+  // 期限が来た行動は「相談相手が育ちました」（閉じるまで残る）と月末の共有の 1 行より先（その日はそれらを出さない・題の下は 1 行）。
+  const actionFirst = moment?.kind === 'action';
+  const momentShown = homeKnown && !!momentGo && !tokensBack.show && !renewal.show && !annual.show && !reask.show && (actionFirst || (!showGrown && !shareNudge.nudge));
   const closeGrown = (action) => {
     markGrownLineDone();
     setGrown(false);
@@ -683,7 +688,7 @@ export default function HomeScreen({
           </span>
         )) : books.length > 0 && growthMeterText(memoState.count) ? (
           <GrowthMeter memoCount={memoState.count} action={growthAction} />
-        ) : books.length > 0 && showGrown ? (
+        ) : books.length > 0 && showGrown && !(momentShown && actionFirst) ? (
           <GrownLine
             onConsult={() => { closeGrown('open'); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'grown'); }}
             onDismiss={() => closeGrown('dismiss')}
@@ -736,7 +741,7 @@ export default function HomeScreen({
           />
         )}
         {/* 🌙 また開いたときの 1 行（ほかの時期の案内が出ている日は出さない＝2 行にしない・押すとそのメモを開く）。 */}
-        {homeKnown && momentGo && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && (
+        {momentShown && (
           <GrownLine
             mark={`moment-${moment.kind}`}
             stack
@@ -750,7 +755,7 @@ export default function HomeScreen({
           />
         )}
         {/* ✍️ お気に入りの著者の新しい本（2026-11-25・hooks/useFavoriteAuthors.js）。押すと著者のシート・× でその本はもう知らせない。 */}
-        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && !momentGo && (
+        {homeKnown && newsAllowed && authorNews?.news && !(books.length > 0 && growthMeterText(memoState.count)) && !tokensBack.show && !showGrown && !renewal.show && !annual.show && !reask.show && !shareNudge.nudge && !momentShown && (
           <GrownLine
             mark="author-news"
             stack
@@ -762,7 +767,7 @@ export default function HomeScreen({
           />
         )}
         {/* 月末・12 月の 1 行（本を読み込んで、ホームの中身を出すときに一緒に出す＝あとから差し込んで押し下げない）。 */}
-        {homeKnown && <ShareNudge nudge={shareNudge.nudge} onOpen={onShareNudge} onDismiss={shareNudge.dismiss} />}
+        {homeKnown && !(momentShown && actionFirst) && <ShareNudge nudge={shareNudge.nudge} onOpen={onShareNudge} onDismiss={shareNudge.dismiss} />}
       </div>
 
       {loading && books.length === 0 ? (

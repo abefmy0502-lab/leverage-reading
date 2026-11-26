@@ -170,6 +170,17 @@ describe('searchBooksServer', () => {
     expect(r.results).toEqual([]);
   });
 
+  it('楽天が 429 なら少し待って 1 回だけやり直す（2026-11-26）', async () => {
+    const many = { Items: [{ Item: { title: '考え方', author: '稲盛和夫', isbn: '9784479795735', largeImageUrl: 'https://thumbnail.image.rakuten.co.jp/x.jpg', booksGenreId: '001006' } }] };
+    let n = 0;
+    const rakutenGetImpl = vi.fn(async () => { n += 1; return n === 1 ? { status: 429, body: '' } : { status: 200, body: JSON.stringify(many) }; });
+    const fetchImpl = vi.fn(async () => resp(200, '<rss></rss>'));
+    const r = await searchBooksServer('考え方', { env: ENV, rakutenGetImpl, fetchImpl });
+    expect(r.ok).toBe(true);
+    expect(r.sources.rakuten).toBe('ok');
+    expect(r.results.some((b) => b.isbn === '9784479795735')).toBe(true);
+  });
+
   it('Google は鍵があるときだけ', async () => {
     const fetchImpl = vi.fn(async (url) => {
       if (url.includes('googleapis')) {

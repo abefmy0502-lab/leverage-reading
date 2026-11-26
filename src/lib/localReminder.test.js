@@ -19,6 +19,8 @@ describe('端末の中だけの思い出しの通知（2026-11-26）', () => {
     plan.forEach((p) => expect(new Date(p.at).getHours()).toBe(REMINDER_HOUR));
     expect(new Set(plan.map((p) => p.body)).size).toBe(3);
     expect(plan[0].title).toBe('前に書いたメモ');
+    const titled = planReminders({ now: NOW, memos: [memo('a', 40)], books: [{ id: 'b', title: 'イシューからはじめよ', status: 'done' }] });
+    expect(titled[0].title).toBe('『イシューからはじめよ』のメモ');
   });
   it('AI のまとめは出さない・メモが無く読み始めていない人は本棚で待っている本を 1 通だけ・何も無ければ置かない', () => {
     expect(planReminders({ now: NOW, memos: [memo('ai', 30, { sourceType: 'ai_summary' })], books: [] })).toEqual([]);

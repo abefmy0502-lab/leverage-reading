@@ -84,6 +84,8 @@ export function rakutenPlan(q) {
   return [keyword, { api: 'BooksBook/Search', params: { ...common, title: longest }, onlyIfFew: true }];
 }
 
+export const RAKUTEN_RETRY_WAIT_MS = 1100;
+const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
 async function searchRakuten(q, { env, rakutenGetImpl, hasTime }) {
   const creds = rakutenCreds(env);
   if (!creds.configured) return { state: 'off', status: 0, items: [] };
@@ -95,11 +97,17 @@ async function searchRakuten(q, { env, rakutenGetImpl, hasTime }) {
     if (step.onlyIfFew && items.filter((b) => isRelated(q, b)).length >= NDL_MIN_RESULTS) break;
     if (step.onlyIfNoExact && items.some((b) => normText(coreTitleOf(b.title)) === normText(q))) continue;
     try {
+      const url = rakutenUrl(step.api, { format: 'json', applicationId: creds.appId, accessKey: creds.accessKey, ...step.params });
       // eslint-disable-next-line no-await-in-loop
-      const resp = await rakutenGetImpl(
-        rakutenUrl(step.api, { format: 'json', applicationId: creds.appId, accessKey: creds.accessKey, ...step.params }),
-        creds.referer,
-      );
+      let resp = await rakutenGetImpl(url, creds.referer);
+      // 楽天はアプリ ID ごとにおよそ 1 秒 1 回。429 なら少し待って 1 回だけやり直す（本棚の写真から何冊も続けて確かめると
+      //   ぶつかり、端末に「確かめられませんでした」が並んでいた・2026-11-26 オーナー）。
+      if (resp.status === 429 && hasTime()) {
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(RAKUTEN_RETRY_WAIT_MS);
+        // eslint-disable-next-line no-await-in-loop
+        if (hasTime()) resp = await rakutenGetImpl(url, creds.referer);
+      }
       status = resp.status;
       if (resp.status < 200 || resp.status >= 300) continue; // 429 などは次の手へ
       answered = true;

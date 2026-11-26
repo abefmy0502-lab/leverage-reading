@@ -95,7 +95,10 @@ export function planReminders({ now = Date.now(), memos = [], books = [] } = {})
       const pick = pickRecallMemo(pool, { now: fireAt, minAgeDays: 1, seed: i + 1 }) || pickFallbackMemo(pool, { now: fireAt, minAgeDays: 0, seed: i + 1 }) || pool[0];
       if (!pick) return;
       used.add(pick.id);
-      out.push({ id: REMINDER_IDS[i], at: fireAt, kind: 'memo', title: '前に書いたメモ', body: memoExcerpt(pick.text, 80) });
+      // 題に本の名前（本が何百冊もあると、どの本のメモか分からない・2026-11-26 体験した人の声）
+      const book = (Array.isArray(books) ? books : []).find((b) => b && b.id === pick.bookId);
+      const title = book?.title ? `『${String(book.title).slice(0, 30)}』のメモ` : '前に書いたメモ';
+      out.push({ id: REMINDER_IDS[i], at: fireAt, kind: 'memo', title, body: memoExcerpt(pick.text, 80) });
       return;
     }
     const waiting = (Array.isArray(books) ? books : []).filter((b) => b && b.title && !b.archivedAt && (b.status === 'before' || b.status === 'want'));

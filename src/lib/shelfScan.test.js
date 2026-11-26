@@ -85,3 +85,21 @@ describe('読み違えた書名の候補（2026-11-25）', () => {
     expect(it1.book.title).toBe('考え方');
   });
 });
+
+describe('確かめられなかった本をもう一度（2026-11-26）', () => {
+  it('検索が混んで失敗した本は、最後に 1 冊ずつ確かめ直す', async () => {
+    let calls = 0;
+    const search = async (q) => {
+      calls += 1;
+      if (calls <= 2) return { ok: false, results: [] }; // はじめは混んでいる
+      return { ok: true, results: [{ title: q.startsWith('ザ・モデル') ? 'ザ・モデル' : 'x', author: '福田康隆', isbn: '9784798158167' }] };
+    };
+    const items = await verifyShelfGuesses([{ title: 'ザ・モデル', author: '福田康隆' }], { search, retryGapMs: 0 });
+    expect(items[0].status).toBe('found');
+    expect(items[0].book.isbn).toBe('9784798158167');
+  });
+  it('ずっと失敗するなら確かめられなかったまま（読んだ書名で選べる）', async () => {
+    const items = await verifyShelfGuesses([{ title: 'ザ・モデル', author: '福田康隆' }], { search: async () => ({ ok: false, results: [] }), retryGapMs: 0 });
+    expect(items[0].status).toBe('unchecked');
+  });
+});

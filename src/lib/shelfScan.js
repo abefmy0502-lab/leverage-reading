@@ -119,7 +119,8 @@ function pickBook(r, guess) {
  * 戻り値: [{ id, guess, status, book, owned }]
  */
 // 同時に 2 冊まで（本の検索はサーバーが 1 分の回数を数える・楽天もおよそ 1 秒 1 回）。
-export async function verifyShelfGuesses(guesses, { search, isOwned = () => false, onEach, concurrency = 2, signal } = {}) {
+const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
+export async function verifyShelfGuesses(guesses, { search, isOwned = () => false, onEach, concurrency = 2, signal, retryRounds = 2, retryGapMs = 1200 } = {}) {
   const items = guesses.map((guess, i) => ({ id: `s${i}`, guess, status: 'checking', book: null, owned: false }));
   let next = 0;
   const worker = async () => {
@@ -161,6 +162,34 @@ export async function verifyShelfGuesses(guesses, { search, isOwned = () => fals
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  // 確かめられなかった本（検索が混んでいた・回数の上限）は、最後に 1 冊ずつ間をあけてもう一度（2026-11-26 オーナー
+  //   「確かめられませんでしたが多い」）。2 回目も確かめられなければ、そのまま（読んだ書名のまま選べる）。
+  for (let round = 0; round < retryRounds; round += 1) {
+    const left = items.map((it, i) => (it.status === 'unchecked' ? i : -1)).filter((i) => i >= 0);
+    if (!left.length || signal?.aborted) break;
+    for (const i of left) {
+      if (signal?.aborted) break;
+      // eslint-disable-next-line no-await-in-loop
+      await wait(retryGapMs * (round + 1));
+      const it = items[i];
+      let res = { ok: false, results: [] };
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        res = await search(`${it.guess.title} ${it.guess.author}`.trim());
+        if (res?.ok && !res.results?.length && it.guess.author) {
+          // eslint-disable-next-line no-await-in-loop
+          res = await search(it.guess.title);
+        }
+      } catch (e) {
+        if (e?.name === 'AbortError') break;
+      }
+      if (!res?.ok) continue;
+      const m = matchShelfGuess(it.guess, res.results);
+      const owned = m.status === 'found' ? (!!isOwned(m.book) || !!isOwned(it.guess)) : !!isOwned(it.guess);
+      items[i] = { ...it, status: m.status, book: m.book, owned };
+      onEach?.(i, items[i]);
+    }
+  }
   return markDuplicates(items);
 }
 
