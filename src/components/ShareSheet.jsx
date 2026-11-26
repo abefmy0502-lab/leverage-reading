@@ -61,7 +61,7 @@ import { SITE_URL } from '../lib/legalLinks';
 import { appNow } from '../lib/appNow';
 import { monthMemoCache, yearMemoCache } from '../lib/shareMemoCache';
 import {
-  drawShareCard, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, readShareTheme, filmPhoto,
+  drawShareCard, canvasToBlob, prepareCover, prepareFonts, prepareLogo, loadPhotoFile, filmPhoto,
 } from '../lib/shareCard';
 import { buildShareText, shareFilename, FORMATS } from '../lib/shareCardLayout';
 import {
@@ -144,50 +144,10 @@ const segBtn = (on) => ({
   cursor: 'pointer',
   whiteSpace: 'nowrap',
 });
-// 背景の見本（幅 64 でそろえる＝名前の長さで間が変わらない・見た目は 28 の円＝「形そのもの」DESIGN §4 の例外）。
-const swatchLabeledBtn = {
-  display: 'inline-flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-1)',
-  // 幅は 64 か名前 4 字ぶんの広いほう（文字を大きくしても「表紙の色」が隣の名前に重ならない・2026-10-10）。
-  fontSize: 'var(--text-meta)',
-  width: 'max(var(--space-16), 4.4em)',
-  minHeight: 'var(--tap-min)',
-  padding: 'var(--space-1) 0',
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer',
-  borderRadius: 'var(--radius)',
-  fontFamily: 'inherit',
-  flexShrink: 0,
-};
 const swatchLabel = (on) => ({ fontSize: 'var(--text-meta)', lineHeight: 1.2, fontWeight: on ? 600 : 400, color: on ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap' });
 const ring = (on) => (on ? SELECTED_RING : 'inset 0 0 0 1px var(--border)');
-// 選んでいない見本の丸の縁は 2（暗い画面の「夜」が地に溶けて見えなかった・2026-10-10 ui-critic）。
-const swatchDot = (bg, on) => ({ width: 'var(--swatch-size)', height: 'var(--swatch-size)', borderRadius: 'var(--radius-full)', background: bg, boxShadow: on ? SELECTED_RING : 'inset 0 0 0 2px var(--border)' });
 // 透明の見本・プレビューの地（暗い市松＝白い文字が見える。画像には入らない）。
 const checker = (size) => `repeating-conic-gradient(var(--share-sticker-backdrop-a) 0% 25%, var(--share-sticker-backdrop-b) 0% 50%) 50% / ${size}px ${size}px`;
-// 「写真を選ぶ」のチップ（写真が無いときだけ出る・押すとすぐ写真を選べる）。枠だけ（面を付けると、選んでいる見本に
-//   見えた・2026-10-10 ui-critic）。
-const photoChip = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 'var(--space-2)',
-  minHeight: 'var(--tap-min)',
-  padding: '0 var(--space-3) 0 var(--space-2)',
-  borderRadius: 'var(--radius)',
-  border: '1px solid var(--border)',
-  background: 'transparent',
-  color: 'var(--text)',
-  fontFamily: 'inherit',
-  fontSize: 'var(--text-sub)',
-  fontWeight: 600,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  flexShrink: 0,
-};
 // 「どの本？」のチップ（選ぶためのチップ 44）。選んでいる本は DESIGN §5 の選ぶチップと同じ --accent-soft の面＋--accent/600
 //   （2026-10-11 リリース前の採点で統一・以前は --fill の面＋--border の枠）。幅は文字の大きさに合わせて 12em まで。
 const subjectChip = (on) => ({
@@ -799,7 +759,6 @@ export default function ShareSheet({
   const openPicker = () => { if (canUseNativePhoto()) { pickNative('album'); return; } try { fileRef.current?.click(); } catch { /* ignore */ } };
   reselectRef.current = openPicker;
   // 写真が無いときの「写真」のチップ（撮る・選ぶ）は、iPhone のアプリではどちらか聞く。
-  const openPhotoChip = () => { if (canUseNativePhoto()) { pickNative('prompt'); return; } openPicker(); };
   const openCamera = () => { if (canUseNativePhoto()) { pickNative('camera'); return; } try { cameraRef.current?.click(); } catch { /* ignore */ } };
 
   // ---- プレビューを左右に振ると、隣の重ね方へ（Strava の共有と同じ）。押しただけなら編集画面。
@@ -877,24 +836,21 @@ export default function ShareSheet({
     }
   };
 
-  // 地の見本の色（表紙の色は、そのときの表紙から作った色）。
-  const swatchColor = (v) => {
-    try { return readShareTheme(v, { tone: coverReady ? coverAssets.cover?.tone : null, title: coverBook?.title || record.title }).bg || 'var(--fill)'; } catch { return 'var(--fill)'; }
-  };
   // 背景のメニュー（写真・紙・夜・表紙の色・透明。印は選んでいる行の ✓ だけ・ほかは同じ幅の空き＝DESIGN §5）。
   //   写真があるときは、いちばん上に「撮り直す」「アルバムから選ぶ」（シートの段を減らすため、文字ボタンの行からここへ・2026-10-10 ui-critic）。
+  //   写真が無いときも同じメニュー（2026-11-26 点検「写真の有無で背景の選び方が 2 通り・見本の行が下の固定の欄に半分隠れた」）＝
+  //   いちばん上は「写真を撮る」「アルバムから選ぶ」。
   const bgItems = [
-    ...(photo ? [
-      { label: '撮り直す', icon: <Camera size="1.1em" aria-hidden="true" />, onClick: openCamera },
-      { label: 'アルバムから選ぶ', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: openPicker },
-      // 操作（撮り直す・選ぶ）と背景の選択を区切る（2026-10-10 ui-critic）。
-      { separator: true },
-    ] : []),
+    { label: photo ? '撮り直す' : '写真を撮る', icon: <Camera size="1.1em" aria-hidden="true" />, onClick: openCamera },
+    { label: 'アルバムから選ぶ', icon: <ImagePlus size="1.1em" aria-hidden="true" />, onClick: openPicker },
+    // 操作（撮る・選ぶ）と背景の選択を区切る（2026-10-10 ui-critic）。
+    { separator: true },
     ...[
       ...(photo ? ['photo', 'film'] : []),
       ...BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed),
     ].map((v) => ({
-      label: STYLE_LABELS[v],
+      // メニューは幅があるので、透明は用途まで（前の見本の長押しの名前と同じ）。
+      label: v === 'sticker' ? '透明（ステッカー用）' : STYLE_LABELS[v],
       icon: effStyle === v ? <Check size="1.1em" aria-hidden="true" /> : <span style={{ width: '1.1em' }} aria-hidden="true" />,
       onClick: () => setStyle(v),
     })),
@@ -1109,11 +1065,11 @@ export default function ShareSheet({
               編集
             </button>
             {/* 「編集」を出さない（画像を作れなかった）ときは左に寄せる（右に浮いて左が大きく空いた・2026-11-18 ui-critic）。 */}
-            {(formatInEditRow || photo) && (
+            {(
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', rowGap: 'var(--space-1)', marginLeft: status === 'error' ? 'var(--space-1)' : 'auto' }}>
             {formatInEditRow && formatSwitch}
-            {photo && (
-              // 背景（写真・フィルム・紙…）と、撮り直す・アルバムから選ぶは「背景：写真 ▾」のメニュー 1 つに（2026-10-10）。
+            {(
+              // 背景（写真・フィルム・紙…）と、撮る・アルバムから選ぶは「背景：◯ ▾」のメニュー 1 つに（2026-10-10・写真が無いときも 2026-11-26）。
               <button
                 type="button"
                 aria-haspopup="menu"
@@ -1129,7 +1085,7 @@ export default function ShareSheet({
             </div>
             )}
             </div>
-            {photo && bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
+            {bgMenu && <ContextMenu x={bgMenu.x} y={bgMenu.y} onClose={() => setBgMenu(null)} items={bgItems} />}
           </div>
         </div>
 
@@ -1190,31 +1146,7 @@ export default function ShareSheet({
         </div>
         )}
 
-        {/* 地。写真があるときは、撮り直す・アルバムから選ぶを文字ボタンで見せ（メニューの奥に隠さない・2026-10-05）、
-            背景は右の「背景：写真 ▾」のメニュー 1 つ（写真・紙・夜・表紙の色・透明）。
-            写真が無いときは「写真」（撮る・選ぶ）＋紙・夜・表紙の色・透明の見本（2026-09-30 ui-critic）。 */}
-        {!photo && (
-          <div role="radiogroup" aria-label="背景" style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap', paddingBottom: 'var(--space-6)' }}>
-            {/* 390 幅で見本 4 つと 1 行に収まるよう、見える名前は「写真」（読み上げは「写真を選ぶ」）。 */}
-            {/* 「写真」のチップの上下の中心を、右の見本の丸（上 4＋半径 14）の中心にそろえる（2026-10-10 ui-critic）。 */}
-            <button type="button" onClick={openPhotoChip} aria-label="写真を撮る・選ぶ" title="写真を撮る・選ぶ" style={{ ...photoChip, marginTop: 'calc(var(--space-1) + var(--swatch-size) / 2 - var(--tap-min) / 2)' }}>
-              <ImagePlus size={20} aria-hidden="true" style={{ color: 'var(--text-2)' }} />
-              写真
-            </button>
-            {BG_OPTIONS.filter((v) => v !== 'cover' || coverAllowed).map((v) => (
-              // 「透明（ステッカー用）」は 390 幅の 1 行に収まらないので、見える名前は「透明」のまま、
-              // 読み上げと長押しの名前で用途まで言う（2026-09-29）。
-              <button key={v} type="button" role="radio" aria-checked={effStyle === v} onClick={() => setStyle(v)} style={swatchLabeledBtn}
-                aria-label={v === 'sticker' ? '透明（ステッカー用）' : undefined} title={v === 'sticker' ? '透明（ステッカー用）' : undefined}>
-                {v === 'cover' && !coverReady
-                  // 表紙を読み込むまでは、表紙の色が分からないので骨組みの丸（代用の色を一瞬出さない）。
-                  ? <SkeletonBlock width="var(--swatch-size)" height="var(--swatch-size)" radius="var(--radius-full)" style={{ boxShadow: ring(effStyle === v) }} />
-                  : <span aria-hidden="true" style={swatchDot(v === 'sticker' ? checker(8) : swatchColor(v), effStyle === v)} />}
-                <span style={swatchLabel(effStyle === v)}>{STYLE_LABELS[v]}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        {/* 背景は「編集」の行の右の「背景：◯ ▾」のメニュー 1 つ（写真の有無で同じ・2026-11-26）。 */}
       </div>
       {editorOpen && (
         <ShareEditor

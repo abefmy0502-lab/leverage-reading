@@ -68,8 +68,9 @@ const shareVariant = (name) => ({ css: `[role=dialog] [role=radiogroup][aria-lab
 const sharePrefs = (prefs, hidden) => ({ eval: `(() => { localStorage.setItem('orime.share.prefs', ${JSON.stringify(JSON.stringify(prefs))}); ${hidden ? `localStorage.setItem('orime.share.hiddenItems', ${JSON.stringify(JSON.stringify(hidden))});` : ''} })()` });
 const SHARE_ALL_HIDDEN = ['status', 'title', 'author', 'date', 'books', 'memos', 'actions', 'quote', 'stamp', 'logo'];
 // 写真が無いときの既定は、表紙のある本は「表紙の色」（2026-10-05）なので、紙を選び直す。
-const SHARE_PICK_PAPER = { css: '[role=dialog] [role=radiogroup][aria-label="背景"] [role=radio]:has-text("紙")' };
-const SHARE_PAPER = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 2000 }, SHARE_PICK_PAPER, { wait: 1200 }];
+// 背景は「背景：◯ ▾」のメニュー（写真の有無で同じ・2026-11-26）。
+const SHARE_PICK_PAPER = [{ css: '[role=dialog] button[aria-haspopup=menu]:has-text("背景")' }, { css: '[role=menuitem]:has-text("紙")' }];
+const SHARE_PAPER = [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 2000 }, ...SHARE_PICK_PAPER, { wait: 1200 }];
 // 撮った写真のシートで、背景を紙に（手書き風の書体は、本の詳細から開くと中継の通信が詰まって撮影の間に読み込めないことがあるため）。
 const SHARE_CAMERA_PAPER = [...SHARE_CAMERA, { css: SHARE_BG_MENU }, { css: '[role=menuitem]:has-text("紙")' }, { wait: 1500 }];
 const SHARE_EDIT = [{ css: '[role=dialog] button:text-is("編集")' }, { wait: 1500 }];
@@ -974,12 +975,12 @@ const SCREENS = [
   // ── 一文をシェア（2026-09-27・SPEC §2-1）
   { name: 'share-line', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1500 }] },
   { name: 'share-line-story', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1200 }, { css: '[role=radio]:has-text("ストーリー")' }, { wait: 1500 }] },
-  { name: 'share-line-night', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1200 }, { css: '[role=radiogroup][aria-label="地"] [role=radio]:has-text("夜")' }, { wait: 1500 }] },
+  { name: 'share-line-night', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1200 }, { css: '[role=dialog] button[aria-haspopup=menu]:has-text("背景")' }, { css: '[role=menuitem]:has-text("夜")' }, { wait: 1500 }] },
   { name: 'share-line-from-memo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button[aria-label$="のメニュー"]' }, { css: 'button:has-text("この一文をシェア")' }, { wait: 1500 }] },
   { name: 'share-line-photo', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { wait: 800 }, { upload: ['input[data-share-album]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 1500 }] },
   // 雑誌の重ね方（2026-10-09・見本の 4 つめ）
   { name: 'share-magazine', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { wait: 800 }, { upload: ['input[data-share-album]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 1500 }, { css: '[role=dialog] [role=radiogroup][aria-label="見せ方"] [role=radio]:has-text("雑誌")' }, { wait: 1500 }] },
-  { name: 'share-line-sticker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1200 }, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }] },
+  { name: 'share-line-sticker', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1200 }, { css: '[role=dialog] button[aria-haspopup=menu]:has-text("背景")' }, { css: '[role=menuitem]:has-text("透明")' }, { wait: 1500 }] },
   { name: 'share-finished-nomemo', url: '/?demo=nomemo', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 1200 }] },
   // ── 相談・シェア・トークンの状態（4 回目の採点で追加）。&load=chat（過去の相談だけ遅い）/ &writefail=表 / &share=slow|fail / ?demo=trialout
   { name: 'consult-loading', url: '/?load=slow', steps: [{ css: nav('相談') }] },
@@ -1108,7 +1109,7 @@ const SCREENS = [
   // 写真が無いとき（カメラをやめた）の既定＝表紙のある本は「表紙の色」（ぼかした表紙を敷いた地）。
   { name: 'share-nophoto-cover', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 2500 }] },
   { name: 'share-nophoto-cover-stats-story', url: '/', steps: [sharePrefs({ variant: 'stats', format: 'story' }), { css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 2500 }] },
-  { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 2000 }, SHARE_PICK_PAPER, { wait: 1500 }] },
+  { name: 'share-record-paper', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("イシューからはじめよ")' }, { css: 'button:has-text("写真で共有") >> nth=-1' }, { css: '[role=dialog] button:has-text("写真なし（本の表紙）")' }, { wait: 2000 }, ...SHARE_PICK_PAPER, { wait: 1500 }] },
   { name: 'share-done-prompt', url: '/', steps: [{ css: 'button:has-text("すべての本")' }, { css: '.lvg-page button:has-text("1兆ドルコーチ")' }, { scrollBottom: true }, { css: 'button:text-is("読了にする")' }, { wait: 7500 }, { scrollBottom: true }] },
   // ── 写真で共有の編集画面（2026-10-01・オーナー要望: 大きな画像で編集・URL を外す・表示する項目・言葉を入れる）。
   //    編集画面は [role=dialog][aria-label="画像を編集"]。写真の拡大・移動はトラックパッドと同じホイールの知らせで動かす
@@ -1121,7 +1122,7 @@ const SCREENS = [
   { name: 'share-edit-phrase-invert', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, editClick('button', '文字を黒にする'), { wait: 1500 }, EDIT_TOP] },
   { name: 'share-edit-phrase-focus', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, { wait: 800 }] },
   { name: 'share-edit-stats', url: '/', steps: [...SHARE_CAMERA, shareVariant('大きな数字'), { wait: 1500 }, ...SHARE_EDIT] },
-  { name: 'share-edit-phrase-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] [role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
+  { name: 'share-edit-phrase-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] button[aria-haspopup=menu]:has-text("背景")' }, { css: '[role=menuitem]:has-text("透明")' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { wait: 800 }, EDIT_TOP] },
   { name: 'share-edit-scrolled', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, { scrollBottom: true }] },
   // ── AI に送る内容の同意（App Review 5.1.2(i)・2026-10-01）。&consent=none＝まだ同意していない人（お試しモードの既定は同意済み）。
   //    はじめて AI を使う操作のときに、送る内容と送り先のシートが出る（相談の送信・写真から書き起こす）。
@@ -1187,8 +1188,8 @@ const SCREENS = [
   { name: 'share-photo-error', url: '/?share=fail', steps: [{ wait: 1500 }, { upload: ['input[data-share-camera]', 'scripts/fixtures/share-photo.jpg'] }, { wait: 2000 }] },
   { name: 'share-edit-loading', url: '/?share=editslow', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
   { name: 'share-edit-error', url: '/?share=editfail', steps: [...SHARE_CAMERA, ...SHARE_EDIT] },
-  { name: 'share-edit-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT] },
-  { name: 'share-edit-sticker-phrase', url: '/', steps: [...SHARE_PAPER, { css: '[role=radio][aria-label="透明（ステッカー用）"]' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
+  { name: 'share-edit-sticker', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] button[aria-haspopup=menu]:has-text("背景")' }, { css: '[role=menuitem]:has-text("透明")' }, { wait: 1500 }, ...SHARE_EDIT] },
+  { name: 'share-edit-sticker-phrase', url: '/', steps: [...SHARE_PAPER, { css: '[role=dialog] button[aria-haspopup=menu]:has-text("背景")' }, { css: '[role=menuitem]:has-text("透明")' }, { wait: 1500 }, ...SHARE_EDIT, ...EDIT_PHRASE, { css: `${EDIT} [role=radio]:has-text("白抜きの帯")` }, { wait: 1200 }, EDIT_BLUR, EDIT_TOP] },
   // 言葉と一文の両方を出す（言葉を入れると一文は隠れる→一文をオンに戻す＝言葉に傍線を付けない）
   { name: 'share-edit-phrase-with-quote', url: '/', steps: [...SHARE_CAMERA, ...SHARE_EDIT, ...EDIT_PHRASE, EDIT_BLUR, { css: `${EDIT} [role=switch][aria-label="一文"]` }, { wait: 1500 }, EDIT_TOP] },
   // 編集画面で下の「表示する項目」まで送っても、画像が上に残る
