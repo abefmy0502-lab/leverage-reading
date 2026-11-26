@@ -20,13 +20,38 @@ export function freePoolOn(env = process.env) {
   return String(env.AI_FREE_POOL || '').toLowerCase() !== 'off';
 }
 
-/** その月の無料の AI の予算（mjpy＝1/1000 円）。paidCount が分からなければ基本だけ。 */
+/**
+ * その月の無料の AI の予算（mjpy＝1/1000 円）。paidCount が分からなければ基本だけ。
+ * 2026-11-26 オーナー「有料会員が 100 人に 1 人でも黒字になるように」: 「基本 ＋ 有料 1 人あたり」の足し算をやめ、
+ *   「基本」と「有料 1 人あたり × 有料の数」の**大きいほう**にした。基本（¥10,000）は公開したばかりの頃の下限（広告費の扱い）で、
+ *   有料が約 34 人を超えると予算はすべて有料の売上で支える＝無料の人が何人いても、有料 1 人あたり ¥300 より多く無料の AI に使わない。
+ *   有料 1 人の手取りはいちばん安い創業メンバー価格でも 約 ¥631、本人の AI の上限は ¥240 → 631 − 240 − 300 ＝ ＋¥91（最悪でも黒字）。
+ *   確かめる式は下の unitEconomics と _freePool.test.js。
+ */
 export function freePoolBudgetMjpy({ paidCount = null, env = process.env } = {}) {
   const base = num(env.AI_FREE_POOL_BASE_JPY, 10000);
   const per = num(env.AI_FREE_POOL_PER_PAID_JPY, 300);
   const max = num(env.AI_FREE_POOL_MAX_JPY, 300000);
   const paid = Number.isFinite(Number(paidCount)) && Number(paidCount) > 0 ? Math.floor(Number(paidCount)) : 0;
-  return Math.round(Math.min(max, base + per * paid) * 1000);
+  return Math.round(Math.min(max, Math.max(base, per * paid)) * 1000);
+}
+
+// 有料 1 人・1 か月の手取り（円・税抜 ÷1.1 × App Store 手数料の残り 0.85）。いちばん安いのは創業メンバー価格（年額 ¥9,800）。
+export const NET_PER_PAID_JPY = {
+  monthly: Math.round((1480 / 1.1) * 0.85),        // 約 ¥1,144
+  annual: Math.round((12800 / 12 / 1.1) * 0.85),    // 約 ¥824
+  founding: Math.round((9800 / 12 / 1.1) * 0.85),   // 約 ¥631
+};
+/**
+ * 有料の割合 conversion（0.01＝100 人に 1 人）で、利用者 100 人あたりの 1 か月の手残り（固定費の前・円）。
+ * 無料の人の AI は全体の予算（有料 1 人あたり perPaid まで）で頭打ち、その中で 1 人あたり freeAvg（ふだんの使い方）。
+ */
+export function unitEconomics({ conversion = 0.01, plan = 'founding', paidAi = 240, freeAvg = 2, perPaid = 300, users = 100 } = {}) {
+  const paid = users * conversion;
+  const free = users - paid;
+  const revenue = paid * (NET_PER_PAID_JPY[plan] ?? NET_PER_PAID_JPY.founding);
+  const freeAi = Math.min(free * freeAvg, perPaid * paid);
+  return { paid, free, revenue, paidAi: paid * paidAi, freeAi, contribution: revenue - paid * paidAi - freeAi };
 }
 
 // 👤 登録せずに始めた人（匿名のアカウント）の分の上限＝全体の予算のうち AI_FREE_POOL_GUEST_SHARE（既定 0.3）まで。

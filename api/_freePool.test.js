@@ -3,9 +3,10 @@ import { freePoolBudgetMjpy, freePoolLevel, freePoolOn, reserveFreePool, paidMem
 
 describe('無料プランの AI の全体の予算（2026-11-25）', () => {
   beforeEach(() => _resetPaidCacheForTest());
-  it('基本 ¥10,000 ＋ 有料 1 人 ¥300・上限 ¥300,000（mjpy）', () => {
+  it('基本 ¥10,000 と 有料 1 人 ¥300 × 人数 の大きいほう・上限 ¥300,000（mjpy・2026-11-26）', () => {
     expect(freePoolBudgetMjpy({ paidCount: null, env: {} })).toBe(10000 * 1000);
-    expect(freePoolBudgetMjpy({ paidCount: 100, env: {} })).toBe(40000 * 1000);
+    expect(freePoolBudgetMjpy({ paidCount: 10, env: {} })).toBe(10000 * 1000);
+    expect(freePoolBudgetMjpy({ paidCount: 100, env: {} })).toBe(30000 * 1000);
     expect(freePoolBudgetMjpy({ paidCount: 5000, env: {} })).toBe(300000 * 1000);
     expect(freePoolBudgetMjpy({ paidCount: 10, env: { AI_FREE_POOL_BASE_JPY: '0', AI_FREE_POOL_PER_PAID_JPY: '500' } })).toBe(5000 * 1000);
   });
@@ -47,5 +48,20 @@ describe('登録せずに始めた人の分の枠（2026-11-26 監査）', () =>
     expect(guestPoolShare({ AI_FREE_POOL_GUEST_SHARE: '2' })).toBe(0.3);
     expect(guestPoolKey('2026-11')).toBe('guest-2026-11');
     expect(/^(guest-)?[0-9]{4}-[0-9]{2}$/.test(guestPoolKey('2026-11'))).toBe(true);
+  });
+});
+
+describe('有料が 100 人に 1 人でも黒字（2026-11-26 オーナー）', () => {
+  it('どのプランでも、有料の本人が AI を上限まで使い、無料の人が予算を使い切っても、手残りはマイナスにならない', async () => {
+    const { unitEconomics } = await import('./_freePool.js');
+    for (const plan of ['monthly', 'annual', 'founding']) {
+      const worst = unitEconomics({ conversion: 0.01, plan, paidAi: 240, freeAvg: 1000 });
+      expect(worst.freeAi).toBe(300); // 無料の AI は有料 1 人あたり ¥300 で頭打ち
+      expect(worst.contribution).toBeGreaterThan(0);
+    }
+  });
+  it('有料が 34 人を超えると、無料の AI の予算はすべて有料 1 人あたりの分で決まる（基本の ¥10,000 を上乗せしない）', () => {
+    expect(freePoolBudgetMjpy({ paidCount: 34, env: {} })).toBe(10200 * 1000);
+    expect(freePoolBudgetMjpy({ paidCount: 33, env: {} })).toBe(10000 * 1000);
   });
 });
