@@ -259,18 +259,22 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
     const t = Date.now();
     const row = sessionRow(s, t);
     let rows = sessions.rows;
+    let savedId = null;
     // 途中の状態は、保存（表に入らなければ端末への控え）が終わってから消す（保存の途中でアプリが閉じても、
     // 次に開いたときに再開・記録できる・2026-10-10 監査）。
     try {
       if (row) {
         const r = await sessions.save(row);
-        if (r?.row) rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)];
+        if (r?.row) { savedId = r.row.id; rows = [r.row, ...rows.filter((x) => x.id !== r.row.id)]; }
         if (row.mode === 'count' && row.seconds >= LONG_COUNT_SEC) setLongCount({ id: r?.row?.id || row.id, row: r?.row || row });
       }
     } finally {
       saveFocusState(null);
     }
-    const todaySec = todaySeconds(rows, book.id, t);
+    // 今日の合計は、いまおえた回をまるごと今日に数える（23:40〜0:10 の回が、0 時からの 10 分だけになり「今日 1 分」などと
+    //   小さく出ていた・2026-11-26 点検）。ほかの回は今日に入る分だけ。
+    const others = savedId ? rows.filter((x) => x.id !== savedId) : rows;
+    const todaySec = todaySeconds(others, book.id, t) + (row?.seconds || 0);
     // 押し間違い（30 秒未満）は記録せずに閉じる（おわったときの画面は出さず、知らせだけ・2026-10-10）。
     if (!row) { toast.info('30 秒より短いので、記録しませんでした。'); onClose(); return; }
     track(EVENTS.FOCUS_DONE, { mode: row.mode === 'count' ? 'count' : 'timer', minutes: minutesBucket(row.seconds) });
@@ -327,8 +331,12 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
   const caption = phase === 'timerDone' ? '読みました' : paused ? '一時停止中' : isTimer ? '残り' : '経過';
   // 読み上げ（分が変わったときだけ・aria-live は付けない＝毎分読み上げない）。
   // おわる時刻は実際に鳴る時刻から出す（一時停止したぶん後ろへずれる・2026-10-11）。
+  //   止めている間は、止めている今の分もずらす（前は止めた分を入れず、止めている間ずっと古い時刻のままだった・2026-11-26 点検）。
+  const pausingMs = paused ? Math.max(0, now - s.pausedAt) : 0;
   const untilLabel = isTimer && phase === 'running' && Number.isFinite(s?.until)
-    ? `${fmtClock(s.startedAt + (s.pausedMs || 0) + s.durationSec * 1000)} まで` : null;
+    ? `${fmtClock(s.startedAt + (s.pausedMs || 0) + pausingMs + s.durationSec * 1000)} まで` : null;
+  // おわったときの「今日 N 分」（読み上げの fmtDuration と同じ分）。
+  const todayMin = summary && summary.todaySec > 0 ? lengthMinutes(summary.todaySec) : 0;
   const spoken = `${caption} ${hours ? `${hours} 時間 ` : ''}${minutes} 分${untilLabel ? `・${untilLabel}` : ''}`;
 
   // メモを書くシートも暗いまま（明るい画面の設定でも・tokens.css の .focus-dark-scope）。
@@ -386,7 +394,8 @@ export default function FocusMode({ book, initial, initialPhase = null, allTags 
               {/* 集中モードと同じ組み（小さな見出し → 細い大きな数字 → 1 行）。読み上げは 1 文で。 */}
               <p role="status" aria-label={`今日 ${fmtDuration(summary.todaySec)}読みました`} style={{ margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
                 <span aria-hidden="true" style={{ fontSize: 'var(--text-meta)', color: 'var(--focus-ink-3)', letterSpacing: '0.12em' }}>今日</span>
-                <span aria-hidden="true"><BigTime hours={Math.floor(Math.max(1, Math.round(summary.todaySec / 60)) / 60)} minutes={Math.max(1, Math.round(summary.todaySec / 60)) % 60} /></span>
+                {/* 読み上げ（fmtDuration）と同じ丸め（0 秒は 0 分・あとは四捨五入で 1 分から・2026-11-26）。 */}
+                <span aria-hidden="true"><BigTime hours={Math.floor(todayMin / 60)} minutes={todayMin % 60} /></span>
                 <span aria-hidden="true" style={{ fontSize: 'var(--text-body)', color: 'var(--focus-ink-2)', letterSpacing: '0.04em' }}>読みました</span>
               </p>
               {summary.totalSec > summary.todaySec && (

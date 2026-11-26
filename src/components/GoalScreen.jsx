@@ -31,10 +31,10 @@ import { ensureAiConsent } from '../lib/aiConsent';
 import { runGoalInterview, generateGoalRoadmap, chooseGoalPhaseBooks } from '../lib/ai';
 import { interviewChips, toggleChoice, choiceSelected, OPT_OFF, OPT_UNSURE, OFF_PLACEHOLDER } from '../lib/advisorInterview';
 import { GOAL_HORIZONS, GOAL_MAX, ALL_GOALS_KEY, horizonOf, fmtGoalDeadline, fmtGoalDeadlineNow, saveGoal, suggestHorizon, cleanGoalText, allGoalsSet, canBuildRoadmap, combinedGoal } from '../lib/goals';
-import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, PHASE_BOOKS_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks, phaseNeedsBooks, overdueGoals, isRoadmapStale, quarterPlanFor, historyText } from '../lib/goalRoadmap';
+import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, PHASE_BOOKS_TOKENS_LABEL, phaseSpecs, currentPhaseIndex, saveRoadmap, pruneRoadmapBooks, phaseNeedsBooks, overdueGoals, isRoadmapStale, quarterPlanFor, historyText, planScheduleFor } from '../lib/goalRoadmap';
 import {
   PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, monthWeeks, weekBands,
-  planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd,
+  planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd, isPlanSkipped, roadmapBookIds,
 } from '../lib/readingPlan';
 import { appNow } from '../lib/appNow';
 import { displayTitle } from '../lib/bookTitle';
@@ -115,12 +115,21 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
   const fromHome = start?.from === 'home';
   const originLabel = fromHome ? 'ホーム' : '行動';
   const direct = view === baseView;
-  const back = useCallback(() => {
+  // 「達成するには？」に答えた途中（答えた問い・書きかけの答え）は、戻る前に確かめる
+  //   （前は黙って消え、聞き直すとトークンをもう一度使った・2026-11-26 点検）。InterviewView が知らせる。
+  const interviewDirtyRef = useRef(false);
+  const setInterviewDirty = useCallback((d) => { interviewDirtyRef.current = d; }, []);
+  const back = useCallback(async () => {
+    if (view === 'interview' && interviewDirtyRef.current) {
+      const ok = await confirmGoal({ title: '深掘りをやめますか？', message: 'ここまでの答えは残りません。', confirmLabel: 'やめる', cancelLabel: '続ける', danger: true });
+      if (!ok) return;
+      interviewDirtyRef.current = false;
+    }
     if (direct) { onClose?.(); return; }
     if (view === 'plan') { setView('roadmap'); return; }
     if (view === 'roadmap' || view === 'interview') { setView('goals'); return; }
     onClose?.();
-  }, [view, onClose, direct]);
+  }, [view, onClose, direct, confirmGoal]);
   useEdgeSwipeBack({ onBack: back, enabled: !editing });
   useEffect(() => { scrollRef.current?.scrollTo?.({ top: 0 }); setScrolled(false); }, [view, horizon]);
 
@@ -175,6 +184,7 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
               onDone={() => { setInterviewBuilding(false); setView('roadmap'); }}
               onCancel={() => { setInterviewBuilding(false); setView('goals'); }}
               onBuildingChange={setInterviewBuilding}
+              onDirtyChange={setInterviewDirty}
             />
           )}
           {view === 'roadmap' && goal && record?.roadmap && (
@@ -562,7 +572,7 @@ function GoalTrio({ goals, compact = false, fold = false, tight = false, onEdit 
   );
 }
 
-function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCancel, onBuildingChange = null }) {
+function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCancel, onBuildingChange = null, onDirtyChange = null }) {
   // つくり直すときは、これまでの道のり（前のまとめ・課題・作ってから読み終えた本）を AI に渡す（何年使っても積み上がる・2026-11-17）。
   const prevRec = roadmaps?.[ALL_GOALS_KEY] || null;
   const history = useMemo(() => historyText(prevRec, books), [prevRec, books]);
@@ -582,6 +592,10 @@ function InterviewView({ goal, goals, roadmaps, books, sessions, onDone, onCance
   const buildStage = building || error?.stage === 'build';
   useEffect(() => { onBuildingChange?.(buildStage); }, [buildStage, onBuildingChange]);
   useEffect(() => () => onBuildingChange?.(false), [onBuildingChange]);
+  // 答えた問いか書きかけの答えがあれば、戻る前に確かめてもらう（つくっている間は保存まで進むので確かめない・2026-11-26）。
+  const dirty = !building && (qa.length > 0 || answer.trim().length > 0);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const build = useCallback(async (finalQa) => {
     setBuilding(true);
@@ -821,19 +835,28 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
   // 読むペース（前の 3 か月）と、次の 3 か月に選ぶ冊数（2026-11-17 オーナー「ペースがバラバラでも心地よく引き上げる」）。
   const quarter = useMemo(() => quarterPlanFor({ record, books, sessions, now: appNow() }), [record, books, sessions]);
   const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
-  const planBooks = roadmap.phases.some((p) => p.books.some((b) => b.bookId && byId.get(b.bookId) && byId.get(b.bookId).status !== 'done'));
+  // 読み終えた本・アーカイブした本は読む本に数えない（2026-11-26・isPlanSkipped）。
+  const planBooks = roadmap.phases.some((p) => p.books.some((b) => b.bookId && byId.get(b.bookId) && !isPlanSkipped(byId.get(b.bookId))));
   // 本棚に読んでいない本があれば、ロードマップに本が無くても読書計画は自分で選んでつくれる（2026-11-16 オーナー「本棚の本がほぼない状態だとどうなる？」）。
-  const hasUnread = books.some((b) => b.status !== 'done');
+  const hasUnread = books.some((b) => !isPlanSkipped(b));
   const recsNow = (roadmap.phases[here]?.books || []).filter((b) => !b.bookId).length;
   // この 3 か月に読む本（読み終えていない本棚の本 → すすめた本・3 冊まで）を、いまの枠の中にも並べる
   //   （2026-11-26 点検「いまの 3 か月で、次に何を読むかが下の道のりまで行かないと分からない」）。
-  const nowRank = (x) => (x.book ? ({ reading: 0, before: 1, want: 2 }[x.book.status] ?? 2) : 3);
+  // 並びは読書計画のカレンダーと同じ順（2026-11-26 点検・前は状態の順でカレンダーと食い違った）。予定に無い本は状態の順で後ろに。
+  const planOrder = useMemo(() => {
+    const m = new Map();
+    try { planScheduleFor(record, books, sessions, toLocalYmd(appNow())).schedule.forEach((x, i) => m.set(x.bookId, i)); } catch { /* 予定が組めなければ状態の順 */ }
+    return m;
+  }, [record, books, sessions]);
+  const nowRank = (x) => (x.book
+    ? (planOrder.has(x.book.id) ? planOrder.get(x.book.id) : 10000 + ({ reading: 0, before: 1, want: 2 }[x.book.status] ?? 2))
+    : 20000);
   // 4 冊までは全部並べ、5 冊からは 3 冊＋「ほか N 冊を道のりで見る」（1 冊を隠すために 1 行を使わない）。
   const nowShownOf = (n) => (n <= 4 ? n : 3);
   const nowBooks = (roadmap.phases[here]?.books || []).map((rb) => {
     if (!rb.bookId) return { key: `t:${rb.title}`, rec: rb };
     const b = byId.get(rb.bookId);
-    return b && b.status !== 'done' ? { key: b.id, book: b } : null;
+    return b && !isPlanSkipped(b) ? { key: b.id, book: b } : null;
   }).filter(Boolean).sort((a, b) => nowRank(a) - nowRank(b));
   // この 3 か月に読む本を AI 選書で探す下書き（送らない）。
   const nowShown = nowShownOf(nowBooks.length);
@@ -1261,9 +1284,11 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
     roadmap.phases.forEach((p, i) => p.books.forEach((b) => { if (!m.has(b.bookId)) m.set(b.bookId, i); }));
     return m;
   }, [roadmap]);
+  // 順番を決めたあとにロードマップへ入った本も、順番の最後に（2026-11-26・本人が外した本は orderKnown で足し直さない）。
+  const orderKnown = Array.isArray(record.plan?.orderKnown) ? record.plan.orderKnown : null;
   const items = useMemo(() => (customOrder
-    ? planItemsFromOrder(customOrder, books, { speed, sessions, phaseOf, fallbackPhase: here })
-    : planItemsFromRoadmap(roadmap, books, { speed, sessions, phaseStarts })), [customOrder, roadmap, books, speed, sessions, phaseStarts, phaseOf, here]);
+    ? planItemsFromOrder(customOrder, books, { speed, sessions, phaseOf, fallbackPhase: here, roadmap, known: orderKnown })
+    : planItemsFromRoadmap(roadmap, books, { speed, sessions, phaseStarts })), [customOrder, roadmap, books, speed, sessions, phaseStarts, phaseOf, here, orderKnown]);
   const [ordering, setOrdering] = useState(false);
   const schedule = useMemo(() => scheduleBooks(items, { minutesPerDay: minutes, start: today }), [items, minutes, today]);
   const months = useMemo(() => planMonths(schedule, today), [schedule, today]);
@@ -1292,13 +1317,13 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
       custom={!!customOrder}
       onClose={() => setOrdering(false)}
       onSave={(order) => {
-        savePlan({ minutesPerDay: minutes, order });
+        savePlan({ minutesPerDay: minutes, order, orderKnown: roadmapBookIds(roadmap) });
         setOrdering(false);
         toast.success?.('読む順番を保存しました。');
         track('reading_plan_order', { count: order.length });
       }}
       onReset={() => {
-        savePlan({ minutesPerDay: minutes, order: null });
+        savePlan({ minutesPerDay: minutes, order: null, orderKnown: null });
         setOrdering(false);
         toast.info?.('ロードマップの順番に戻しました。');
       }}
@@ -1308,7 +1333,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
   if (!schedule.length) {
     return (
       <>
-        {books.some((b) => b.status !== 'done') ? (
+        {books.some((b) => !isPlanSkipped(b)) ? (
           <ErrorMessage
             title="読む本を選びましょう"
             description="本棚から、この 3 か月に読む本を選ぶと、1 日に読む時間に合わせて日付を割り振ります。"
@@ -1493,7 +1518,8 @@ const STATUS_NAME = { reading: '読書中', before: '積読', want: '読みた�
 function PlanOrderSheet({ books, initial, custom, onClose, onSave, onReset }) {
   const [order, setOrder] = useState(initial);
   const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
-  const rest = books.filter((b) => b.status !== 'done' && !order.includes(b.id))
+  // アーカイブした本は足す候補に出さない（2026-11-26）。
+  const rest = books.filter((b) => !isPlanSkipped(b) && !order.includes(b.id))
     .sort((a, b) => ({ reading: 0, before: 1, want: 2 }[a.status] ?? 3) - ({ reading: 0, before: 1, want: 2 }[b.status] ?? 3));
   const dirty = order.join() !== initial.join();
   const guardedClose = useGuardedClose(dirty, onClose, { message: '読む順番は元のまま残ります。' });

@@ -249,9 +249,13 @@ const scopeBtn = (on) => ({
   background: 'transparent', color: on ? 'var(--text)' : 'var(--text-2)', fontFamily: 'inherit', fontSize: 'var(--text-sub)',
   fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
 });
+// 選んだ切り替えは、開いている間（アプリを閉じるまで）覚える＝分野の行から すべての本 を見て戻っても「すべて」に戻らない
+//   （ReadingRecord.jsx の recordStatsCache と同じく、部品が作り直されても残る・2026-11-26 点検）。
+let lastFieldScope = 'all';
 export function BookFieldsRecord({ record, records, onOpenField, onFindBooks }) {
-  const [scope, setScope] = useState('all');
-    const scopes = records ? FIELD_SCOPES.filter((x) => x.v === 'all' || records[x.v]?.any) : [];
+  const [scope, setScopeState] = useState(() => lastFieldScope);
+  const setScope = (v) => { lastFieldScope = v; setScopeState(v); };
+  const scopes = records ? FIELD_SCOPES.filter((x) => x.v === 'all' || records[x.v]?.any) : [];
   const showScopes = scopes.length >= 2;
   const cur = showScopes && scopes.some((x) => x.v === scope) ? scope : 'all';
   const shown = records ? records[cur] : record;

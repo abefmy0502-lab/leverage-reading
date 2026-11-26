@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   readingSpeedFactor, estimateBookMinutes, scheduleBooks, planItemsFromRoadmap, monthWeeks, weekBands,
   planItemsFromOrder, planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, addDays, DEFAULT_BOOK_MINUTES, MIN_LEFT_MINUTES,
+  isPlanSkipped, roadmapBookIds,
 } from './readingPlan';
 
 describe('1 冊にかかる時間', () => {
@@ -60,6 +61,30 @@ describe('本人が決めた順番', () => {
     const books = [{ id: 'a', status: 'want' }, { id: 'b', status: 'done' }, { id: 'c', status: 'before' }];
     const items = planItemsFromOrder(['c', 'x', 'b', 'a', 'c'], books, { phaseOf: new Map([['a', 1]]), fallbackPhase: 0 });
     expect(items.map((i) => [i.bookId, i.phase, i.notBefore])).toEqual([['c', 0, null], ['a', 1, null]]);
+  });
+  it('アーカイブした本は読了と同じに外す（2026-11-26）', () => {
+    const books = [{ id: 'a', status: 'want' }, { id: 'b', status: 'reading', archivedAt: '2026-11-20T00:00:00Z' }, { id: 'c', status: 'before' }];
+    expect(isPlanSkipped(books[1])).toBe(true);
+    expect(isPlanSkipped({ id: 'd', status: 'done' })).toBe(true);
+    expect(isPlanSkipped(books[0])).toBe(false);
+    expect(planItemsFromOrder(['b', 'a', 'c'], books).map((i) => i.bookId)).toEqual(['a', 'c']);
+    const roadmap = { phases: [{ books: [{ bookId: 'b' }, { bookId: 'a' }] }, { books: [{ bookId: 'c' }] }] };
+    expect(planItemsFromRoadmap(roadmap, books).map((i) => i.bookId)).toEqual(['a', 'c']);
+  });
+  it('順番を決めたあとにロードマップへ入った本は最後に足す・外した本は足し直さない（2026-11-26）', () => {
+    const books = [{ id: 'a', status: 'want' }, { id: 'b', status: 'before' }, { id: 'c', status: 'want' }, { id: 'd', status: 'want' }, { id: 'e', status: 'done' }, { id: 'f', status: 'want', archivedAt: '2026-11-20' }];
+    // 順番を保存したときのロードマップ: a・b（b は本人が × で外した）
+    const known = roadmapBookIds({ phases: [{ books: [{ bookId: 'a' }, { bookId: 'b' }] }] });
+    expect(known).toEqual(['a', 'b']);
+    // そのあと「この 3 か月の本を選ぶ」で c・d・e・f が入った
+    const roadmap = { phases: [{ books: [{ bookId: 'a' }, { bookId: 'b' }, { bookId: 'c' }] }, { books: [{ bookId: 'd' }, { bookId: 'e' }, { bookId: 'f' }, { title: 'すすめた本' }] }] };
+    const phaseOf = new Map([['a', 0], ['b', 0], ['c', 0], ['d', 1], ['e', 1], ['f', 1]]);
+    const items = planItemsFromOrder(['a'], books, { roadmap, known, phaseOf, fallbackPhase: 0 });
+    expect(items.map((i) => [i.bookId, i.phase])).toEqual([['a', 0], ['c', 0], ['d', 1]]);
+    // 前の版の順番（known なし）は、順番に無いロードマップの本を全部足す
+    expect(planItemsFromOrder(['a'], books, { roadmap, phaseOf }).map((i) => i.bookId)).toEqual(['a', 'b', 'c', 'd']);
+    // roadmap を渡さなければ今までどおり順番の本だけ
+    expect(planItemsFromOrder(['a'], books).map((i) => i.bookId)).toEqual(['a']);
   });
 });
 

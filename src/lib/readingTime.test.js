@@ -219,6 +219,14 @@ describe('「◯時◯分まで」（2026-10-10）', () => {
     expect(checkUntil('01:00', at(18, 0)).error).toBe('tooLong');
     expect(checkUntil('00:00', at(18, 0))).toMatchObject({ ok: true, minutes: 360 });
   });
+  it('今日のうちの後の時刻は 12 時間を超えても tooLong（past にしない・2026-11-26）', () => {
+    expect(checkUntil('22:00', at(9, 30))).toMatchObject({ ok: false, error: 'tooLong' });
+    expect(checkUntil('23:59', at(0, 5))).toMatchObject({ ok: false, error: 'tooLong' });
+    expect(checkUntil('15:30', at(9, 30))).toMatchObject({ ok: true, minutes: 360 });
+    // 次の日に回った時刻（いまより前を選んだ）は past のまま
+    expect(checkUntil('09:00', at(9, 30)).error).toBe('past');
+    expect(checkUntil('12:00', at(22, 0)).error).toBe('past');
+  });
   it('空・壊れた値は empty', () => {
     expect(checkUntil('', at(18, 0)).error).toBe('empty');
     expect(checkUntil('25:00', at(18, 0)).error).toBe('empty');

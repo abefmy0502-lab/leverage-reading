@@ -328,3 +328,37 @@ describe('1 年後の目標だけでつくる（2026-11-22）', () => {
     expect(stale(rec, { ...g, y3: { text: 'B', at: g.y1.at } })).toBe(true);
   });
 });
+
+describe('アーカイブした本と、自分で決めた順番（2026-11-26）', async () => {
+  const { phaseNeedsBooks, planScheduleFor, todayPlanItem, shelfMaterial: shelf } = await import('./goalRoadmap');
+  const books = [
+    { id: 'a', title: 'A', status: 'reading', archivedAt: '2026-11-20T00:00:00Z' },
+    { id: 'b', title: 'B', status: 'before' },
+    { id: 'c', title: 'C', status: 'want' },
+  ];
+  const roadmap = { needs: [], issues: [], missing: [], phases: [
+    { focus: '1', todos: [], books: [{ bookId: 'a', why: '' }, { bookId: 'b', why: '' }] },
+    { focus: '2', todos: [], books: [{ bookId: 'c', why: '' }] },
+  ] };
+  const record = { goalAt: '2026-11-01T00:00:00Z', roadmap, plan: { minutesPerDay: 30 } };
+  it('アーカイブした本は読書計画にもホームの 1 行にも出ない', () => {
+    const { schedule } = planScheduleFor(record, books, [], '2026-11-26');
+    expect(schedule.map((x) => x.bookId)).toEqual(['b', 'c']);
+    expect(todayPlanItem(record, books, [], '2026-11-26')).toMatchObject({ kind: 'today', bookId: 'b' });
+  });
+  it('いまの区切りの本がアーカイブだけなら、本を選ぶ', () => {
+    expect(phaseNeedsBooks({ ...roadmap, phases: [{ books: [{ bookId: 'a' }] }] }, books, 0)).toBe(true);
+  });
+  it('AI に渡す読む本にアーカイブした本を入れない', () => {
+    const m = shelf(books);
+    expect(Object.values(m.keyToId)).toEqual(['b', 'c']);
+    expect(m.titleToId[titleKey('A')].done).toBe(true);
+  });
+  it('順番を決めたあとにロードマップへ入った本も、カレンダーの最後に', () => {
+    const rec = { ...record, plan: { minutesPerDay: 30, order: ['b'], orderKnown: ['a', 'b'] } };
+    expect(planScheduleFor(rec, books, [], '2026-11-26').schedule.map((x) => x.bookId)).toEqual(['b', 'c']);
+    // 本人が外した本（順番を保存したときにあった本）は足し直さない
+    const rec2 = { ...record, plan: { minutesPerDay: 30, order: ['b'], orderKnown: ['a', 'b', 'c'] } };
+    expect(planScheduleFor(rec2, books, [], '2026-11-26').schedule.map((x) => x.bookId)).toEqual(['b']);
+  });
+});

@@ -387,6 +387,8 @@ function ActionRow({ a, completing, swipeable, onCheck, onOpenMenu, onSwipeDelet
 // 完了した行の、その場の「やってみて、どうでしたか？」（1 行・任意）。
 function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = null, onUndo = null }) {
   const ref = useRef(null);
+  // 「完了。次回は来週」の「次回は来週」（繰り返しの行動だけ・lib/actionMessages.js と同じ言葉）。
+  const nextLine = a?.recurrence ? (completedActionMessage(a).match(/^完了。(.+)$/)?.[1] || null) : null;
   // 欄が開いたら、下の知らせ（元に戻す）とタブバーに隠れない所まで寄せる（2026-09-29）。
   //   高さが広がり終わってから（その前は、下の余白がまだ足りずに最後まで寄せられない）。
   useEffect(() => {
@@ -423,6 +425,11 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
         {/* 「完了しました」は下の知らせ（元に戻す つき）の 1 か所だけで伝える。ここはどの行動かだけ（2026-09-29）。 */}
         <span className="text-pretty" style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'break-word', textDecoration: 'line-through' }}>{withPhraseBreaks(stripInlineMd(a.text))}</span>
       </p>
+      {/* 繰り返しの行動は、次回がいつ出るかをここで（欄が出ると下の知らせ「完了。次回は来週」を閉じるので、伝わっていなかった・2026-11-26 点検）。
+          文の左端は上の行動の文にそろえる（丸の 44 − 12 ＋ 間 8 ＝ 40）。 */}
+      {nextLine && (
+        <p style={{ margin: 'var(--space-1) 0 0', paddingLeft: 'calc(var(--space-8) + var(--space-2))', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>{nextLine}</p>
+      )}
       <label htmlFor="act-reflection" style={{ display: 'block', margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
         {/* 文節の切れ目でだけ折り返す（文字を大きくすると「どうでし／たか？」と割れていた・2026-10-04）。 */}
         {withPhraseBreaks('やってみて、どうでしたか？')}
@@ -701,6 +708,10 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
     return m;
   }, [open, completing]);
   const overdueCount = open.filter((a) => groupOf(a) === 'overdue').length;
+  // 「期限を見直す」で順に開く行動（しばらく前の期限 → 期限を過ぎた）。出すかどうか（3 件以上）もこの数で決める
+  //   （前は出す判定が期限を過ぎた行動だけで、開く列はしばらく前の期限も含み、数が食い違っていた・2026-11-26 点検）。
+  //   見出しの（N）はその見出しの下に並ぶ行動の数のまま（しばらく前の期限は自分の見出しに数を出す）。
+  const reviewQueue = useMemo(() => [...open.filter((x) => groupOf(x) === 'stale'), ...open.filter((x) => groupOf(x) === 'overdue')], [open]);
   const doneShown = useMemo(() => done.filter((a) => !completing.some((c) => sameAction(a, c.a))), [done, completing]);
   // 「今週の予定」は見出しの「今週」と同じ定義（期限が今週＝月〜日）で数える。
   const weekLine = useMemo(() => {
@@ -838,7 +849,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
         return (
           <GroupSection key={g.key} collapsing={collapsing} entering={entering} aria-labelledby={`act-${g.key}`}>
             {/* 期限切れが多い（3 件以上）ときだけ、見出しの右に「期限を見直す」（責めない・見出しは 1 つ）。 */}
-            {g.key === 'overdue' && overdueCount >= 3 && onEditAction ? (
+            {g.key === 'overdue' && reviewQueue.length >= 3 && onEditAction ? (
               // 文字が大きいときは「期限を見直す」を見出しの下へ回す（「期限を見／直す」と割れていた・2026-11-18 文字最大の点検）。
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 'var(--space-3)', rowGap: 0, margin: largeRoot() ? '0 0 var(--space-2)' : 'calc(-1 * var(--space-3)) 0 calc(var(--space-2) - var(--space-3))' }}>
                 <h2 id={`act-${g.key}`} style={{ ...uiGroupTitle }}>{g.label}<span style={{ whiteSpace: 'nowrap' }}>（{overdueCount}）</span></h2>
@@ -847,10 +858,11 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
                   onClick={() => {
                     // 期限を過ぎた行動を古い順に 1 つずつ開く（保存したら次・キャンセルで終わる・2026-09-30）。
                     // しばらく前の期限（60 日より前）も先に入れる（いちばん放置された行動が見直しから漏れていた・2026-11-25 点検）。
-                    const list = [...open.filter((x) => groupOf(x) === 'stale'), ...open.filter((x) => groupOf(x) === 'overdue')];
+                    const list = reviewQueue;
                     const a = list[0];
                     if (a) onEditAction(a.bookId, a.actionIdx, a, { queue: list.slice(1), total: list.length });
                   }}
+                  aria-label={`期限を見直す（${reviewQueue.length} 件）`}
                   style={{ ...btnLink, fontSize: 'var(--text-meta)', whiteSpace: 'nowrap', marginRight: 'calc(-1 * var(--space-1))', ...(largeRoot() ? { marginLeft: 'calc(-1 * var(--space-1))' } : null) }}
                 >
                   期限を見直す

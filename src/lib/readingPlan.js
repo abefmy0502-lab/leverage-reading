@@ -97,6 +97,9 @@ export function scheduleBooks(items, { minutesPerDay = PLAN_DEFAULT_MINUTES, sta
   return out;
 }
 
+// 読書計画に置かない本: 読み終えた本とアーカイブした本（2026-11-26・アーカイブ＝「しまっておく」印は読了と同じに外す）。
+export const isPlanSkipped = (b) => !b || b.status === 'done' || !!b.archivedAt;
+
 // ロードマップの区切りの順に、まだ読み終えていない本を並べる（同じ本は最初の区切りだけ）。
 //   phaseStarts: 区切りが始まる日（'YYYY-MM-DD'・lib/goalRoadmap.js の phaseSpecs の startYm の 1 日）。
 //   2026-11-22 点検: 区切りの始まりまで待つと、前の本が早く終わったとき 7 週間ほど何も読まない日が続いた（毎日読む習慣が切れる）。
@@ -109,7 +112,7 @@ export function planItemsFromRoadmap(roadmap, books, { speed = 1, sessions = [],
   (roadmap?.phases || []).forEach((p, phase) => {
     for (const rb of p.books || []) {
       const b = byId.get(rb.bookId);
-      if (!b || b.status === 'done' || seen.has(b.id)) continue;
+      if (isPlanSkipped(b) || seen.has(b.id)) continue;
       seen.add(b.id);
       out.push({ bookId: b.id, phase, notBefore: null, phaseStart: phaseStarts[phase] || null, minutes: estimateBookMinutes(b, { speed, readMinutes: read.get(b.id) || 0 }) });
     }
@@ -120,17 +123,35 @@ export function planItemsFromRoadmap(roadmap, books, { speed = 1, sessions = [],
 // 本人が決めた順番（2026-11-16 オーナー「自由に本の順番も入れられるようにしたい」）。
 //   order＝本の id の並び。読み終えた本・本棚から消えた本・重なりは外す。区切りの始まりは待たずに今日から順に読む。
 //   phaseOf＝ロードマップのどの区切りの本か（無い本＝本人が足した本は fallbackPhase）。
-export function planItemsFromOrder(order, books, { speed = 1, sessions = [], phaseOf = new Map(), fallbackPhase = 0 } = {}) {
+//   2026-11-26: 順番を決めたあとにロードマップへ入った本（「この 3 か月の本を選ぶ」・つくり直し）が、順番に無いので
+//   カレンダーに載らなかった。roadmap を渡すと、順番に無いロードマップの本（読み終えた本・アーカイブは外す）を最後に足す。
+//   known＝順番を保存したときにロードマップにあった本の id（本人が × で外した本は足し直さない）。無い（前の版の順番）なら全部足す。
+export function planItemsFromOrder(order, books, { speed = 1, sessions = [], phaseOf = new Map(), fallbackPhase = 0, roadmap = null, known = null } = {}) {
   const byId = new Map((Array.isArray(books) ? books : []).map((b) => [b.id, b]));
   const read = minutesByBook(sessions);
   const seen = new Set();
   const out = [];
-  for (const id of Array.isArray(order) ? order : []) {
+  const push = (id, phase) => {
     const b = byId.get(id);
-    if (!b || b.status === 'done' || seen.has(id)) continue;
+    if (isPlanSkipped(b) || seen.has(id)) return;
     seen.add(id);
-    out.push({ bookId: id, phase: phaseOf.get(id) ?? fallbackPhase, notBefore: null, minutes: estimateBookMinutes(b, { speed, readMinutes: read.get(id) || 0 }) });
-  }
+    out.push({ bookId: id, phase, notBefore: null, minutes: estimateBookMinutes(b, { speed, readMinutes: read.get(id) || 0 }) });
+  };
+  for (const id of Array.isArray(order) ? order : []) push(id, phaseOf.get(id) ?? fallbackPhase);
+  const knownSet = Array.isArray(known) ? new Set(known) : null;
+  (roadmap?.phases || []).forEach((p, phase) => {
+    for (const rb of p.books || []) {
+      if (!rb?.bookId || seen.has(rb.bookId) || knownSet?.has(rb.bookId)) continue;
+      push(rb.bookId, phaseOf.get(rb.bookId) ?? phase);
+    }
+  });
+  return out;
+}
+
+// 読む順番を保存するときに覚える、いまのロードマップの本の id（planItemsFromOrder の known）。
+export function roadmapBookIds(roadmap) {
+  const out = [];
+  (roadmap?.phases || []).forEach((p) => (p.books || []).forEach((rb) => { if (rb?.bookId && !out.includes(rb.bookId)) out.push(rb.bookId); }));
   return out;
 }
 

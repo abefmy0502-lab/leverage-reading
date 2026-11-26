@@ -110,7 +110,8 @@ function buildBookStats(books, now = new Date()) {
   for (const b of Array.isArray(books) ? books : []) {
     if (!b) continue;
     if (b.status === 'done') {
-      doneTotal += 1;
+      // 「読んだ本」の数は、押して開く一覧（アーカイブした本は出ない）とそろえる（2026-11-26）。
+      if (!b.archivedAt) doneTotal += 1;
       const d = parseLocalDate(b.doneDate);
       if (d) {
         doneDates.push(b.doneDate);
@@ -129,6 +130,7 @@ function buildBookStats(books, now = new Date()) {
         }
       }
     }
+    // 実行した行動はアーカイブした本の分も数える（押して開く 行動 の一覧もアーカイブした本の行動を出す・2026-11-26 確認）。
     if (Array.isArray(b.actions)) {
       for (const a of b.actions) { if (a && a.done) actionsDone += 1; }
     }
@@ -698,11 +700,12 @@ export default function ReadingRecord({
   //   読了・積読・読書中ごとにも作る（題の下の切り替え・2026-11-26 オーナー「読了、積読・読書中で分けて見れるようにしたい」）。
   const fieldRecords = useMemo(() => {
     const opts = { memoCountByBook: memoStats?.failed ? {} : (memoStats?.byBook || {}) };
-    const list = books || [];
+    // アーカイブした本は外す＝分野を押して開く すべての本 の一覧とそろえる（2026-11-26）。
+    const list = (books || []).filter((b) => b && !b.archivedAt);
     return {
       all: buildFieldRecord(list, opts),
       done: buildFieldRecord(list.filter((b) => b.status === 'done'), opts),
-      active: buildFieldRecord(list.filter((b) => !b.archivedAt && (b.status === 'before' || b.status === 'reading')), opts), // アーカイブした本は外す（2026-11-26）
+      active: buildFieldRecord(list.filter((b) => b.status === 'before' || b.status === 'reading'), opts),
     };
   }, [books, memoStats]);
   const fieldRecord = fieldRecords.all;

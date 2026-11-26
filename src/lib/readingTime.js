@@ -81,12 +81,20 @@ export const UNTIL_MESSAGES = {
   past: 'いまより後の時刻を選んでください',
   tooLong: '6 時間までの時刻を選んでください',
 };
+// 2026-11-26: 今日のうちのいまより後の時刻（9:30 に 22:00）は 12 時間を超えても past ではなく tooLong
+//   （前は「いまより後の時刻を選んでください」と出て、後の時刻を選んでいるのに直し方が分からなかった）。
+//   past は次の日に回った時刻（いまより前を選んだ）だけ。
 export function checkUntil(hhmm, now = Date.now()) {
   const untilMs = untilToMs(hhmm, now);
   if (untilMs == null) return { ok: false, error: 'empty', message: UNTIL_MESSAGES.empty };
   const diff = untilMs - now;
-  if (diff < 60 * 1000 || diff > STALE_MS) return { ok: false, error: 'past', message: UNTIL_MESSAGES.past };
-  if (diff > MAX_SESSION_SEC * 1000) return { ok: false, error: 'tooLong', message: UNTIL_MESSAGES.tooLong };
+  // 今日の日付のままの時刻か（次の日に回っていないか）。
+  const wrapped = new Date(untilMs).getDate() !== new Date(now).getDate();
+  if (diff < 60 * 1000) return { ok: false, error: 'past', message: UNTIL_MESSAGES.past };
+  if (diff > MAX_SESSION_SEC * 1000) {
+    if (wrapped && diff > STALE_MS) return { ok: false, error: 'past', message: UNTIL_MESSAGES.past };
+    return { ok: false, error: 'tooLong', message: UNTIL_MESSAGES.tooLong };
+  }
   return { ok: true, untilMs, minutes: lengthMinutes(diff / 1000) };
 }
 

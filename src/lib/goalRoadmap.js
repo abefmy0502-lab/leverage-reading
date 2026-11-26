@@ -9,7 +9,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { horizonOf, goalDeadline, fmtGoalDeadline, GOAL_HORIZONS, ALL_GOALS_KEY } from './goals';
 import {
-  estimateBookMinutes, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, bookOnDay,
+  estimateBookMinutes, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, bookOnDay, isPlanSkipped,
 } from './readingPlan';
 
 // 聞き返しは 2 つまで（相談と同じ・ゴールが見えるように）。
@@ -67,7 +67,7 @@ export function phaseSpecs(horizonKey, at) {
 //   2026-11-16 オーナー「該当期間でなぜか 2 冊まで」＝前は AI に「0〜3 冊」と頼んでいて、3 か月で 2 冊・残りが空いていた。
 export const PHASE_BOOK_MAX = 8;
 export function phaseBookCaps(specs, books = [], { minutesPerDay = PLAN_DEFAULT_MINUTES, speed = 1 } = {}) {
-  const unread = (Array.isArray(books) ? books : []).filter((b) => b && b.status !== 'done');
+  const unread = (Array.isArray(books) ? books : []).filter((b) => b && !isPlanSkipped(b));
   const avg = unread.length ? unread.reduce((t, b) => t + estimateBookMinutes(b, { speed }), 0) / unread.length : 400 * speed;
   const per = Math.max(5, Number(minutesPerDay) || PLAN_DEFAULT_MINUTES);
   return (specs || []).map((sp) => Math.max(1, Math.min(PHASE_BOOK_MAX, Math.floor((sp.months * 30 * per) / Math.max(60, avg)))));
@@ -114,7 +114,8 @@ export function currentPhaseIndex(horizonKey, at, now = new Date()) {
 const STATUS_JA = { want: '読みたい', before: '積読', reading: '読書中', done: '読了' };
 export function shelfMaterial(books, { maxUnread = 40, maxDone = 20 } = {}) {
   const list = Array.isArray(books) ? books : [];
-  const unread = list.filter((b) => b && b.status !== 'done' && str(b.title))
+  // アーカイブした本は読む本として渡さない（2026-11-26・読書計画に置かない本と同じ）。
+  const unread = list.filter((b) => b && !isPlanSkipped(b) && str(b.title))
     .sort((a, b) => ({ reading: 0, before: 1, want: 2 }[a.status] ?? 3) - ({ reading: 0, before: 1, want: 2 }[b.status] ?? 3))
     .slice(0, maxUnread);
   const done = list.filter((b) => b?.status === 'done' && str(b.title)).slice(0, maxDone);
@@ -129,7 +130,7 @@ export function shelfMaterial(books, { maxUnread = 40, maxDone = 20 } = {}) {
   const doneLines = done.map((b) => `『${cut(b.title, 60)}』${b.rating ? ` ★${b.rating}` : ''}`);
   // AI がすすめた本の書名が本棚の本と同じなら、その本にする（読了の本はすすめない）。
   const titleToId = {};
-  for (const b of list) if (b?.id && str(b.title)) titleToId[titleKey(b.title)] = { id: b.id, done: b.status === 'done' };
+  for (const b of list) if (b?.id && str(b.title)) titleToId[titleKey(b.title)] = { id: b.id, done: isPlanSkipped(b) };
   return { text: lines.join('\n'), doneText: doneLines.join('\n'), keyToId, titleToId, count: lines.length };
 }
 
@@ -284,7 +285,8 @@ export function phaseNeedsBooks(roadmap, books, here) {
   const p = roadmap?.phases?.[here];
   if (!p) return false;
   const byId = new Map((books || []).map((b) => [b.id, b]));
-  return !(p.books || []).some((b) => !b.bookId || (byId.get(b.bookId) && byId.get(b.bookId).status !== 'done'));
+  // アーカイブした本も読み終えた本と同じに数えない（2026-11-26）。
+  return !(p.books || []).some((b) => !b.bookId || (byId.get(b.bookId) && !isPlanSkipped(byId.get(b.bookId))));
 }
 
 // 答え {"now":{"books":[…]},"next":{"books":[…]}} を、いまのロードマップの 2 つの区切りに入れる（読めなければ null）。
@@ -340,7 +342,7 @@ export function leftoverBooks(roadmap, books, here) {
   const out = [];
   (roadmap?.phases || []).slice(0, Math.max(0, here)).forEach((p) => (p.books || []).forEach((rb) => {
     const b = rb.bookId ? byId.get(rb.bookId) : null;
-    if (b && b.status !== 'done' && !out.includes(b)) out.push(b);
+    if (b && !isPlanSkipped(b) && !out.includes(b)) out.push(b); // アーカイブした本は残りに数えない（2026-11-26）
   }));
   return out;
 }
@@ -427,7 +429,7 @@ export function pruneRoadmapBooks(roadmap, books) {
       books: (p.books || []).map((b) => {
         if (b.bookId) return ids.has(b.bookId) ? b : null;
         const shelf = byTitle.get(titleKey(b.title));
-        if (shelf) return shelf.status === 'done' ? null : { bookId: shelf.id, why: b.why };
+        if (shelf) return isPlanSkipped(shelf) ? null : { bookId: shelf.id, why: b.why }; // アーカイブした本もすすめ直さない（2026-11-26）
         return b;
       }).filter(Boolean),
     })),
@@ -488,8 +490,9 @@ export function planScheduleFor(record, books, sessions, today) {
   const order = Array.isArray(record.plan?.order) && record.plan.order.length ? record.plan.order : null;
   const phaseOf = new Map();
   roadmap.phases.forEach((p, i) => p.books.forEach((b) => { if (!phaseOf.has(b.bookId)) phaseOf.set(b.bookId, i); }));
+  // 順番を決めたあとにロードマップへ入った本も最後に（2026-11-26・readingPlan.js の planItemsFromOrder）。
   const items = order
-    ? planItemsFromOrder(order, books, { speed, sessions, phaseOf, fallbackPhase: here })
+    ? planItemsFromOrder(order, books, { speed, sessions, phaseOf, fallbackPhase: here, roadmap, known: Array.isArray(record.plan?.orderKnown) ? record.plan.orderKnown : null })
     : planItemsFromRoadmap(roadmap, books, { speed, sessions, phaseStarts: specs.map((x) => `${x.startYm}-01`) });
   const schedule = scheduleBooks(items, { minutesPerDay: record.plan?.minutesPerDay || PLAN_DEFAULT_MINUTES, start: today });
   return { schedule, here, specs };
