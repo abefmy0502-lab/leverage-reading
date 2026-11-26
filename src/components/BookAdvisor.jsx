@@ -185,13 +185,15 @@ function ClampedLine({ text }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [open, text]);
-  const style = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(open ? null : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }) };
+  // AI の文なので文節で止めずに流す（DESIGN §2・SummaryText と同じ）。
+  const style = { fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, margin: 'var(--space-1) 0 0', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'anywhere', ...(open ? null : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }) };
   return (
     <>
-      <p ref={ref} style={style}>{withPhraseBreaks(text)}</p>
+      <p ref={ref} style={style}>{text}</p>
       {(cut || open) && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{ ...uiBtnLinkQuiet, minHeight: 'var(--tap-min)', padding: 0, fontSize: 'var(--text-meta)', marginBottom: 'calc(-1 * var(--space-3))' }}>
-          {open ? '閉じる' : '全文を見る'}
+        // 「全文を見る ⌄」は SummaryText と同じ形（AI 選書の中で 1 つの形・2026-11-26 ui-critic）
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{ ...uiBtnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))', gap: 'var(--space-1)' }}>
+          {open ? '閉じる' : '全文を見る'}<ChevronDown size="1em" aria-hidden="true" style={open ? { transform: 'rotate(180deg)' } : undefined} />
         </button>
       )}
     </>
