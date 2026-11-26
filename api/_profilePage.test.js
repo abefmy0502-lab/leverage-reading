@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { handleProfileRequest, renderProfile, isShowable, esc } from './_profilePage.js';
+import { handleProfileRequest, renderProfile, renderBook, isShowable, esc } from './_profilePage.js';
 
 function fakeRes() {
   const r = { headers: {}, statusCode: 0, body: '' };
@@ -282,6 +282,12 @@ describe('本人が開いた公開のページ（?me=1・2026-11-25）', () => {
     expect(html).not.toContain('読んだ本と、会話できる');
     expect(html).toContain('/u/abcdefgh23/b/b1?me=1');
     expect(html).toContain('/u/abcdefgh23?shelf=done&me=1#shelf');
+  });
+  it('自分で開いた本のページにも、説明の 1 行・読みたいに追加・通報を出さない（2026-11-26）', () => {
+    const { html } = renderBook({ nickname: 'ふみ', summary_public: true }, { id: 'b1', title: '考え方', author: '稲盛和夫', status: 'done', rating: 5, cover: '' }, { publicId: 'abcdefgh23', showSummary: true, self: true });
+    expect(html).not.toContain('あなたの公開のページです');
+    expect(html).not.toContain('読みたいに追加');
+    expect(html).not.toContain('このページを通報する');
   });
   it('ふつうに開いたときは、今までどおり通報とフォロー', () => {
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
