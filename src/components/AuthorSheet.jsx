@@ -4,7 +4,6 @@
 //   設定の「お気に入りの著者」からは一覧（list）→ 押すとその著者。AI は使わない。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Star, ChevronRight, MessageCircle } from 'lucide-react';
-import { isLargeText } from '../lib/largeText';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import EmptyState from './EmptyState';
@@ -106,7 +105,8 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
     }
   };
 
-  const large = isLargeText();
+  // 「読みたいに追加」はいつも書名の下（右に置くと書名の列が狭くなり、ふつうの大きさでも 3 行で切れていた・2026-11-27 ui-critic）
+  const large = true;
   const wantControl = (b, owned) => (owned ? (
     <span style={{ display: 'inline-block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap', ...(large ? { marginTop: 'var(--space-2)' } : null) }}>本棚にあります</span>
   ) : (
@@ -186,7 +186,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
 
         {onTalk && talkIds.length > 0 && (
           // 相談（一番の価値）につながる「話す」を面の主に、「お気に入りに入れる」は枠のまま（同じ強さの枠が 2 つ並んでいた・2026-11-27 ui-critic）
-          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, current || null); }} style={{ ...btnTonal, gap: 'var(--space-2)' }}>
+          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, current || null); }} style={{ ...btnTonal, gap: 'var(--space-2)', minHeight: 'var(--btn-h)' }}>
             <MessageCircle size="1.1em" aria-hidden="true" />{talkIds.length > 1 ? `この著者の本と話す（${talkIds.length} 冊）` : 'この著者の本と話す'}
           </button>
         )}

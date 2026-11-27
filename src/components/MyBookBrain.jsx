@@ -4344,10 +4344,11 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           const i = evidence.indexOf('（');
           if (i <= 0) return <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence)}</span>;
           return (
-            <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks(evidence.slice(0, i))}<wbr />
-              <span style={{ fontFeatureSettings: '"halt"' }}>（</span>{withPhraseBreaks(evidence.slice(i + 1))}
-            </span>
+            // 「（…）」は括弧を外して次の行に（括弧が行の頭に来ると、字の空きで 1 行目より右から見えていた・2026-11-27 ui-critic）
+            <>
+              <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence.slice(0, i))}</span>
+              <span style={{ display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(evidence.slice(i + 1).replace(/）\s*$/, ''))}</span>
+            </>
           );
         })()}
         {/* 前の相談から増えたメモ（事実だけ・点数やバッジにしない）。数字は等幅。 */}

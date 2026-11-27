@@ -71,11 +71,20 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
               </label>
             )}
           </div>
-          {!!infoPages && (
-            <p aria-hidden={unit === 'page' && fromInfo ? undefined : true} style={{ ...label, margin: 'var(--space-1) 0 0', minHeight: 'calc(var(--text-meta) * 1.5)', lineHeight: 1.5, color: 'var(--text-3)', paddingLeft: 'calc(50% + var(--space-3) / 2)' }}>
-              {unit === 'page' && fromInfo ? '本の情報から' : ''}
-            </p>
-          )}
+          {/* 欄の下の 1 行（どちらの単位でも同じ高さ＝替えてもシートが跳ねない）。ページは「本の情報から」（総ページの下）・
+              ％ は短い案内（空の帯に見えていた・2026-11-27 ui-critic）。範囲の外の知らせもここに入れて高さを変えない。 */}
+          {(() => {
+            const msg = unit === 'page'
+              ? (current !== '' && !canSave ? '1 から 20000 までのページを入れてください。' : '')
+              : (overPct ? '100％ として保存します。' : '');
+            const text = msg || (unit === 'page' ? (fromInfo ? '本の情報から' : '') : '電子書籍の画面に出る ％ を入れます');
+            const right = !msg && unit === 'page';
+            return (
+              <p role={msg ? 'status' : undefined} style={{ ...label, margin: 'var(--space-1) 0 0', minHeight: 'calc(var(--text-meta) * 1.5)', lineHeight: 1.5, color: msg ? 'var(--text-2)' : 'var(--text-3)', paddingLeft: right ? 'calc(50% + var(--space-3) / 2)' : 0 }}>
+                {text}
+              </p>
+            );
+          })()}
         </div>
         {over && (
           // 総ページが版違いのこともあるので、総ページを直す道も（2026-11-26 点検）
@@ -84,8 +93,6 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
             <button type="button" onClick={() => setTotal(String(Number(current)))} style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }}>{`総ページを ${Number(current)} にする`}</button>
           </div>
         )}
-        {unit === 'page' && current !== '' && !canSave && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>1 から 20000 までのページを入れてください。</p>}
-        {overPct && <p role="status" style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>100％ として保存します。</p>}
         {book?.currentPage != null && (
           <button type="button" onClick={clear} style={{ ...btnLinkQuiet, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>記録を消す</button>
         )}

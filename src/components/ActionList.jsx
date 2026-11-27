@@ -465,7 +465,8 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
       </div>
       {/* 完了の取り消しは欄の中に（下の知らせが欄の「この結果を相談する」に重なり、押すと完了が戻っていた・2026-11-25 点検） */}
       {onUndo && (
-        <button type="button" onClick={onUndo} disabled={saving} style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
+        // 押せる高さ 44 の余りを下で打ち消し、見た目の下の余白を上（16）とそろえる（2026-11-27 ui-critic）
+        <button type="button" onClick={onUndo} disabled={saving} style={{ ...btnLinkQuiet, marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * (var(--tap-min) - 1.5em) / 2)' }}>
           完了を取り消す
         </button>
       )}
