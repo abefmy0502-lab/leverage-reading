@@ -602,7 +602,7 @@ export default function HomeScreen({
   onQuickstart, onAddBook, onAddReadingBook, onAdvisor, onImport, onShelfScan = null, authorNews = null,
   onOpenBook, onWriteMemo, onStartReading, onOpenLibrary, onSeeAllReading, onCoverRetry, onShareNudge, onRead,
   onOpenActions, onConsultDraft, savedMemo = null, onDismissSavedMemo, onOpenMemo, onAddOneLines = null, onOpenConsult = null,
-  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null, onReadFirst = null,
+  onOpenRecord = null, onOpenPlan = null, onOpenReadingPlan = null, onOpenGoals = null, onReadFirst = null, onResumeConsult = null,
 }) {
   const { user } = useAuth();
   const toast = useToast();
@@ -638,6 +638,7 @@ export default function HomeScreen({
   //   その日は共有の 1 行を出さない（題の下は 1 行）。
   const momentGo = !moment ? null
     : moment.action === 'advisor' ? (onAdvisor ? () => onAdvisor('本棚の本は、いまの気分に合わないみたい。いまの悩みに合う本を 1 冊探したい。') : null)
+    : moment.action === 'resume' ? (onResumeConsult ? () => onResumeConsult(moment.question) : null)
     : !momentBook ? null
     : moment.action === 'open' ? () => onOpenBook(momentBook)
     : moment.action === 'compare' ? (onConsultDraft ? () => onConsultDraft(moment.question, 'moment') : null)
@@ -760,11 +761,11 @@ export default function HomeScreen({
           <GrownLine
             mark={`moment-${moment.kind}`}
             stack
-            icon={moment.kind === 'anniv' ? Sprout : moment.kind === 'action' ? CalendarCheck : History}
+            icon={moment.kind === 'anniv' ? Sprout : moment.kind === 'action' ? CalendarCheck : moment.action === 'resume' ? MessageCircle : History}
             text={<>{withPhraseBreaks(moment.lead)}{moment.quote ? <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span> : null}</>}
             actionLabel={moment.actionLabel}
             // 読み上げは本の名前つき（同じ画面の一覧の「『書名』を読み始める」と見分ける・ui-critic）
-            actionAria={!momentBook ? (moment.action === 'advisor' ? 'いまの悩みに合う本を AI 選書で 1 冊探す' : null) : moment.action === 'focus' ? `『${momentBook.title}』を${moment.actionLabel === '続きを 15 分' ? '続きから' : ''} 15 分だけ読む` : moment.action === 'open' ? `『${momentBook.title}』を開く` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
+            actionAria={!momentBook ? (moment.action === 'advisor' ? 'いまの悩みに合う本を AI 選書で 1 冊探す' : moment.action === 'resume' ? '前の相談の続きを話す' : null) : moment.action === 'focus' ? `『${momentBook.title}』を${moment.actionLabel === '続きを 15 分' ? '続きから' : ''} 15 分だけ読む` : moment.action === 'open' ? `『${momentBook.title}』を開く` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
             onConsult={() => { returnMoment.close('open'); momentGo(); }}
             onDismiss={() => returnMoment.close('dismiss')}
           />

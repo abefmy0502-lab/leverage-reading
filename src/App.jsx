@@ -1065,6 +1065,12 @@ function AuthedApp() {
     setAskPreset({ question, nonce: Date.now(), draft: true, focus: false, ...(from ? { from } : null), ...(Array.isArray(bookIds) && bookIds.length ? { bookIds } : null) });
     setView('list'); setAiSubTab('brain'); setTab('ai');
   };
+  // 🌙 ホームの「前の相談の続き」（lib/returnMoments.js・2026-11-27）: 前の会話を並べて続きから（送らない）。
+  const openConsultResume = (question) => {
+    track('try_consult', { from: 'resume' });
+    setAskPreset({ question: question || '', nonce: Date.now(), resumeLast: true });
+    setView('list'); setAiSubTab('brain'); setTab('ai');
+  };
   // 🔎 すべての本の検索から「相談で探す」: 相談を開いて入力欄に問いを入れるだけ（送らない＝トークンは送ったときだけ・2026-09-30）。
   const openConsultSearch = (q) => {
     setAskPreset({ question: consultQuestionFor(q), nonce: Date.now(), draft: true });
@@ -6980,6 +6986,7 @@ function AuthedApp() {
               // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）
               // from（growth / grown / import …）を相談にも渡す（はじめての相談の入口として見出しと「たとえば」を残すため・2026-10-30 点検）
               onConsultDraft={(q, from) => { track('try_consult', { from }); openConsultWith(q, { from }); }}
+              onResumeConsult={openConsultResume}
               onOpenConsult={() => { setView('list'); setAiSubTab('brain'); setTab('ai'); }}
               onOpenRecord={() => { setReviewSubTab('record'); setView('list'); setTab('review'); }}
               onOpenPlan={() => setSettingsOpen(true)}

@@ -1793,7 +1793,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (Array.isArray(askPreset.bookIds)) setScope(askPreset.bookIds);
     // 下書きだけ（振り返りのメモ検索で見つからなかった言葉など）: 送らずに入力欄へ入れる（勝手にトークンを使わない）。
     // 下書き（すべての本の「相談で探す」・振り返りの「相談で聞く」）は入力欄に入れてカーソルを置く（送らない＝トークンは送ったときだけ）。
-    if (askPreset.draft) {
+    // 🌙 ホームの「前の相談の続き」（2026-11-27）: 前の会話を並べて入力欄にカーソル（送らない＝トークンは送ったときだけ）。
+    //   前の会話が見つからなければ、その相談を下書きに入れるだけ。
+    if (askPreset.resumeLast && lastConsult) {
+      continueThread(lastConsult.group);
+      return;
+    }
+    if (askPreset.draft || askPreset.resumeLast) {
       setInput(askPreset.question);
       // ホームの育つまでの一行・「相談相手が育ちました」の「相談してみる」（growth / grown）も、はじめての相談の主な入口なので
       // 初日と同じく見出しと「たとえば」を残す（2026-10-30 点検: 下書きだけ入って上が真っ白になっていた）。

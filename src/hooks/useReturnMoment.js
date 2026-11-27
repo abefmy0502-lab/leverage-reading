@@ -12,8 +12,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import { loadAllMemoRows, peekAllMemoRows } from './useAllMemoRows';
 import { appNow } from '../lib/appNow';
-import { isDemo } from '../lib/supabase';
-import { anniversaryOf, pickReturnMoment, jstDay, dayDiff, BACK_AFTER_DAYS, dueActionOf } from '../lib/returnMoments';
+import { isDemo, supabase } from '../lib/supabase';
+import { anniversaryOf, pickReturnMoment, jstDay, dayDiff, BACK_AFTER_DAYS, dueActionOf, isOpenConsultAnswer } from '../lib/returnMoments';
 import { track } from '../lib/analytics';
 import { useReadingSessions } from './useReadingSessions';
 
@@ -66,6 +66,23 @@ export function useReturnMoment(active, books, waitMs) {
   const { rows: sessions } = useReadingSessions();
   const [rows, setRows] = useState(() => (userId ? peekAllMemoRows(userId) : null));
   const [timedOut, setTimedOut] = useState(false);
+  // 結論まで行かなかった前の相談（2 日以上あけた日だけ読む・いちばん新しい 2 行＝相談と答え）。
+  const backDay = gap != null && gap >= BACK_AFTER_DAYS && !done.has(`back:${today}`);
+  const [openConsult, setOpenConsult] = useState(backDay ? undefined : null);
+  useEffect(() => {
+    if (!active || !backDay || !userId || openConsult !== undefined) return undefined;
+    let alive = true;
+    Promise.resolve(supabase.from('chat_messages').select('role, content, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(2))
+      .then(({ data }) => {
+        const [last, prevUser] = Array.isArray(data) ? data : [];
+        const v = last?.role === 'assistant' && prevUser?.role === 'user' && isOpenConsultAnswer(last.content)
+          ? { question: String(prevUser.content || '').trim(), at: Date.parse(last.created_at || '') } : null;
+        if (alive) setOpenConsult(v);
+      }, () => { if (alive) setOpenConsult(null); });
+    // 読めなければ待たない（メモの読み込みと同じ長さまで）
+    const t = setTimeout(() => { if (alive) setOpenConsult((v) => (v === undefined ? null : v)); }, waitMs);
+    return () => { alive = false; clearTimeout(t); };
+  }, [active, backDay, userId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!need || rows) return undefined;
     let alive = true;
@@ -73,7 +90,7 @@ export function useReturnMoment(active, books, waitMs) {
     const t = setTimeout(() => { if (alive) setTimedOut(true); }, waitMs);
     return () => { alive = false; clearTimeout(t); };
   }, [need, userId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const ready = !need || !!rows || timedOut;
+  const ready = (!need || !!rows || timedOut) && openConsult !== undefined;
   const [decided, setDecided] = useState(undefined);
   const [closed, setClosed] = useState(false);
   useEffect(() => {
@@ -81,13 +98,14 @@ export function useReturnMoment(active, books, waitMs) {
     if (!need || !rows) { setDecided(null); return; }
     const bookIds = new Set((books || []).map((b) => b.id));
     const readSeconds = (sessions || []).reduce((sum, r) => sum + (Number(r?.seconds) || 0), 0);
-    const m = pickReturnMoment({ now, createdAt, prevDay: prev, memos: rows.map(toMemo), bookIds, books, done, readSeconds });
+    const m = pickReturnMoment({ now, createdAt, prevDay: prev, memos: rows.map(toMemo), bookIds, books, done, readSeconds, openConsult: openConsult || null });
     setDecided(m);
     if (m) {
       // 「おかえりなさい」は出した時点で今日の分を済ませる（同じ日にもう出さない）。はじめて N は閉じるか押すまで。
       if (m.kind === 'back' || m.kind === 'action') markDone(userId, m.key);
       // 見せたメモを覚える（次の 1 行で同じメモを繰り返さない）
       if (m.memo?.id) markDone(userId, `m:${m.memo.id}`);
+      if (m.consultAt) markDone(userId, `c:${m.consultAt}`);
       // 見せた本も覚える（はじめて N のたびに同じ本をすすめない・読みかけの本は続けて出してよい）
       if (m.book?.id && m.action !== 'focus') markDone(userId, `b:${m.book.id}`);
       if (m.book?.id && m.action === 'focus' && m.book.status !== 'reading') markDone(userId, `b:${m.book.id}`);

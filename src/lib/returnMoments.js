@@ -36,6 +36,14 @@ export const BACK_AFTER_DAYS = 2;
 export const WELCOME_AFTER_DAYS = 7;
 // 前の自分と比べる相談を出すのは、はじめて 3 か月から（最初のメモが十分に古くなってから）。
 export const COMPARE_FROM_DAYS = 90;
+// 前の相談の続きを出すのは、その相談から 14 日まで。
+export const OPEN_CONSULT_DAYS = 14;
+
+// 前の相談が聞き返しで止まっているか（答えに【あなたに聞きたいこと】があり、行動を決めていない）。
+export function isOpenConsultAnswer(text) {
+  const t = String(text || '');
+  return /【あなたに聞きたいこと】/.test(t) && !/【明日から/.test(t);
+}
 
 // 日本時間の日付（'YYYY-MM-DD'）。端末の時刻に頼らない（ほかの月の決まりと同じ）。
 export function jstDay(ms) {
@@ -137,7 +145,7 @@ export function dueActionOf(books, now) {
   return list[0] || null;
 }
 
-export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set(), readSeconds = 0 } = {}) {
+export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set(), readSeconds = 0, openConsult = null } = {}) {
   const today = jstDay(now);
   const own = ownBookMemos(memos, bookIds);
   const ann = anniversaryOf(createdAt, now);
@@ -207,6 +215,16 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
     let pick = fallbackBook(books, done);
     if (pick?.mode === 'seenAll') pick = { book: pick.first, mode: pick.first.status === 'want' ? 'want' : 'waiting' };
     return pick ? bookMoment({ kind: 'back', key: backKey, prefix: gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。' : '', pick }) : null;
+  }
+  // 💬 結論まで行かなかった前の相談（聞き返しで止まっている・14 日以内）: 2 日以上あけた日は前のメモより先に「前の相談の続き」
+  //   （2026-11-27 体験した人の声「行動を決めなかった人には、3〜7 日目に戻る理由が昔のメモだけ」）。押すと前の会話を並べて続きから（送らない）。
+  if (gap != null && gap >= BACK_AFTER_DAYS && !done.has(backKey) && openConsult && openConsult.question
+    && !done.has(`c:${openConsult.at}`) && Number.isFinite(Number(openConsult.at)) && now - Number(openConsult.at) <= OPEN_CONSULT_DAYS * DAY_MS) {
+    const q = memoExcerpt(String(openConsult.question), 40).replace(/「/g, '『').replace(/」/g, '』');
+    return {
+      kind: 'back', key: backKey, consultAt: openConsult.at, action: 'resume', actionLabel: '続きを話す', question: openConsult.question,
+      lead: gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。前の相談の続き' : '前の相談の続き', quote: `「${q}」`,
+    };
   }
   if (gap != null && gap >= BACK_AFTER_DAYS && !done.has(backKey)) {
     const seed = Number(today.replace(/-/g, '')) || 0;

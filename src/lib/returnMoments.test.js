@@ -182,3 +182,21 @@ describe('節目の言い方（2026-11-27）', () => {
     expect(m.lead).toBe('orime をはじめて 1 年。読了 1 冊・これまで 1 時間 読みました。読みかけの本');
   });
 });
+
+describe('前の相談の続き（2026-11-27）', () => {
+  it('聞き返しで止まった相談（14 日以内）は、2 日以上あけた日に前のメモより先に', async () => {
+    const { isOpenConsultAnswer } = await import('./returnMoments');
+    expect(isOpenConsultAnswer('【結論】…\n【あなたに聞きたいこと】いつ止まりますか？')).toBe(true);
+    expect(isOpenConsultAnswer('【結論】…\n【明日からできる 1 つの行動】朝 15 分')).toBe(false);
+    const memos = [memo('a', 40)];
+    const open = { question: '部下に任せた仕事がいつも遅れる', at: NOW - 3 * DAY };
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(60), prevDay: '2026-11-23', memos, openConsult: open });
+    expect(m.action).toBe('resume');
+    expect(m.lead).toBe('前の相談の続き');
+    expect(m.quote).toBe('「部下に任せた仕事がいつも遅れる」');
+    // 済み・古い・毎日開く人には出さない
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(60), prevDay: '2026-11-23', memos, openConsult: open, done: new Set([`c:${open.at}`]) }).action).toBe('read');
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(60), prevDay: '2026-11-23', memos, openConsult: { ...open, at: NOW - 20 * DAY } }).action).toBe('read');
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(60), prevDay: '2026-11-25', memos, openConsult: open })).toBe(null);
+  });
+});

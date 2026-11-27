@@ -535,6 +535,12 @@ export function buildSeed(scenario) {
     db.chat_messages.push({ id: `00000000-0000-4000-8000-0000000d${String(i * 2 + 1).padStart(4, '0')}`, user_id: DEMO_USER_ID, role: 'assistant', content: a, refs, created_at: iso(daysAgo, 21) });
   });
 
+  // &openconsult=1: 3 日前の相談が聞き返しで止まっている（ホームの「前の相談の続き」の確認用・2026-11-27）。
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('openconsult') === '1') {
+    db.chat_messages.push({ id: '00000000-0000-4000-8000-0000000d0090', user_id: DEMO_USER_ID, role: 'user', content: 'チームの会議がいつも長引いて、決めることが決まらない', refs: [], created_at: iso(3, 20) });
+    db.chat_messages.push({ id: '00000000-0000-4000-8000-0000000d0091', user_id: DEMO_USER_ID, role: 'assistant', content: '【結論】\n会議の最初に「今日決めること」を 1 つだけ言葉にすると、話がそこへ戻りやすくなります。\n\n【あなたに聞きたいこと】\n会議が長引くのは、始まる前・途中・終わりぎわ、どこが多いですか？\n・始まる前\n・途中\n・終わりぎわ', refs: ['📚 安宅和人『イシューからはじめよ』 p.25'], created_at: iso(3, 21) });
+  }
+
   // ?demo=fewmemos: 初日の人（無料プラン・本はあるがメモは 3 件だけ・相談も行動もまだ無い）。
   //   ホームと相談の「あと N 件で相談相手が育ちます」と、はじめての相談の「あなたのメモ N 件から答えました」の確認用（2026-10-02）。
   if (scenario === 'fewmemos') {
