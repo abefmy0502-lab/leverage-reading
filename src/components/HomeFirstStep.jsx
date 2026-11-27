@@ -135,7 +135,7 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, r
           {withPhraseBreaks('前回読んだところで、覚えている 1 語は？')}
         </h2>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(`${readingBook.title}』。1 語で十分です`)}
+          <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(`${readingBook.title}』から 1 語で十分です`)}
         </p>
         <button type="button" onClick={() => onWriteMemo(readingBook)} style={btnPrimary}>メモに書く</button>
       </section>
