@@ -75,7 +75,7 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
               ％ は短い案内（空の帯に見えていた・2026-11-27 ui-critic）。範囲の外の知らせもここに入れて高さを変えない。 */}
           {(() => {
             const msg = unit === 'page'
-              ? (current !== '' && !canSave ? '1 から 20000 までのページを入れてください。' : '')
+              ? (current !== '' && !canSave ? '1 から 20000 までのページを入れてください。' : over ? `総ページより先なので、${v.total} ページとして保存します。` : '')
               : (overPct ? '100％ として保存します。' : '');
             const text = msg || (unit === 'page' ? (fromInfo ? '本の情報から' : '') : '電子書籍の画面に出る ％ を入れます');
             const right = !msg && unit === 'page';
@@ -88,8 +88,7 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
         </div>
         {over && (
           // 総ページが版違いのこともあるので、総ページを直す道も（2026-11-26 点検）
-          <div role="status" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)' }}>
-            <p style={{ margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>総ページより先なので、{v.total} ページとして保存します。</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-3))' }}>
             <button type="button" onClick={() => setTotal(String(Number(current)))} style={{ ...btnLinkQuiet, marginLeft: 'calc(-1 * var(--space-1))' }}>{`総ページを ${Number(current)} にする`}</button>
           </div>
         )}
