@@ -806,6 +806,9 @@ export default function HomeScreen({
             // はじめて 1 年（以後毎年）は「この 1 年を 1 枚に」＝写真で共有の「この 1 年」（はじめてからいままで・2026-11-27 体験した人の声）
             secondary={moment.kind === 'anniv' && Number(String(moment.key || '').split(':')[1]) >= 365 && onShareNudge && user?.created_at
               ? { label: 'この 1 年を 1 枚に', onClick: () => { track('return_moment', { kind: 'anniv', action: 'share' }); onShareNudge('year', { since: new Date(user.created_at).getTime() }); } }
+              // はじめて 1 か月は「この 1 か月を 1 枚に」（人に見せたくなるものを 1 年目まで待たせない・2026-11-27 模擬 7 回目）
+              : moment.kind === 'anniv' && Number(String(moment.key || '').split(':')[1]) === 30 && !moment.secondary && onShareNudge && user?.created_at
+              ? { label: 'この 1 か月を 1 枚に', onClick: () => { track('return_moment', { kind: 'anniv', action: 'share', days: 30 }); onShareNudge('year', { since: new Date(user.created_at).getTime(), sinceLabel: 'この 1 か月' }); } }
               // 1 行の 2 つ目（読みたいの本の「本を見る」・期限を過ぎた行動の「やってみた結果を話す」・2026-11-27）
               : moment.secondary?.action === 'open' && momentBook
               ? { label: moment.secondary.label, onClick: () => { returnMoment.close('open'); onOpenBook(momentBook); } }

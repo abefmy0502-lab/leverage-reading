@@ -20,3 +20,13 @@ describe('この 1 年の 1 枚（2026-11-27・since）', () => {
     expect(yearRecord(books, memos, now).title).toBe('2026年の読書');
   });
 });
+
+describe('はじめて 1 か月の 1 枚（2026-11-27）', () => {
+  it('sinceLabel で題が「この 1 か月の読書」', async () => {
+    const { yearRecord } = await import('./shareOverlay');
+    const now = new Date('2026-11-27T12:00:00+09:00');
+    const r = yearRecord([], [], now, { since: now.getTime() - 29 * 86400000, sinceLabel: 'この 1 か月' });
+    expect(r.title).toBe('この 1 か月の読書');
+    expect(yearRecord([], [], now, { since: now.getTime() - 364 * 86400000 }).title).toBe('この 1 年の読書');
+  });
+});

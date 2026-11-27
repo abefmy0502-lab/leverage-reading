@@ -186,7 +186,8 @@ export function pickSubVariant(variants, measure, width) {
 // 見出しは無し（題の「2026年の読書」が年を言う）。表紙は新しく読み終えた順に 4 冊まで（重ねる部品は今月と同じ）。
 // since: アカウントを作った時刻（ミリ秒）。渡したときは暦の年ではなく「はじめてからいままで」の 1 枚
 //   （ホームのはじめて 1 年の 1 行から・題「この 1 年の読書」・2026-11-27）。
-export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null, readingSec = 0, since = null } = {}) {
+// sinceLabel: since のときの期間の名前（「この 1 年」・はじめて 1 か月は「この 1 か月」・2026-11-27）。
+export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null, readingSec = 0, since = null, sinceLabel = 'この 1 年' } = {}) {
   const list = Array.isArray(books) ? books : [];
   const sinceMs = Number.isFinite(Number(since)) && since != null ? Number(since) : null;
   const inPeriod = (d) => (sinceMs != null ? (d && d.getTime() >= sinceMs - 86400000 && d.getTime() <= now.getTime() + 86400000) : sameYear(d, now));
@@ -211,7 +212,7 @@ export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount 
   const subVariants = finishedSubVariants(finished);
   return {
     kicker: '',
-    title: sinceMs != null ? 'この 1 年の読書' : `${now.getFullYear()}年の読書`,
+    title: sinceMs != null ? `${sinceLabel}の読書` : `${now.getFullYear()}年の読書`,
     titleIsBook: false,
     sub: finished.length ? subVariants[0] : '',
     subVariants: finished.length ? subVariants : null,

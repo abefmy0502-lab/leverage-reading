@@ -364,6 +364,8 @@ export default function ShareSheet({
   });
   // 🌱 はじめて 1 年の 1 枚（ホームの節目の 1 行から・subject.since＝アカウントを作った時刻・2026-11-27）: 暦の年ではなく、はじめてからいままで。
   const since = subject.kind === 'year' && Number.isFinite(subject.since) ? subject.since : null;
+  // 期間の名前（はじめて 1 か月の 1 行からは「この 1 か月」・2026-11-27 模擬 7 回目「人に見せたいものが 1 年目まで無い」）。
+  const sinceLabel = since != null && subject.sinceLabel === 'この 1 か月' ? 'この 1 か月' : 'この 1 年';
   // ⏱ 集中モードの記録（今月の中身の判定・今月／今年の読書の時間・雑誌の短い数の欄で使う）。
   const readingRows = useReadingSessions().rows;
   // 中身の無い月（読了 0・メモ 0・読書の時間 0）は「どの本？」に「今月」を出さない（2026-10-11 ui-critic）。
@@ -380,9 +382,11 @@ export default function ShareSheet({
     if (!books) return [];
     // 「この 1 年」（since）で開いたときは、12 月でも暦の「今年」を並べない（期間がほぼ同じチップが 2 つ並ぶ・2026-11-27 ui-critic）。
     const list = subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null, includeYear: since != null || yearAllowed });
+    // 「この 1 か月」で開いたときは「今月」を並べない（期間がほぼ同じ・2026-11-27）。
+    if (sinceLabel === 'この 1 か月' && subject.kind !== 'month') return list.filter((c) => c.kind !== 'month');
     if (monthHasContent || subject.kind === 'month') return list;
     return list.filter((c) => c.kind !== 'month');
-  }, [books, subject, yearAllowed, monthHasContent, since]);
+  }, [books, subject, yearAllowed, monthHasContent, since, sinceLabel]);
   const showSwitcher = choices.length > 1;
   const subjectBook = subject.kind === 'book'
     ? ((bookProp && bookProp.id === subject.bookId) ? bookProp : (books || []).find((b) => b.id === subject.bookId) || null)
@@ -410,7 +414,7 @@ export default function ShareSheet({
   }, [period, readingRows, books, now, since]);
   const record = useMemo(
     () => (period === 'year'
-      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT), readingSec: periodReadingSec, since })
+      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT), readingSec: periodReadingSec, since, sinceLabel })
       : period === 'month' ? monthRecord(books || [], month.memos, now, { readingSec: periodReadingSec }) : bookRecord(subjectBook, memos, now)),
     [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now, periodReadingSec, since],
   );
@@ -652,7 +656,7 @@ export default function ShareSheet({
       knownMaxPage,
       seedKey: q?.id || subjectKey,
       // 今年の一文には見出し「2026」（記録の見出しと同じ部品・第 2 回 ui-critic）。
-      kicker: period === 'year' && v === 'quote' ? (since != null ? 'この 1 年' : String(now.getFullYear())) : '',
+      kicker: period === 'year' && v === 'quote' ? (since != null ? sinceLabel : String(now.getFullYear())) : '',
       cover: assets.cover,
       covers: v !== 'quote' && v !== 'magazine' ? assets.covers : [],
       fonts: assets.fonts,
@@ -891,7 +895,7 @@ export default function ShareSheet({
     : candidates.length > 0 ? 'pick' : (memosLoading ? null : 'empty');
   const thumbAspect = effStyle === 'sticker' ? 1 : FORMATS[format].w / FORMATS[format].h;
   const thumbW = Math.round(THUMB_H * thumbAspect);
-  const subjectName = period === 'year' ? (since != null ? 'この 1 年の読書' : `${now.getFullYear()}年の読書`) : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
+  const subjectName = period === 'year' ? (since != null ? `${sinceLabel}の読書` : `${now.getFullYear()}年の読書`) : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
 
   const footer = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
@@ -964,14 +968,14 @@ export default function ShareSheet({
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  aria-label={c.kind === 'year' ? (since != null ? 'この 1 年（はじめてからの読書）' : `今年（${now.getFullYear()}年の読書）`) : undefined}
+                  aria-label={c.kind === 'year' ? (since != null ? `${sinceLabel}（はじめてからの読書）` : `今年（${now.getFullYear()}年の読書）`) : undefined}
                   onClick={() => { setSubject(c.kind === 'book' ? { kind: 'book', bookId: c.bookId } : c.kind === 'year' && since != null ? { kind: 'year', since } : { kind: c.kind }); haptic.light(); }}
                   style={c.kind !== 'book' ? { ...subjectChip(on), paddingLeft: 'var(--space-3)' } : subjectChip(on)}
                 >
                   {c.kind === 'month'
                     ? <><CalendarDays size="1.1em" aria-hidden="true" />今月</>
                     : c.kind === 'year'
-                    ? <><CalendarRange size="1.1em" aria-hidden="true" />{since != null ? 'この 1 年' : '今年'}</>
+                    ? <><CalendarRange size="1.1em" aria-hidden="true" />{since != null ? sinceLabel : '今年'}</>
                     : <><MiniCover book={c.book} width={24} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.book.title}</span></>}
                 </button>
               );
