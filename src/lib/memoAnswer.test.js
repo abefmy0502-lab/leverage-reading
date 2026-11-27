@@ -132,3 +132,20 @@ describe('言い換え（2026-11-17）', () => {
     expect(ids).not.toContain('c');
   });
 });
+
+describe('overlapPairFromAnswer（メモが答える相談から重ねて考える・2026-11-27）', () => {
+  it('いちばん近い本のメモと、別の本のメモを 1 組', async () => {
+    const { overlapPairFromAnswer } = await import('./memoAnswer');
+    const groups = [
+      { bookId: 'b1', hits: [{ kind: 'summary', memoId: null, text: 'まとめ' }, { kind: 'memo', memoId: 'm1', text: '即答しない' }] },
+      { bookId: 'b2', hits: [{ kind: 'memo', memoId: 'm3', text: '結論から' }] },
+    ];
+    expect(overlapPairFromAnswer(groups)).toEqual({ source: { id: 'm1', text: '即答しない', bookId: 'b1' }, targetId: 'm3' });
+  });
+  it('本が 1 冊だけ・メモの無い組では出さない', async () => {
+    const { overlapPairFromAnswer } = await import('./memoAnswer');
+    expect(overlapPairFromAnswer([{ bookId: 'b1', hits: [{ kind: 'memo', memoId: 'm1', text: 'a' }, { kind: 'memo', memoId: 'm2', text: 'b' }] }])).toBeNull();
+    expect(overlapPairFromAnswer([{ bookId: 'b1', hits: [{ kind: 'prep', memoId: null, text: 'a' }] }, { bookId: 'b2', hits: [{ kind: 'memo', memoId: 'm2', text: 'b' }] }])).toBeNull();
+    expect(overlapPairFromAnswer([])).toBeNull();
+  });
+});

@@ -54,7 +54,7 @@ function RecordCard({ where, text, second = false, band = true, action = null })
  *   targetId … はじめに重ねる相手のメモの id（無ければ、いちばん似ている記録）
  *   books    … 本棚の本（出どころの書名に使う）
  */
-export default function OverlapSheet({ source, targetId = null, books = [], onClose }) {
+export default function OverlapSheet({ source, targetId = null, aiOff = false, books = [], onClose }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -75,7 +75,8 @@ export default function OverlapSheet({ source, targetId = null, books = [], onCl
     window.addEventListener(FREE_POOL_EVENT, on);
     return () => window.removeEventListener(FREE_POOL_EVENT, on);
   }, []);
-  const aiPaused = freeMode && poolOutNow;
+  // aiOff: 本人の今月の無料のトークンを使い切って、メモが答える相談から開いた（2026-11-27）。文は同じ「今月の無料の AI は、ここまでです」。
+  const aiPaused = freeMode && (poolOutNow || aiOff);
   const [answer, setAnswer] = useState('');
   const [saving, setSaving] = useState(false);
   const answerRef = useRef(null);

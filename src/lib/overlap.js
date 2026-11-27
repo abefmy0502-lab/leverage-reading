@@ -117,7 +117,8 @@ export function isOverlapDone(a, b, storage = globalThis.localStorage) {
 // ---- 開く（どの画面からでも・App.jsx が受けて OverlapSheet を出す） ----------------------------
 export const OVERLAP_OPEN_EVENT = 'orime:open-overlap';
 /** source: { id, text, bookId } / targetId: はじめに重ねる相手（無ければ似ている記録から）。 */
-export function openOverlap(source, targetId = null) {
+// opts.aiOff: 無料のトークンを使い切った（メモが答える相談から開く）＝「AI に見てもらう」を出さず、自分の答えだけを書く（2026-11-27）。
+export function openOverlap(source, targetId = null, opts = {}) {
   if (!source?.id || !String(source.text || '').trim()) return;
-  try { window.dispatchEvent(new CustomEvent(OVERLAP_OPEN_EVENT, { detail: { source: { id: source.id, text: String(source.text), bookId: source.bookId ?? null }, targetId } })); } catch { /* ignore */ }
+  try { window.dispatchEvent(new CustomEvent(OVERLAP_OPEN_EVENT, { detail: { source: { id: source.id, text: String(source.text), bookId: source.bookId ?? null }, targetId, aiOff: !!opts.aiOff } })); } catch { /* ignore */ }
 }

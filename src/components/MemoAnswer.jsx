@@ -2,7 +2,8 @@
 // 無料プランで今月のトークンを使い切ったあとの相談に、AI を使わずに自分のメモの一節で答える（lib/memoAnswer.js）。
 // AI のふりをしない: 相手は「あなたのメモ」（--fill の丸にノート）・著者の名前や語り口は使わない・AI の注記も付けない。
 // 行はすべての本の検索のメモの行（LibrarySearchHit の inline）と同じ組み立て。押すとその本のそのメモを開く。
-import { Lightbulb, ChevronRight } from 'lucide-react';
+import { Lightbulb, ChevronRight, Blend } from 'lucide-react';
+import { overlapPairFromAnswer } from '../lib/memoAnswer';
 import LibrarySearchHit, { hitLabel, SnippetText } from './LibrarySearchHit';
 import { PartnerRow } from './PartnerAvatar';
 import ErrorMessage from './ErrorMessage';
@@ -110,7 +111,8 @@ function Skeleton() {
 // 見つからないとき（AI の「関係するメモが無かった答え」と同じ並び・2026-10-01 ui-critic）:
 //   onAddMemo: メモが 0 件の人だけ「これまで読んだ本からメモを足す」（初日クイックスタート）／ほかの人は onAddBook「本を追加」
 //   onWriteLearning: 「学びを書く」
-export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLearning, onRetry, onPlan, showPlan = false, onAddMemo = null, onAddBook = null, onWriteLearning = null, column = 0 }) {
+// onOverlap(pair): 別の本のメモが 2 つ並んだとき、AI なしで重ねて考える（lib/memoAnswer.js の overlapPairFromAnswer・2026-11-27）。
+export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLearning, onRetry, onPlan, showPlan = false, onAddMemo = null, onAddBook = null, onWriteLearning = null, onOverlap = null, column = 0 }) {
   const a = message.memoAnswer || { status: 'loading' };
   if (a.status === 'error') {
     return (
@@ -125,6 +127,7 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
   }
   const groups = a.groups || [];
   const found = a.status === 'ready' && groups.length > 0;
+  const pair = found && onOverlap ? overlapPairFromAnswer(groups) : null;
   return (
     <div role="article" aria-label="メモからの答え" aria-busy={a.status === 'loading' || undefined}>
       <PartnerRow partner={MEMO_PARTNER}>
@@ -145,6 +148,12 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
               </div>
               {/* 積み重ねが効いていることを事実で（メモが増えるほど見つかる）。 */}
               <p style={{ ...meta, marginTop: 'var(--space-3)' }}>メモ {a.searched} 件から探しました</p>
+              {/* 次にできること（AI なし）: 2 つのメモを並べて、自分の答えを書く。 */}
+              {pair && (
+                <button type="button" onClick={() => onOverlap(pair)} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))' }}>
+                  <Blend size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />2 つのメモを重ねて考える
+                </button>
+              )}
             </>
           ) : (
             <>

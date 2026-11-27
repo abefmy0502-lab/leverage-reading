@@ -157,6 +157,20 @@ export function buildMemoAnswerCorpus({ books = [], memos = [], scopeIds = [] } 
 }
 
 // 「メモ N 件から探しました」の N（相談の上部と同じ数え方＝カード式＋学び＋この本のまとめ）。
+// 🔗 メモが答える相談から「重ねて考える」（2026-11-27 体験した人の声「トークンを使い切ると、メモが並ぶだけで次にすることが無い」）。
+//   いちばん近い本のメモと、別の本（か学び）のメモを 1 組。AI なしで 2 つを並べて、自分の答えを書く入口。無ければ null。
+export function overlapPairFromAnswer(groups = []) {
+  const memoHits = (g) => (g?.hits || []).filter((h) => (h.kind === 'memo' || h.kind === 'learning') && h.memoId && String(h.text || '').trim());
+  const first = (groups || []).findIndex((g) => memoHits(g).length);
+  if (first < 0) return null;
+  const a = memoHits(groups[first])[0];
+  for (let i = first + 1; i < groups.length; i += 1) {
+    const b = memoHits(groups[i])[0];
+    if (b && b.memoId !== a.memoId) return { source: { id: a.memoId, text: a.text, bookId: groups[first].bookId ?? null }, targetId: b.memoId };
+  }
+  return null;
+}
+
 export function countSearchedMemos(corpus) {
   return (corpus || []).filter((e) => e.kind === 'memo' || e.kind === 'learning' || e.kind === 'summary').length;
 }

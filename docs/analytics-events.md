@@ -83,6 +83,7 @@ props は数・真偽・32 字までの短い文字列だけ（本文・書名�
 | イベント | 意味 |
 |---|---|
 | `signup_source` `{ch}` | 初回ガイドの「どこで知りましたか」 |
+| `brain_memo_answer_overlap` `{}` | メモが答える相談の「2 つのメモを重ねて考える」を押した（2026-11-27） |
 | `import_handoff` `{action:'open'}` | 取り込みの「手順をパソコンへ送る」を押した（2026-11-27） |
 | `import_previewed` `{source, books, memos, …}` / `import_done` `{source, books, matched, memos, reviews}` | 取り込みの確かめる画面／取り込んだ |
 | `quickstart_started` / `quickstart_completed` `{books, memos}` / `quickstart_first_consult` `{example}` | 初日クイックスタート |

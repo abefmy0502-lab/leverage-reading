@@ -5313,7 +5313,7 @@ function AuthedApp() {
   // 🔗 重なり（2026-11-25・OverlapSheet）。メモの「…」・保存したあとの似たメモから lib/overlap.js の openOverlap で開く。
   const overlapLayer = overlapReq ? (
     <Suspense fallback={<OverlayFallback />}>
-      <OverlapSheet key={`${overlapReq.source.id}:${overlapReq.targetId || ''}`} source={overlapReq.source} targetId={overlapReq.targetId} books={books} onClose={() => setOverlapReq(null)} />
+      <OverlapSheet key={`${overlapReq.source.id}:${overlapReq.targetId || ''}`} source={overlapReq.source} targetId={overlapReq.targetId} aiOff={!!overlapReq.aiOff} books={books} onClose={() => setOverlapReq(null)} />
     </Suspense>
   ) : null;
   // ✍️ 著者のシート（ホームの 1 行・設定・本の詳細の著者の名前から・2026-11-25）。本の詳細は別の描き分けなので両方に置く。

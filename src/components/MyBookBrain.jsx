@@ -63,6 +63,7 @@ import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
 import { scopeKind, scopeHeading, scopeNote, scopeQuestions } from '../lib/dialogueWorld';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, DECIDE_CHIP, DECIDE_REQUEST, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult, askLimitFor } from '../lib/consultHelpers';
+import { openOverlap } from '../lib/overlap';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
 import { tomorrowLocal } from '../lib/dates';
@@ -2854,6 +2855,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                     column={ANSWER_COLUMN}
                     onOpen={(b, memoId) => { if (b?.id && onOpenBook) onOpenBook(b, memoId); }}
                     onOpenLearning={() => setView('knowledge')}
+                    onOverlap={(pair) => { track('brain_memo_answer_overlap', {}); openOverlap(pair.source, pair.targetId, { aiOff: true }); }}
                     onRetry={() => runMemoAnswerInto(m.id, m.memoAnswer.question || precedingQuestion(visibleMessages, i), m.scopeIds || [], m.memoAnswer.searchQuestion || null)}
                     onPlan={() => { track('brain_memo_answer_plan', {}); openPaywall('free_used'); }}
                     // 全体の予算が尽きたせいでメモの答えになったときは、プランをすすめない（本人のトークンは残っている＝すすめてよい ① ではない・2026-11-26）
