@@ -100,8 +100,26 @@ export function useHomeMemoState(books = []) {
 
 // readingBook: 集中モードで 2 回以上読んだ読みかけの本（2026-11-27 体験した人の声「メモ 0 件のあいだ、何か月も同じ催促が出続ける」）。
 //   あれば、催促ではなく問いに替える＝「前回読んだところで、覚えている 1 語は？」＋「メモに書く」（その本のメモのシートを、同じ問いを添えて開く）。
-export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, readingBook = null, onWriteMemo = null }) {
+// readingMode（2026-11-27 模擬 7 回目）: 'word'＝1 語の問い／'read'＝まだ読んだ記録が無い本は「まずは 15 分だけ」／
+//   'back'＝しばらく読んでいない本は「久しぶりに、少し前から 15 分」（責めない）／'hidden'＝上の 1 行が同じことを言っている。
+//   読む形の主ボタンは集中モードの 15 分（onReadBook）。読み終えたら集中モードのおわりで「心に残った 1 行は？」を聞く。
+export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, readingBook = null, readingMode = 'word', onReadBook = null, onWriteMemo = null }) {
   if (bookCount === 0 || !onQuickstart) return null;
+  if (readingBook && readingMode === 'hidden') return null;
+  if (readingBook && onReadBook && (readingMode === 'read' || readingMode === 'back')) {
+    const back = readingMode === 'back';
+    return (
+      <section aria-labelledby="home-first-step-title" style={card}>
+        <h2 id="home-first-step-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(back ? '久しぶりに、少し前から 15 分' : 'まずは 15 分だけ読んでみる')}
+        </h2>
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(`『${readingBook.title}』・読み終えたら、心に残った 1 行だけ聞きます`)}
+        </p>
+        <button type="button" onClick={() => onReadBook(readingBook)} aria-label={`『${readingBook.title}』を 15 分だけ読む`} style={btnPrimary}>15 分だけ読む</button>
+      </section>
+    );
+  }
   if (readingBook && onWriteMemo) {
     return (
       <section aria-labelledby="home-first-step-title" style={card}>

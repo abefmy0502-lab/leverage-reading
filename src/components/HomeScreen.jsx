@@ -653,6 +653,20 @@ export default function HomeScreen({
     if (last) return reading.find((b) => b.id === last.book_id);
     return [...reading].sort((a, b) => String(b.updated_at || b.updatedAt || '').localeCompare(String(a.updated_at || a.updatedAt || '')))[0];
   }, [homeSessions, books, moment]);
+  // はじめの一歩のカードの形（2026-11-27 模擬 7 回目「読み始めた直後に『前回読んだところで』と聞かれる」「何か月も同じ 2 行」）。
+  //   'word' ＝この 14 日に集中モードで読んだ＝「前回読んだところで、覚えている 1 語は？」（主はメモ）
+  //   'read' ＝まだ読んだ記録が無い＝「まずは 15 分だけ」（主は読む・読み終えたら集中モードのおわりで 1 行を聞く）
+  //   'back' ＝14 日より前に読んだきり＝「久しぶりに、少し前から 15 分」（責めない・主は読む）
+  //   上の 1 行がもう同じ本の「続きを 15 分」なら 'hidden'（同じことを 2 回言わない）。
+  const firstStepMode = useMemo(() => {
+    if (!focusReadingBook) return null;
+    const rows = (Array.isArray(homeSessions) ? homeSessions : []).filter((r) => r.book_id === focusReadingBook.id);
+    const lastAt = rows.reduce((mx, r) => Math.max(mx, Date.parse(r.started_at || '') || 0), 0);
+    const mode = !lastAt ? 'read' : Date.now() - lastAt > 14 * 86400000 ? 'back' : 'word';
+    if (mode !== 'word' && !onReadFirst) return 'word';
+    if (mode !== 'word' && moment?.action === 'focus' && moment?.book?.id === focusReadingBook.id) return 'hidden';
+    return mode;
+  }, [focusReadingBook, homeSessions, moment, onReadFirst]);
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === (moment.memo?.bookId || moment.bookId)) || null;
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
   // 期限が来た行動は、月末の共有の 1 行より先（使う目的が「仕事で使う」人に、共有の案内が行動を押しのけていた・2026-11-26 体験した人の声）。
@@ -841,7 +855,7 @@ export default function HomeScreen({
         <>
           {/* 読みたい・積読の本だけの人（読書の習慣がない人に多い）には出さない＝まだ読んだ本が無いのに「読んだ本の一文をメモする」を
               主役にしない。すぐ下の「読みたい本／次に読む本 → 読み始める」が次の一歩（2026-11-26 継続の点検）。 */}
-          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.filter((b) => !b.archivedAt).length} onQuickstart={onQuickstart} onImport={onImport} readingBook={focusReadingBook} onWriteMemo={onWriteMemo} />}
+          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.filter((b) => !b.archivedAt).length} onQuickstart={onQuickstart} onImport={onImport} readingBook={focusReadingBook} readingMode={firstStepMode} onReadBook={onReadFirst} onWriteMemo={onWriteMemo} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 読書計画とすべての本は、1 枚のまとまりの行（区切り線でつなぐ）。 */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>

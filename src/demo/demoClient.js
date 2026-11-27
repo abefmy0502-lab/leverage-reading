@@ -400,6 +400,14 @@ export function createDemoClient() {
   }
   // &memos=none: メモを全部外す（記録の「分野」でメモの数が無い行・2026-10-11）。
   if (params.get('memos') === 'none') db.book_memos = [];
+  // &sessions=none: 集中モードで読んだ記録を外す・&sessions=old: 全部を 20 日前より前に（ホームのはじめの一歩の「まずは 15 分」「久しぶりに」・2026-11-27）。
+  if (params.get('sessions') === 'none') db.reading_sessions = [];
+  if (params.get('sessions') === 'old') {
+    const shift = 20 * 86400000;
+    for (const r of db.reading_sessions || []) {
+      ['started_at', 'ended_at', 'created_at'].forEach((k) => { if (r[k]) r[k] = new Date(Date.parse(r[k]) - shift).toISOString(); });
+    }
+  }
   if (params.get('longtag') === '1') {
     const LONG = 'マネジメント（部下・チーム・1on1・任せ方・評価・育成のことをまとめておくタグ）'.slice(0, 50);
     for (const m of db.book_memos || []) if (Array.isArray(m.tags)) m.tags = m.tags.map((t) => (t === 'マネジメント' ? LONG : t));

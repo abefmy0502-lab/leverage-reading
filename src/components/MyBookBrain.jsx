@@ -63,6 +63,7 @@ import { NATIVE_KEYBOARD_EVENT } from '../lib/native';
 import { encodeThreadRef, isThreadRef, threadRootOf, groupConsults, threadScopeOf, threadTitleOf, lastConsultThread } from '../lib/consultThreads';
 import { scopeKind, scopeHeading, scopeNote, scopeQuestions } from '../lib/dialogueWorld';
 import { buildConsultExamples, standaloneAction, shortTitle, hasSummaryMemo, countSummaryMemos, fmtTokens, consultsLeft, memoSearchQuery, answerStepToAction, stripScenePrefix, selectThreadTurns, isCompletedAnswer, parseAskSection, nextStepChips, wantsAction, isBookLookup, lookupTerm, shouldDecide, isLastAnswer, countAsks, askProgressText, answerAsks, DECIDE_CHIP, DECIDE_REQUEST, lensOf, usedLenses, isWorkConsult, LENS_NEXT_LINE, advisorDraftFromConsult, askLimitFor } from '../lib/consultHelpers';
+import { advisorExamplesFor } from '../lib/advisorExamples';
 import { openOverlap } from '../lib/overlap';
 import LibrarySearchHit from './LibrarySearchHit';
 import { buildSnippet, compileTerms, splitQuery } from '../lib/librarySearch';
@@ -2733,9 +2734,13 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 title="まだメモがありません"
                 // 本がもう本棚にあるときは、ホームのはじめの一歩と同じ「読んだ本の一文をメモする」（することを言う・2026-10-01）。
                 // 本 0 冊のときも同じ名前（初回ガイド・ホームとそろえる・2026-10-11。開くのはどちらも初日クイックスタート）。
-                actions={onQuickstart
-                  ? [{ label: '読んだ本の一文をメモする', variant: 'primary', onClick: onQuickstart }]
-                  : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []}
+                // 2 つ目に「次に読む 1 冊を探す」（AI 選書・メモが無くても使える＝相談タブを行き止まりにしない・2026-11-27 模擬 7 回目）。
+                actions={[
+                  ...(onQuickstart
+                    ? [{ label: '読んだ本の一文をメモする', variant: 'primary', onClick: onQuickstart }]
+                    : onGoBookshelf ? [{ label: '本を開いてメモを書く', variant: 'secondary', onClick: onGoBookshelf }] : []),
+                  ...(onFindBooks ? [{ label: '次に読む 1 冊を探す', variant: 'ghost', onClick: () => { track('brain_empty_advisor', {}); onFindBooks(advisorExamplesFor(books)[0]); } }] : []),
+                ]}
               />
             ) : (
               <section aria-labelledby={input.trim() ? undefined : 'brain-empty-title'}>
