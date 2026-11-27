@@ -4106,6 +4106,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     scopeIds: message.scopeIds || [],
     books,
     memoBookIds,
+    body: isStreaming ? '' : String(message.content || ''),
     useScope: isStreaming || !!message.error || !!message.notice || isNoInfoAnswer(message),
     voice: voice && !voice.perbook ? voice : null,
   });

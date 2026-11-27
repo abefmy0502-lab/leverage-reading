@@ -519,3 +519,15 @@ describe('書名の無い根拠の行（2026-11-27）', () => {
     expect(refs.length).toBe(2);
   });
 });
+
+describe('相談相手は本文に出てくる本を優先（2026-11-27）', () => {
+  it('根拠にだけ挙げた本は外す', async () => {
+    const { partnerFromRefs } = await import('./consultPartner');
+    const books = [{ id: 'k', title: '確率思考の戦略論 USJでも実証された数学マーケティングの力', author: '森岡毅' }, { id: 'l', title: 'レバレッジ・リーディング', author: '本田直之' }];
+    const refs = ['『確率思考の戦略論』「市場の…」', '『レバレッジ・リーディング』p.12「読書は投資」'];
+    expect(partnerFromRefs(refs, books).books.length).toBe(2);
+    const p = partnerFromRefs(refs, books, '『確率思考の戦略論』を読む前に、あなたは…');
+    expect(p.books.map((b) => b.id)).toEqual(['k']);
+    expect(partnerFromRefs(refs, books, '本文にどちらも無い').books.length).toBe(2);
+  });
+});

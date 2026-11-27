@@ -112,7 +112,9 @@ function make(books, self, { shelf = false } = {}) {
 }
 
 // 答えの根拠（refs）から。根拠の本も学びも取れなければ null（→ 相談相手から決める）。
-export function partnerFromRefs(refs, books) {
+// body: 答えの本文。根拠に挙げた本のうち本文に書名が出てくる本があれば、その本だけを相手にする（2026-11-27 オーナーの確かめ
+//   「答えは『確率思考の戦略論』だけなのに『2 冊の本』」＝根拠にだけ挙げた本で、見えている答えと名前がずれていた）。
+export function partnerFromRefs(refs, books, body = '') {
   const list = Array.isArray(refs) ? refs : [];
   // 引用がどれもメモと一致しなかった本（作った引用の本）は、相手として見せない。
   const byTitle = new Map();
@@ -143,6 +145,16 @@ export function partnerFromRefs(refs, books) {
     if (b) found.push(pick(b));
   });
   if (found.length === 0 && !self) return null;
+  const text = String(body || '');
+  if (text && found.length > 1) {
+    const inBody = found.filter((b) => {
+      const t = shortTitle(b.title) || b.title;
+      return t && text.includes(t);
+    });
+    if (inBody.length > 0 && inBody.length < found.length) {
+      return make(inBody, self && /自分の学び|学びのメモ/.test(text));
+    }
+  }
   return make(found, self);
 }
 
@@ -179,13 +191,13 @@ export function perbookSummaryPartner(partner) {
 // 答え 1 つの相手。書き終えていて根拠が取れれば根拠から、そうでなければ相談相手から。
 //   useScope: 書いている途中・失敗・案内・関係するメモが無かった答え（特定の本を見せない）
 //   voice: 語り口の答え（{ title, author }）なら、その本（本棚に無ければ書名と著者だけ）を「著者名（本の語り口で・AI）」で。
-export function consultPartner({ refs = [], scopeIds = [], books = [], memoBookIds = null, useScope = false, voice = null } = {}) {
+export function consultPartner({ refs = [], scopeIds = [], books = [], memoBookIds = null, useScope = false, voice = null, body = '' } = {}) {
   if (voice && voice.title) {
     const b = bookForRef(`『${voice.title}』`, books);
     return withVoice(make([b ? pick(b) : { id: null, title: voice.title, author: voice.author || '', cover: null }], false));
   }
   if (!useScope) {
-    const p = partnerFromRefs(refs, books);
+    const p = partnerFromRefs(refs, books, body);
     if (p) return p;
   }
   return partnerFromScope({ scopeIds, books, memoBookIds });
