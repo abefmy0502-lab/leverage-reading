@@ -8,7 +8,8 @@
 // onSave({ text, priority, deadline, recurrence, reflection }) を呼ぶと
 // App.jsx 側で saveBook 経由で永続化する (useBooks に処理を集約)。
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { autoGrowTextarea } from '../hooks/useComposerHeight';
 import { createPortal } from 'react-dom';
 import { LIMITS } from '../lib/limits';
 import { useConfirm } from './ConfirmDialog';
@@ -89,7 +90,8 @@ const bodyStyle = {
 // 欄の見出し（12/600/--text-2・DESIGN §5 groupTitle）。
 const labelStyle = { ...groupTitle, display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginBottom: 'var(--space-2)' };
 const inpStyle = { ...uiInput, outline: 'none' };
-const taStyle = { ...inpStyle, resize: 'none', minHeight: 96, lineHeight: 1.6 };
+// 書いた量に合わせて伸びる（相談から入れた長い行動が、3 行の箱の下で切れて見えていた・2026-11-27）。6 行ほどで止めて中を送る。
+const taStyle = { ...inpStyle, resize: 'none', minHeight: 96, maxHeight: 'min(calc(1.6em * 6 + var(--space-6)), 40dvh)', lineHeight: 1.6 };
 
 // 優先度の選択（高さ 44）。期限の「明日」「来週」と同じ操作のチップの形（--fill・枠なし・選んでいるものは
 // --accent-soft＋--accent/600・DESIGN §5・2026-10-01 ui-critic）。
@@ -174,6 +176,10 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
   const [priority, setPriority] = useState(action?.priority || 'medium');
   const [recurrence, setRecurrence] = useState(action?.recurrence || '');
   const [reflection, setReflection] = useState(action?.reflection || '');
+  const textRef = useRef(null);
+  const refRef = useRef(null);
+  useLayoutEffect(() => { autoGrowTextarea(textRef.current); }, [text]);
+  useLayoutEffect(() => { autoGrowTextarea(refRef.current); }, [reflection]);
   const [busy, setBusy] = useState(false);
   // 保存できなかった理由（onSave が { error } を返したとき）。知らせ（Toast）はこのモーダルの下に隠れて読めないので、
   // 決定ボタンのすぐ上に 1 行で出す（書いた内容はそのまま・メモを書くシートと同じ形・2026-10-04）。
@@ -288,6 +294,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
           <div>
             <label style={labelStyle} htmlFor="ae-text">行動</label>
             <textarea
+              ref={textRef}
               id="ae-text"
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -374,6 +381,7 @@ export default function ActionEditModal({ action, onSave, onClose, onDelete, onS
             <div>
               <label style={labelStyle} htmlFor="ae-ref">ふりかえり（任意）</label>
               <textarea
+                ref={refRef}
                 id="ae-ref"
                 value={reflection}
                 onChange={(e) => setReflection(e.target.value)}

@@ -600,7 +600,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const resumed = useRef(sessionFor(user?.id)).current;
   const [messages, setMessages] = useState(() => (resumed
     ? resumed.messages
-      .filter((m) => !m.streaming && !/^(streaming|bg-wait)-/.test(String(m.id)))
+      // 保存を待っている相談の吹き出し（sending-q-・2026-11-27）も戻さない（保存できていれば履歴から読み直す・二重に出さない）。
+      .filter((m) => !m.streaming && !/^(streaming|bg-wait|sending-q)-/.test(String(m.id)))
       // メモの答えを探している途中で離れたときは「もう一度」を出す（探す処理は画面と一緒に終わっている）
       .map((m) => (m.memoAnswer?.status === 'loading' ? { ...m, memoAnswer: { ...m.memoAnswer, status: 'error' } } : m))
     : []));

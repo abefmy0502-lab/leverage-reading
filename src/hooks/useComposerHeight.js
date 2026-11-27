@@ -18,16 +18,23 @@ const MIRROR_PROPS = [
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderTopStyle', 'borderBottomStyle',
   'boxSizing', 'whiteSpace', 'wordBreak', 'overflowWrap', 'lineBreak', 'tabSize', 'fontFeatureSettings',
 ];
-export function measureWithMirror(el) {
+// 伸びる入力欄（autoGrowTextarea）は、どの欄も 1 つの写しを使い回す（欄ごとに作ると、シートを開くたびに
+//   見えない写しが画面の外に残り続けていた・2026-11-27）。相談の入力欄（useComposerHeight）は自分の写しを持ち、外すときに消す。
+let sharedMirror = null;
+function makeMirror() {
+  const m = document.createElement('textarea');
+  m.setAttribute('aria-hidden', 'true');
+  m.setAttribute('tabindex', '-1');
+  m.readOnly = true;
+  document.body.appendChild(m);
+  return m;
+}
+export function measureWithMirror(el, { shared = false } = {}) {
   if (typeof document === 'undefined') return null;
-  let m = el.__orimeMirror;
+  let m = shared ? sharedMirror : el.__orimeMirror;
   if (!m || !m.isConnected) {
-    m = document.createElement('textarea');
-    m.setAttribute('aria-hidden', 'true');
-    m.setAttribute('tabindex', '-1');
-    m.readOnly = true;
-    document.body.appendChild(m);
-    el.__orimeMirror = m;
+    m = makeMirror();
+    if (shared) sharedMirror = m; else el.__orimeMirror = m;
   }
   const cs = getComputedStyle(el);
   MIRROR_PROPS.forEach((k) => { m.style[k] = cs[k]; });
@@ -51,7 +58,7 @@ export function measureWithMirror(el) {
 //   本物の欄を縮めずに写しで測り、変わるときだけ書く（iPhone で打つたびに画面がずれない・2026-11-20）。
 export function autoGrowTextarea(el) {
   if (!el) return;
-  const r = measureWithMirror(el);
+  const r = measureWithMirror(el, { shared: true });
   if (!r) return;
   const next = `${r.scrollHeight + 2}px`;
   if (el.style.height !== next) el.style.height = next;

@@ -76,7 +76,8 @@ const askSection = (question) => {
   return ['【あなたに聞きたいこと】', ask, ...replies.map((r) => `・${r}`)];
 };
 // 返事（「会議の前」）→「会議の前に」（行動の文の中で使う）。
-const whenOf = (reply) => (/[にでは]$/.test(reply) ? reply : `${reply}に`);
+// 文で終わる返事（「上司がいると黙ってしまう」）は「…とき」に（「黙ってしまうに」と崩れていた・お試しの答えだけ）。
+const whenOf = (reply) => (/[にでは]$/.test(reply) ? reply : /[うくすつぬむぶぐるいた]$/.test(reply) ? `${reply}ときに` : `${reply}に`);
 
 // 著者の語り口（2026-09-30）: 質問の後ろの VOICE（今回の語り口）から書名・著者を読む。
 function parseVoice(userText) {
