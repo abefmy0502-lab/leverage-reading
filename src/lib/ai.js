@@ -1952,7 +1952,10 @@ export function evidenceFromRefs(refs, sources, now = Date.now(), verified = nul
     if (!title && date) {
       hit = sources.filter((sr) => sr.personal && String(sr.created_at || '').startsWith(date));
     } else if (title) {
-      const sameAll = sources.filter((sr) => !sr.personal && normTitle(sr.title) === normTitle(title));
+      // 書名は副題の有無で食い違う（『確率思考の戦略論』⇔「確率思考の戦略論 USJでも…」）ので、まるごと同じが無ければ頭が同じ本（3 字以上）。
+      const nt = normTitle(title);
+      let sameAll = sources.filter((sr) => !sr.personal && normTitle(sr.title) === nt);
+      if (sameAll.length === 0 && nt.length >= 3) sameAll = sources.filter((sr) => !sr.personal && normTitle(sr.title).startsWith(nt));
       const same = sameAll.filter((sr) => !sr.prep);
       hit = Number.isFinite(page) ? same.filter((sr) => Number(sr.page) === page) : [];
       // 本は一致・ページが無い／合わない → 1 件と数えるが、日付には使わない（古さを盛らない）

@@ -39,6 +39,9 @@ export function bookForRef(ref, books) {
   if (!title || !Array.isArray(books)) return null;
   return books.find((b) => String(b.title || '').trim() === title)
     || books.find((b) => String(b.title || '').trim() && title.includes(String(b.title).trim()))
+    // 本棚の書名が副題つきで、AI が副題を落とした（『確率思考の戦略論』⇔「確率思考の戦略論 USJでも…」）。
+    //   前は結び付けられず、答えの主役の本が相談相手から抜けていた（2026-11-27 オーナーの確かめ）。
+    || shelfBookForTitle(title, books)
     || null;
 }
 

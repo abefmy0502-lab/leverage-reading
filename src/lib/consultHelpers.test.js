@@ -485,3 +485,14 @@ describe('メモの無い本の読書準備（2026-11-27 オーナーの確か�
     expect(prepOnlyNote([all[2]], all)).toBe('');
   });
 });
+
+describe('副題つきの書名（2026-11-27 オーナーの確かめ）', () => {
+  it('evidenceFromRefs と bookForRef は副題を落とした書名でも同じ本に結び付ける', async () => {
+    const { evidenceFromRefs } = await import('./ai');
+    const { bookForRef } = await import('./consultPartner');
+    const long = '確率思考の戦略論 USJでも実証された数学マーケティングの力';
+    const sources = [{ title: long, page: null, created_at: '2026-11-20', personal: false, card: false, prep: '仮説', text: 'a' }];
+    expect(evidenceFromRefs(['『確率思考の戦略論』「a」'], sources)).toBe('読む前に書いたこと 1 件から答えました（読んで書いたメモはまだありません）');
+    expect(bookForRef('『確率思考の戦略論』の予想', [{ id: 'k', title: long }])?.id).toBe('k');
+  });
+});
