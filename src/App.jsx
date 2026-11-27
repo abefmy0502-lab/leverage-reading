@@ -7019,6 +7019,8 @@ function AuthedApp() {
             <HomeQuickMemo
               book={homeMemoBook}
               allTags={allTags}
+              // その本のメモがまだ 0 件なら、入力欄の上に問い（何を書けばいいか分からない人に・2026-11-27）
+              firstPrompt="前回読んだところで、覚えている 1 語は？"
               onClose={() => setHomeMemoBook(null)}
               onSaved={(result, payload) => {
                 haptic.success();

@@ -98,8 +98,23 @@ export function useHomeMemoState(books = []) {
   return { known: false, hasMemos: true, count: null };
 }
 
-export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport }) {
+// readingBook: 集中モードで 2 回以上読んだ読みかけの本（2026-11-27 体験した人の声「メモ 0 件のあいだ、何か月も同じ催促が出続ける」）。
+//   あれば、催促ではなく問いに替える＝「前回読んだところで、覚えている 1 語は？」＋「メモに書く」（その本のメモのシートを、同じ問いを添えて開く）。
+export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, readingBook = null, onWriteMemo = null }) {
   if (bookCount === 0 || !onQuickstart) return null;
+  if (readingBook && onWriteMemo) {
+    return (
+      <section aria-labelledby="home-first-step-title" style={card}>
+        <h2 id="home-first-step-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks('前回読んだところで、覚えている 1 語は？')}
+        </h2>
+        <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
+          {withPhraseBreaks(`『${readingBook.title}』・1 語で十分です`)}
+        </p>
+        <button type="button" onClick={() => onWriteMemo(readingBook)} style={btnPrimary}>メモに書く</button>
+      </section>
+    );
+  }
   return (
     <section aria-labelledby="home-first-step-title" style={card}>
       {/* 題は本 0 冊のカード・初日クイックスタートと同じ「相談相手をつくる」（目的を題で伝える・説明の補足文は置かない）。 */}

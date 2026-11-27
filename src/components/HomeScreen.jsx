@@ -636,6 +636,15 @@ export default function HomeScreen({
       return rescheduleLocalReminders({ memos, books });
     }).catch(() => {});
   }, [loading, loadError, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 集中モードで 2 回以上読んだ読みかけの本（メモ 0 件のホームのカードを問いに替える・HomeFirstStep）。
+  const { rows: homeSessions } = useReadingSessions();
+  const focusReadingBook = useMemo(() => {
+    const rows = Array.isArray(homeSessions) ? homeSessions : [];
+    const reading = books.filter((b) => b.status === 'reading' && !b.archivedAt);
+    if (rows.length < 2 || reading.length === 0) return null;
+    const last = [...rows].sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || ''))).find((r) => reading.some((b) => b.id === r.book_id));
+    return last ? reading.find((b) => b.id === last.book_id) : null;
+  }, [homeSessions, books]);
   const moment = returnMoment.moment;
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === (moment.memo?.bookId || moment.bookId)) || null;
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
@@ -823,7 +832,7 @@ export default function HomeScreen({
         <>
           {/* 読みたい・積読の本だけの人（読書の習慣がない人に多い）には出さない＝まだ読んだ本が無いのに「読んだ本の一文をメモする」を
               主役にしない。すぐ下の「読みたい本／次に読む本 → 読み始める」が次の一歩（2026-11-26 継続の点検）。 */}
-          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.filter((b) => !b.archivedAt).length} onQuickstart={onQuickstart} onImport={onImport} />}
+          {!memoState.hasMemos && books.some((b) => (b.status === 'reading' || b.status === 'done') && !b.archivedAt) && <HomeFirstStep bookCount={books.filter((b) => !b.archivedAt).length} onQuickstart={onQuickstart} onImport={onImport} readingBook={focusReadingBook} onWriteMemo={onWriteMemo} />}
           <ReadingNow books={books} onOpenBook={onOpenBook} onWriteMemo={onWriteMemo} onStartReading={onStartReading} onAddBook={onAddBook} onSeeAllReading={onSeeAllReading} onCoverRetry={onCoverRetry} onRead={onRead} />
           {/* 読書計画とすべての本は、1 枚のまとまりの行（区切り線でつなぐ）。 */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
