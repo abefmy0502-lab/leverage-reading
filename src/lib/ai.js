@@ -387,6 +387,29 @@ export function synthKindLabel(sourceType) {
   return PREP_KINDS.has(sourceType) ? `${base}（読む前に書いたもの）` : base;
 }
 
+// 渡すメモの中で、読書準備（読む前に書いたこと）しか無い本の名前を 1 行に（無ければ ''）。
+//   all＝この人のメモ・読書準備ぜんぶ（カード式・まとめ・一番の収穫が 1 つでもあれば「読んで書いたことがある」本）。
+export function prepOnlyNote(used, all) {
+  const titleOf = (m) => sanitizeForPrompt(m?.book?.title || '').slice(0, 80);
+  const read = new Set();
+  for (const m of Array.isArray(all) ? all : []) {
+    const id = m?.book_id || m?.book?.id;
+    // AI が書いたもの（以前の AI 解析・読書計画シート）は読んで書いたことに入れない
+    if (id && !PREP_KINDS.has(m.source_type) && !['personal', 'ai_summary', 'ai_strategy'].includes(m.source_type)) read.add(String(id));
+  }
+  const titles = [];
+  for (const m of Array.isArray(used) ? used : []) {
+    const id = m?.book_id || m?.book?.id;
+    if (!id || !PREP_KINDS.has(m.source_type) || read.has(String(id))) continue;
+    const t = titleOf(m);
+    if (t && !titles.includes(t)) titles.push(t);
+  }
+  if (!titles.length) return '';
+  return `\n【まだ読んで書いたメモが無い本】${titles.map((t) => `『${t}』`).join('、')}：渡したのは読む前に書いた目的と予想だけ。` +
+    `この本の中身・考え方・学びとして語らない（「『${titles[0]}』の考え方は」「この本の学びは」と書かない）。` +
+    `触れるときは「『${titles[0]}』を読む前に『〜』と予想していましたね」と読む前の言葉として書き、読みながら確かめる形で答える。\n`;
+}
+
 // withDate=true のとき、本に紐づくメモ/synth 行のヘッダにも記録日を付ける。
 // 既定(false)は従来の出力を完全維持し、時系列追跡フロー(知識の足あと)だけが日付を要求する。
 function formatMemo(memo, opts) {
@@ -1803,7 +1826,10 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   // 歩み（行動・過去の相談）は相談のたびに変わるので、キャッシュするメモ一覧とは別の塊にする。
   // 🗣 答えが 1 冊の本から来るときは、その著者の語り口で（材料＝実際に渡すメモで決める）。
   const persona = voicePersona({ scopeIds, rows: [...ranked, ...extra] });
-  const questionBlockText = priorBlock +
+  // 読む前に書いたこと（読書準備）しか無い本（2026-11-27 オーナーの確かめ「メモ 0 件の本の仮説を『この本の考え方は』と答えた」）。
+  //   指示文の決まりだけでは効かなかったので、その本の名前を質問のすぐ前に書く（質問ごとの塊＝キャッシュの芯は変えない）。
+  const prepOnlyBlock = prepOnlyNote([...ranked, ...extra], all);
+  const questionBlockText = priorBlock + prepOnlyBlock +
     `\n===== QUESTION_START =====\n${safeQuestion}\n===== QUESTION_END =====\n` +
     voiceBlock(persona) +
     (!scoped
@@ -1912,6 +1938,9 @@ function passedVerification(verified, title, page) {
 export function evidenceFromRefs(refs, sources, now = Date.now(), verified = null) {
   if (!Array.isArray(refs) || !Array.isArray(sources) || sources.length === 0) return null;
   let count = 0;
+  // 読書準備（読む前に書いた 得たいこと・仮説 など）は「メモ」と数えない（2026-11-27 オーナーの確かめ
+  //   「メモ 0 件の本なのに『あなたのメモ 2 件から答えました』」）。別に数えて「読む前に書いたこと N 件」と言う。
+  let prepCount = 0;
   let oldest = null;
   for (const raw of refs) {
     const r = String(raw || '');
@@ -1923,10 +1952,13 @@ export function evidenceFromRefs(refs, sources, now = Date.now(), verified = nul
     if (!title && date) {
       hit = sources.filter((sr) => sr.personal && String(sr.created_at || '').startsWith(date));
     } else if (title) {
-      const same = sources.filter((sr) => !sr.personal && normTitle(sr.title) === normTitle(title));
+      const sameAll = sources.filter((sr) => !sr.personal && normTitle(sr.title) === normTitle(title));
+      const same = sameAll.filter((sr) => !sr.prep);
       hit = Number.isFinite(page) ? same.filter((sr) => Number(sr.page) === page) : [];
       // 本は一致・ページが無い／合わない → 1 件と数えるが、日付には使わない（古さを盛らない）
       if (hit.length === 0 && same.length > 0) { count += 1; continue; }
+      // その本で渡したのが読書準備だけ → 読む前に書いたこととして数える
+      if (hit.length === 0 && sameAll.length > 0) { prepCount += 1; continue; }
     }
     if (hit.length === 0) continue;
     count += 1;
@@ -1935,7 +1967,7 @@ export function evidenceFromRefs(refs, sources, now = Date.now(), verified = nul
       if (Number.isFinite(t) && (oldest == null || t < oldest)) oldest = t;
     }
   }
-  if (count === 0) return null;
+  if (count === 0) return prepCount > 0 ? `読む前に書いたこと ${prepCount} 件から答えました（読んで書いたメモはまだありません）` : null;
   let ago = '';
   if (oldest != null) {
     const days = (now - oldest) / 86400000;
@@ -1943,7 +1975,7 @@ export function evidenceFromRefs(refs, sources, now = Date.now(), verified = nul
     else if (days >= 60) ago = `${Math.floor(days / 30)} か月前`;
     else if (days >= 14) ago = `${Math.floor(days / 7)} 週間前`;
   }
-  return `あなたのメモ ${count} 件から答えました${ago ? `（いちばん古いのは ${ago}）` : ''}`;
+  return `あなたのメモ ${count} 件${prepCount ? `と、読む前に書いたこと ${prepCount} 件` : ''}から答えました${ago ? `（いちばん古いのは ${ago}）` : ''}`;
 }
 
 // Strip REFS_START..REFS_END from the visible streaming text. The block is

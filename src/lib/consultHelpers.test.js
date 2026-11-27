@@ -459,3 +459,29 @@ describe('読書準備は「読む前に書いたもの」として AI に渡す
     expect(synthKindLabel('nope')).toBe('');
   });
 });
+
+describe('メモの無い本の読書準備（2026-11-27 オーナーの確かめ）', () => {
+  it('evidenceFromRefs: 読書準備だけの本は「読む前に書いたこと」と数える', async () => {
+    const { evidenceFromRefs } = await import('./ai');
+    const sources = [
+      { title: '確率思考の戦略論', page: null, created_at: '2026-11-20', personal: false, card: false, prep: '仮説', text: 'a' },
+      { title: 'レバレッジ・リーディング', page: 12, created_at: '2026-10-17', personal: false, card: true, prep: '', text: 'b' },
+    ];
+    expect(evidenceFromRefs(['『確率思考の戦略論』「a」'], sources)).toBe('読む前に書いたこと 1 件から答えました（読んで書いたメモはまだありません）');
+    expect(evidenceFromRefs(['『確率思考の戦略論』「a」', '『レバレッジ・リーディング』p.12「b」'], sources, Date.parse('2026-11-27'))).toMatch(/^あなたのメモ 1 件と、読む前に書いたこと 1 件から答えました/);
+  });
+  it('prepOnlyNote: メモの無い本だけを名指し', async () => {
+    const { prepOnlyNote } = await import('./ai');
+    const A = { id: 'a', title: '確率思考の戦略論' };
+    const B = { id: 'b', title: 'レバレッジ・リーディング' };
+    const all = [
+      { book_id: 'a', book: A, source_type: 'hypothesis', text: 'x' },
+      { book_id: 'b', book: B, source_type: 'hypothesis', text: 'y' },
+      { book_id: 'b', book: B, source_type: null, text: 'card' },
+    ];
+    const note = prepOnlyNote(all, all);
+    expect(note).toContain('『確率思考の戦略論』');
+    expect(note).not.toContain('レバレッジ');
+    expect(prepOnlyNote([all[2]], all)).toBe('');
+  });
+});
