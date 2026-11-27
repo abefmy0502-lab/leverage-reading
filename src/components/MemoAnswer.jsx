@@ -8,7 +8,7 @@ import LibrarySearchHit, { hitLabel, SnippetText } from './LibrarySearchHit';
 import { PartnerRow } from './PartnerAvatar';
 import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
-import { btnLink } from '../styles/ui';
+import { btnLink, btnLinkQuiet } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 
 export const MEMO_PARTNER = { kind: 'self', icon: 'memo', label: 'あなたのメモ', books: [] };
@@ -150,7 +150,7 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
               <p style={{ ...meta, marginTop: 'var(--space-3)' }}>メモ {a.searched} 件から探しました</p>
               {/* 次にできること（AI なし）: 2 つのメモを並べて、自分の答えを書く。 */}
               {pair && (
-                <button type="button" onClick={() => onOverlap(pair)} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-2))' }}>
+                <button type="button" onClick={() => onOverlap(pair)} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
                   <Blend size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />2 つのメモを重ねて考える
                 </button>
               )}
@@ -175,7 +175,8 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
           押すと有料プランの画面（無料のトークンを使い切ったとき＝GLOSSARY の ①）。 */}
       {showPlan && found && (
         <div style={{ marginLeft: column, marginTop: 'var(--space-1)' }}>
-          <button type="button" onClick={onPlan} style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }}>{planLabel || 'AI に答えてもらう（プラン）'}</button>
+          {/* 重ねて考える（AI なし）があるときは、そちらを次の一歩に＝プランは控えめな文字ボタン（会員数と継続を先に・2026-11-27）。 */}
+          <button type="button" onClick={onPlan} style={{ ...(pair ? btnLinkQuiet : btnLink), marginLeft: 'calc(-1 * var(--space-1))' }}>{planLabel || 'AI に答えてもらう（プラン）'}</button>
         </div>
       )}
     </div>

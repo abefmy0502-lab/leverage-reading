@@ -218,11 +218,10 @@ export default function OverlapSheet({ source, targetId = null, aiOff = false, b
               )} />
             </div>
 
+            {/* AI を止めている間は、中身の無い見出しを出さない（自分の答えの欄を最初の画面に・注記は欄の下へ・2026-11-27 ui-critic）。 */}
+            {!(aiPaused && ai.status !== 'ready') && (
             <section aria-labelledby="overlap-ai-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <h3 id="overlap-ai-h" style={label}>重なって見えること</h3>
-              {aiPaused && ai.status !== 'ready' && (
-                <p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、そのまま書いて残せます。')}</p>
-              )}
               {!aiPaused && ai.status === 'idle' && (
                 <>
                   {/* 説明の 2 行はやめ、量だけボタンに（自分の答えの欄を最初の画面に入れる・2026-11-26 全体の UX 監査） */}
@@ -248,6 +247,7 @@ export default function OverlapSheet({ source, targetId = null, aiOff = false, b
                 </dl>
               )}
             </section>
+            )}
 
             <section aria-labelledby="overlap-answer-h" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <h3 id="overlap-answer-h" style={label}>自分の答え</h3>
@@ -258,6 +258,9 @@ export default function OverlapSheet({ source, targetId = null, aiOff = false, b
                 aria-label="自分の答え" placeholder="いま思うことを、自分の言葉で"
                 style={{ ...uiInput, resize: 'none', overflowY: 'hidden', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
               />
+              {aiPaused && ai.status !== 'ready' && (
+                <p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、そのまま書いて残せます。')}</p>
+              )}
               <p style={meta}>{withPhraseBreaks('学びとして残り、相談の材料になります。')}</p>
             </section>
           </>
