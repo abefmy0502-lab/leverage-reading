@@ -9,7 +9,7 @@
 
 import CareNote from './CareNote';
 import { needsCareLine } from '../lib/advisorInterview';
-import { useChatImmersive } from '../hooks/useChatImmersive';
+import { useChatImmersive, userScrollingNow } from '../hooks/useChatImmersive';
 import { useKeepScrollAnchored } from '../hooks/useKeepScrollAnchored';
 import { Fragment, cloneElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -1178,6 +1178,30 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 📌 会話の欄の上の行が出たり消えたりしても、読んでいる文を動かさない（hooks/useKeepScrollAnchored.js・2026-11-27）。
   //   キーボードを開いたときの「問いの箱を見せる」合わせ（keepAnswerEnd）はこのあとに走る（観察の順）。
   useKeepScrollAnchored(chatScrollRef, view === 'chat', [view]);
+  // 📌 欄の下の端が上がったとき（キーボードを閉じて返事の候補の行が出た・下のタブが戻った）、それまで見えていた
+  //   いちばん新しい問いの箱・一歩の箱（「行動に追加」まで）を下に隠さない（2026-11-27 点検）。隠れた分だけ送る（箱の上端は出さない）。
+  //   本人が動かしている途中・書いている間（keepAnswerEnd が受け持つ）は触らない。
+  useEffect(() => {
+    if (view !== 'chat' || typeof ResizeObserver === 'undefined') return undefined;
+    const el = chatScrollRef.current;
+    if (!el) return undefined;
+    let lastBottom = el.getBoundingClientRect().bottom;
+    const ro = new ResizeObserver(() => {
+      const c = el.getBoundingClientRect();
+      const prevBottom = lastBottom;
+      lastBottom = c.bottom;
+      if (c.bottom >= prevBottom - 1 || userScrollingNow() || document.activeElement === inputRef.current) return;
+      const boxes = el.querySelectorAll('[data-next-step], [data-ask-box]');
+      const box = boxes[boxes.length - 1];
+      if (!box) return;
+      const r = box.getBoundingClientRect();
+      if (r.bottom > prevBottom + 1 || r.bottom <= c.bottom) return; // 前から隠れていた・いまも見えている
+      const delta = Math.min(r.bottom - c.bottom, Math.max(0, r.top - c.top));
+      if (delta > 0) el.scrollTop += delta;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
   // ⌨️ 書いている間も、読みたい答えの終わりが見えるように（2026-10-08）。
   //   カーソルを置いたら最新の答えの終わりまで送る。キーボードが上がって欄が縮んだとき・入力欄が伸びたときは、
   //   その前に答えの終わりが見えていたときだけ見えたままにする（自分で上へ戻して読んでいる場所は奪わない）。
