@@ -182,18 +182,22 @@ export function pickSubVariant(variants, measure, width) {
 // 今年の記録（今年に読み終えた本の冊数・今年のメモ・今年に実行した行動）。
 // yearMemos は今年書いたメモ（読める分だけ）。memoCount を渡したら、件数はそちらを使う（読む上限より多い人のため）。
 // 見出しは無し（題の「2026年の読書」が年を言う）。表紙は新しく読み終えた順に 4 冊まで（重ねる部品は今月と同じ）。
-export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null, readingSec = 0 } = {}) {
+// since: アカウントを作った時刻（ミリ秒）。渡したときは暦の年ではなく「はじめてからいままで」の 1 枚
+//   （ホームのはじめて 1 年の 1 行から・題「この 1 年の読書」・2026-11-27）。
+export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount = null, readingSec = 0, since = null } = {}) {
   const list = Array.isArray(books) ? books : [];
+  const sinceMs = Number.isFinite(Number(since)) && since != null ? Number(since) : null;
+  const inPeriod = (d) => (sinceMs != null ? (d && d.getTime() >= sinceMs - 86400000 && d.getTime() <= now.getTime() + 86400000) : sameYear(d, now));
   const finished = list
-    .filter((b) => b && b.status === 'done' && sameYear(parseLocalDate(b.doneDate), now))
+    .filter((b) => b && b.status === 'done' && inPeriod(parseLocalDate(b.doneDate)))
     .sort((a, b) => timeOf(b.doneDate) - timeOf(a.doneDate));
   const counted = (Array.isArray(yearMemos) ? yearMemos : [])
-    .filter((m) => (hasText(m) || m?.photoPath) && sameYear(parseLocalDate(m.createdAt || m.created_at), now)).length;
+    .filter((m) => (hasText(m) || m?.photoPath) && inPeriod(parseLocalDate(m.createdAt || m.created_at))).length;
   const memos = Number.isFinite(memoCount) && memoCount >= 0 ? memoCount : counted;
   let actionsDone = 0;
   for (const b of list) {
     for (const a of (Array.isArray(b?.actions) ? b.actions : [])) {
-      if (a && a.done && sameYear(parseLocalDate(a.completedAt || a.completed_at), now)) actionsDone += 1;
+      if (a && a.done && inPeriod(parseLocalDate(a.completedAt || a.completed_at))) actionsDone += 1;
     }
   }
   const stats = [];
@@ -205,7 +209,7 @@ export function yearRecord(books, yearMemos = [], now = new Date(), { memoCount 
   const subVariants = finishedSubVariants(finished);
   return {
     kicker: '',
-    title: `${now.getFullYear()}年の読書`,
+    title: sinceMs != null ? 'この 1 年の読書' : `${now.getFullYear()}年の読書`,
     titleIsBook: false,
     sub: finished.length ? subVariants[0] : '',
     subVariants: finished.length ? subVariants : null,

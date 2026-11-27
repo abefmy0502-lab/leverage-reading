@@ -357,7 +357,8 @@ export function authorNewsText({ fav, book, more = 0 }) {
   );
 }
 
-function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', actionAria = null, mark = 'grown', stack = false }) {
+// secondary: 2 つ目の文字ボタン（{ label, onClick, aria }・はじめて 1 年の「この 1 年を 1 枚に」・2026-11-27）。
+function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, actionLabel = '相談してみる', actionAria = null, mark = 'grown', stack = false, secondary = null }) {
   // 積み重ねの形（stack）は × を右上の角に（「読み返す ×」が 1 つの組に見えない・iOS の閉じる位置・2026-11-26 ui-critic）。
   const closeBtn = (
     <button
@@ -371,15 +372,19 @@ function GrownLine({ onConsult, onDismiss, text = null, icon: Icon = Sprout, act
   );
   return (
     <div data-grown-line={mark} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'var(--space-2)', margin: '0 calc(-1 * var(--space-3)) 0 0', ...(stack ? { position: 'relative' } : null) }}>
-      <p style={{ flex: stack ? '1 1 100%' : '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, ...(stack ? { paddingRight: 'var(--tap-min)' } : null) }}>
+      {/* 積み重ねの形の × の空きは、1 行目（前置き）だけ（引用は全幅＝1 行増えない・2026-11-27 ui-critic）。前置きは呼び手が [data-lead] で包む。 */}
+      <p style={{ flex: stack ? '1 1 100%' : '1 1 10em', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)', margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', height: '1.5em', flexShrink: 0 }}>
           <Icon size="1.2em" aria-hidden="true" style={{ color: 'var(--text-3)' }} />
         </span>
-        <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{typeof text === 'string' || !text ? withPhraseBreaks(text || `メモが ${GROWTH_GOAL}\u00a0件になり、相談相手が育ちました`) : text}</span>
+        <span style={{ minWidth: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', ...(stack && (typeof text === 'string' || !text) ? { paddingRight: 'var(--tap-min)' } : null) }}>{typeof text === 'string' || !text ? withPhraseBreaks(text || `メモが ${GROWTH_GOAL}\u00a0件になり、相談相手が育ちました`) : text}</span>
       </p>
       {/* 1 行に収まるときは右へ（文が伸びて押す）。折り返したときは文の頭（芽の右）にそろえる（2026-10-10 ui-critic）。 */}
       <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 'calc(var(--text-meta) * 1.2)' }}>
         <button type="button" onClick={onConsult} aria-label={actionAria || undefined} style={{ ...btnLink, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap' }}>{actionLabel}</button>
+        {secondary && (
+          <button type="button" onClick={secondary.onClick} aria-label={secondary.aria || undefined} style={{ ...btnLinkQuiet, fontSize: 'min(var(--text-sub), var(--text-bar-max))', whiteSpace: 'nowrap', marginLeft: 'var(--space-2)' }}>{secondary.label}</button>
+        )}
         {!stack && closeBtn}
       </span>
       {stack && closeBtn}
@@ -762,11 +767,15 @@ export default function HomeScreen({
             mark={`moment-${moment.kind}`}
             stack
             icon={moment.kind === 'anniv' ? Sprout : moment.kind === 'action' ? CalendarCheck : moment.action === 'resume' ? MessageCircle : History}
-            text={<>{withPhraseBreaks(moment.lead)}{moment.quote ? <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span> : null}</>}
+            text={<><span data-lead style={{ display: 'block', paddingRight: 'var(--tap-min)' }}>{withPhraseBreaks(moment.lead)}</span>{moment.quote ? <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span> : null}</>}
             actionLabel={moment.actionLabel}
             // 読み上げは本の名前つき（同じ画面の一覧の「『書名』を読み始める」と見分ける・ui-critic）
             actionAria={!momentBook ? (moment.action === 'advisor' ? 'いまの悩みに合う本を AI 選書で 1 冊探す' : moment.action === 'resume' ? '前の相談の続きを話す' : null) : moment.action === 'focus' ? `『${momentBook.title}』を${moment.actionLabel === '続きを 15 分' ? '続きから' : ''} 15 分だけ読む` : moment.action === 'open' ? `『${momentBook.title}』を開く` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
             onConsult={() => { returnMoment.close('open'); momentGo(); }}
+            // はじめて 1 年（以後毎年）は「この 1 年を 1 枚に」＝写真で共有の「この 1 年」（はじめてからいままで・2026-11-27 体験した人の声）
+            secondary={moment.kind === 'anniv' && Number(String(moment.key || '').split(':')[1]) >= 365 && onShareNudge && user?.created_at
+              ? { label: 'この 1 年を 1 枚に', onClick: () => { track('return_moment', { kind: 'anniv', action: 'share' }); onShareNudge('year', { since: new Date(user.created_at).getTime() }); } }
+              : null}
             onDismiss={() => returnMoment.close('dismiss')}
           />
         )}

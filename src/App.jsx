@@ -6980,7 +6980,7 @@ function AuthedApp() {
               onSeeAllReading={() => { setStatusFilter('reading'); setShelfMode('library'); }}
               onCoverRetry={triggerCoverAutoRetry}
               // 月末・12 月の控えめな 1 行「◯月の読書を、1 枚の画像に」→ 写真で共有の「今月」／「今年」（カメラは開かない・2026-10-08）。
-              onShareNudge={(kind) => setShareSheet({ fromHome: true, from: 'home_nudge', initialSubject: { kind } })}
+              onShareNudge={(kind, extra = null) => setShareSheet({ fromHome: true, from: 'home_nudge', initialSubject: { kind, ...(extra || {}) } })}
               // 🎯 今日の行動の 1 行 → 振り返り › 行動（2026-10-10）
               onOpenActions={() => { setActionShowDoneNonce(null); setReviewSubTab('action'); setView('list'); setTab('review'); }}
               // 🌱 相談相手が育ちました →「相談してみる」（下書きを入れて相談を開く・送らない）

@@ -250,10 +250,10 @@ function useMonthMemoCount(enabled, now) {
   return count;
 }
 
-function useYearMemos(enabled, now) {
+function useYearMemos(enabled, now, since = null) {
   const { user } = useAuth();
   const year = now.getFullYear();
-  const key = `${user?.id || ''}|${year}`;
+  const key = `${user?.id || ''}|${year}|${since || ''}`;
   const [state, setState] = useState(() => yearMemoCache.get(key) || { memos: [], count: null, loading: !!enabled, error: false });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -266,8 +266,9 @@ function useYearMemos(enabled, now) {
     let alive = true;
     setState((s) => ({ ...s, loading: true, error: false }));
     (async () => {
-      const from = new Date(year, 0, 1).toISOString();
-      const to = new Date(year + 1, 0, 1).toISOString();
+      // はじめて 1 年の 1 枚（since）は、作った日からいままで。ほかは暦の年。
+      const from = since ? new Date(since).toISOString() : new Date(year, 0, 1).toISOString();
+      const to = since ? new Date(now.getTime() + 86400000).toISOString() : new Date(year + 1, 0, 1).toISOString();
       const run = (cols) => supabase
         .from('book_memos')
         .select(cols, { count: 'exact' })
@@ -295,7 +296,7 @@ function useYearMemos(enabled, now) {
       setState(next);
     })();
     return () => { alive = false; };
-  }, [enabled, key, user?.id, year, attempt]);
+  }, [enabled, key, user?.id, year, attempt, since]); // eslint-disable-line react-hooks/exhaustive-deps
   return { ...state, reload: () => setAttempt((n) => n + 1) };
 }
 
@@ -359,8 +360,10 @@ export default function ShareSheet({
   // ---- どの本？（本 1 冊 か 今月 か 今年）
   const [subject, setSubject] = useState(() => {
     const s = initialSubject || (bookProp ? { kind: 'book', bookId: bookProp.id } : pickShareSubject(books));
-    return s.kind === 'year' && !yearAllowed ? { kind: 'month' } : s;
+    return s.kind === 'year' && !yearAllowed && !Number.isFinite(s.since) ? { kind: 'month' } : s;
   });
+  // 🌱 はじめて 1 年の 1 枚（ホームの節目の 1 行から・subject.since＝アカウントを作った時刻・2026-11-27）: 暦の年ではなく、はじめてからいままで。
+  const since = subject.kind === 'year' && Number.isFinite(subject.since) ? subject.since : null;
   // ⏱ 集中モードの記録（今月の中身の判定・今月／今年の読書の時間・雑誌の短い数の欄で使う）。
   const readingRows = useReadingSessions().rows;
   // 中身の無い月（読了 0・メモ 0・読書の時間 0）は「どの本？」に「今月」を出さない（2026-10-11 ui-critic）。
@@ -375,16 +378,17 @@ export default function ShareSheet({
   }, [books, now, readingRows, monthMemoCount]);
   const choices = useMemo(() => {
     if (!books) return [];
-    const list = subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null, includeYear: yearAllowed });
+    // 「この 1 年」（since）で開いたときは、12 月でも暦の「今年」を並べない（期間がほぼ同じチップが 2 つ並ぶ・2026-11-27 ui-critic）。
+    const list = subjectChoices(books, { selectedId: subject.kind === 'book' ? subject.bookId : null, includeYear: since != null || yearAllowed });
     if (monthHasContent || subject.kind === 'month') return list;
     return list.filter((c) => c.kind !== 'month');
-  }, [books, subject, yearAllowed, monthHasContent]);
+  }, [books, subject, yearAllowed, monthHasContent, since]);
   const showSwitcher = choices.length > 1;
   const subjectBook = subject.kind === 'book'
     ? ((bookProp && bookProp.id === subject.bookId) ? bookProp : (books || []).find((b) => b.id === subject.bookId) || null)
     : null;
   // 本 1 冊でない 1 枚（今月・今年）。period＝'month' | 'year' | null（本 1 冊）。
-  const period = subject.kind === 'year' && yearAllowed ? 'year' : (subject.kind === 'month' || !subjectBook) ? 'month' : null;
+  const period = subject.kind === 'year' && (yearAllowed || since != null) ? 'year' : (subject.kind === 'month' || !subjectBook) ? 'month' : null;
   const isPeriod = !!period;
   // ⏱ 雑誌の下の行の短い数の欄: この本の今日の読書時間（集中モード）があれば「読書 32 分」。無ければ出さない（2026-10-09）。
   const readingNote = subject.kind === 'book' && subjectBook ? shareReadingNote(readingRows, subjectBook.id, now.getTime()) : null;
@@ -394,21 +398,21 @@ export default function ShareSheet({
   const usePropMemos = !!memosProp && !!subjectBook && !!bookProp && subjectBook.id === bookProp.id;
   const loaded = useBookMemos(!usePropMemos && subjectBook ? subjectBook.id : null);
   const month = useMonthMemos(period === 'month', now);
-  const yearM = useYearMemos(period === 'year', now);
+  const yearM = useYearMemos(period === 'year', now, since);
   const memos = period === 'year' ? yearM.memos : period === 'month' ? month.memos : (usePropMemos ? memosProp : loaded.memos);
   const memosLoading = period === 'year' ? yearM.loading : period === 'month' ? month.loading : (!usePropMemos && loaded.loading);
 
   // ⏱ 今月・今年の 1 枚には、その期間の集中モードの合計（読書の時間）も数字の欄に（無ければ出さない・2026-10-11）。
   const periodReadingSec = useMemo(() => {
     if (!period) return 0;
-    const r = period === 'year' ? yearRange(now.getTime()) : monthRange(now.getTime());
+    const r = period === 'year' ? (since != null ? { from: since, to: now.getTime() + 1 } : yearRange(now.getTime())) : monthRange(now.getTime());
     return rangeSeconds(readingRows, books, r.from, r.to);
-  }, [period, readingRows, books, now]);
+  }, [period, readingRows, books, now, since]);
   const record = useMemo(
     () => (period === 'year'
-      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT), readingSec: periodReadingSec })
+      ? yearRecord(books || [], yearM.memos, now, { memoCount: yearMemoCountFor(yearM.memos, yearM.count, YEAR_MEMO_LIMIT), readingSec: periodReadingSec, since })
       : period === 'month' ? monthRecord(books || [], month.memos, now, { readingSec: periodReadingSec }) : bookRecord(subjectBook, memos, now)),
-    [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now, periodReadingSec],
+    [period, books, month.memos, yearM.memos, yearM.count, subjectBook, memos, now, periodReadingSec, since],
   );
   // 今年は「いちばん残した一文」から（思い出しカードで「覚えた」を押した回数 → しっかり書いた → 新しい順・AI まとめは入れない）。
   const candidates = useMemo(
@@ -575,7 +579,7 @@ export default function ShareSheet({
   //   （表紙が 0 枚で上の 4 割が空いていた・2026-10-11 ui-critic）。それも無ければ表紙なし（文字の塊を縦の中央へ＝shareCard）。
   const periodActiveBooks = useMemo(() => {
     if (!isPeriod || (record.finishedBooks || []).length > 0) return [];
-    const r = period === 'year' ? yearRange(now.getTime()) : monthRange(now.getTime());
+    const r = period === 'year' ? (since != null ? { from: since, to: now.getTime() + 1 } : yearRange(now.getTime())) : monthRange(now.getTime());
     const ids = [];
     const add = (id) => { if (id && !ids.includes(id)) ids.push(id); };
     [...(memos || [])].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).forEach((m) => add(m.bookId));
@@ -648,7 +652,7 @@ export default function ShareSheet({
       knownMaxPage,
       seedKey: q?.id || subjectKey,
       // 今年の一文には見出し「2026」（記録の見出しと同じ部品・第 2 回 ui-critic）。
-      kicker: period === 'year' && v === 'quote' ? String(now.getFullYear()) : '',
+      kicker: period === 'year' && v === 'quote' ? (since != null ? 'この 1 年' : String(now.getFullYear())) : '',
       cover: assets.cover,
       covers: v !== 'quote' && v !== 'magazine' ? assets.covers : [],
       fonts: assets.fonts,
@@ -826,7 +830,7 @@ export default function ShareSheet({
       // 「#◯月読了本」は、その月に読み終えた本があるときだけ（メモだけの月は #orime だけ・オーナー判断）。
       // 📊 リンクは、App Store の URL があればキャンペーン名（ct=share_<今月・今年>_<重ね方>）付きの App Store
       //   （どの共有から入手されたかを数える・lib/storeCampaign.js）。無い間は今までどおり紹介ページ。画像には URL を入れない。
-      const tags = shareHashtags(period, now, { finishedCount: (record.finishedBooks || []).length });
+      const tags = since != null ? [] : shareHashtags(period, now, { finishedCount: (record.finishedBooks || []).length });
       const link = storeLinkFor(shareCampaign({ variant, period })) || SITE_URL;
       // 雑誌は一文と同じ（書名と一文）。
       const text = variant !== 'quote' && variant !== 'magazine'
@@ -887,7 +891,7 @@ export default function ShareSheet({
     : candidates.length > 0 ? 'pick' : (memosLoading ? null : 'empty');
   const thumbAspect = effStyle === 'sticker' ? 1 : FORMATS[format].w / FORMATS[format].h;
   const thumbW = Math.round(THUMB_H * thumbAspect);
-  const subjectName = period === 'year' ? `${now.getFullYear()}年の読書` : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
+  const subjectName = period === 'year' ? (since != null ? 'この 1 年の読書' : `${now.getFullYear()}年の読書`) : period === 'month' ? `${now.getMonth() + 1}月の読書` : `『${subjectBook?.title || ''}』`;
 
   const footer = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
@@ -960,14 +964,14 @@ export default function ShareSheet({
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  aria-label={c.kind === 'year' ? `今年（${now.getFullYear()}年の読書）` : undefined}
-                  onClick={() => { setSubject(c.kind === 'book' ? { kind: 'book', bookId: c.bookId } : { kind: c.kind }); haptic.light(); }}
+                  aria-label={c.kind === 'year' ? (since != null ? 'この 1 年（はじめてからの読書）' : `今年（${now.getFullYear()}年の読書）`) : undefined}
+                  onClick={() => { setSubject(c.kind === 'book' ? { kind: 'book', bookId: c.bookId } : c.kind === 'year' && since != null ? { kind: 'year', since } : { kind: c.kind }); haptic.light(); }}
                   style={c.kind !== 'book' ? { ...subjectChip(on), paddingLeft: 'var(--space-3)' } : subjectChip(on)}
                 >
                   {c.kind === 'month'
                     ? <><CalendarDays size="1.1em" aria-hidden="true" />今月</>
                     : c.kind === 'year'
-                    ? <><CalendarRange size="1.1em" aria-hidden="true" />今年</>
+                    ? <><CalendarRange size="1.1em" aria-hidden="true" />{since != null ? 'この 1 年' : '今年'}</>
                     : <><MiniCover book={c.book} width={24} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.book.title}</span></>}
                 </button>
               );
