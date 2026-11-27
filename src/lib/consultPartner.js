@@ -136,6 +136,12 @@ export function partnerFromRefs(refs, books) {
     if (failed.some((f) => f === t || f.includes(t) || t.includes(f))) return;
     found.push(pick(b));
   });
+  // 根拠の行に『書名』が無い答えは、引用を照らし合わせて一致した記録の本（b＝本の id）で決める（2026-11-27）。
+  decodeQuoteRefs(list).forEach((c) => {
+    if (c.s !== 'ok' || !c.b || found.some((x) => String(x.id) === String(c.b))) return;
+    const b = (Array.isArray(books) ? books : []).find((x) => String(x.id) === String(c.b));
+    if (b) found.push(pick(b));
+  });
   if (found.length === 0 && !self) return null;
   return make(found, self);
 }

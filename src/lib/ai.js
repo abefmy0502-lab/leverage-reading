@@ -387,6 +387,38 @@ export function synthKindLabel(sourceType) {
   return PREP_KINDS.has(sourceType) ? `${base}（読む前に書いたもの）` : base;
 }
 
+// 読書準備しか無い本の書名（副題つきのまま・prepOnlyNote と同じ決め方）。
+export function prepOnlyTitles(used, all) {
+  const read = new Set();
+  for (const m of Array.isArray(all) ? all : []) {
+    const id = m?.book_id || m?.book?.id;
+    if (id && !PREP_KINDS.has(m.source_type) && !['personal', 'ai_summary', 'ai_strategy'].includes(m.source_type)) read.add(String(id));
+  }
+  const out = [];
+  for (const m of Array.isArray(used) ? used : []) {
+    const id = m?.book_id || m?.book?.id;
+    if (!id || !PREP_KINDS.has(m.source_type) || read.has(String(id))) continue;
+    const t = sanitizeForPrompt(m?.book?.title || '').slice(0, 80);
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+// 「『X』の考え方は／学びは／によると」（X＝読書準備しか無い本・副題の有無どちらも）を「『X』を読む前のあなたの予想では」に。
+export function fixPrepOnlyPhrases(text, titles) {
+  let out = String(text || '');
+  for (const full of Array.isArray(titles) ? titles : []) {
+    const short = String(full).split(/[\s　:：―—（(]/)[0] || full;
+    for (const t of [...new Set([full, short])]) {
+      if (!t) continue;
+      const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp(`『(${esc})[^』]*』(?:の考え方|の学び|の主張|の教え)(は|では|が)`, 'g'), '『$1』を読む前のあなたの予想では')
+        .replace(new RegExp(`『(${esc})[^』]*』によると`, 'g'), '『$1』を読む前のあなたの予想では');
+    }
+  }
+  return out;
+}
+
 // 渡すメモの中で、読書準備（読む前に書いたこと）しか無い本の名前を 1 行に（無ければ ''）。
 //   all＝この人のメモ・読書準備ぜんぶ（カード式・まとめ・一番の収穫が 1 つでもあれば「読んで書いたことがある」本）。
 export function prepOnlyNote(used, all) {
@@ -405,9 +437,14 @@ export function prepOnlyNote(used, all) {
     if (t && !titles.includes(t)) titles.push(t);
   }
   if (!titles.length) return '';
-  return `\n【まだ読んで書いたメモが無い本】${titles.map((t) => `『${t}』`).join('、')}：渡したのは読む前に書いた目的と予想だけ。` +
-    `この本の中身・考え方・学びとして語らない（「『${titles[0]}』の考え方は」「この本の学びは」と書かない）。` +
-    `触れるときは「『${titles[0]}』を読む前に『〜』と予想していましたね」と読む前の言葉として書き、読みながら確かめる形で答える。\n`;
+  // 副題を外した短い書名（AI が答えに書く形にそろえる）
+  const short = (t) => String(t).split(/[\s　:：―—（(]/)[0] || t;
+  const t0 = short(titles[0]);
+  return `\n【この答えで必ず守ること】${titles.map((t) => `『${short(t)}』`).join('、')}はまだ読んで書いたメモが無い本。` +
+    `渡したのは、読む前に本人が書いた目的（得たいこと）と予想（仮説）だけで、本の中身ではない。\n` +
+    `- 「『${t0}』の考え方は」「『${t0}』の学びは」「この本によると」「この本は〜と説く」と書かない（本の中身を知っているように書かない）\n` +
+    `- その本に触れる文は「『${t0}』を読む前に、あなたは『〜』と予想していましたね」の形で、予想（仮説）を読む前の言葉として示してから使う\n` +
+    `- 予想は本の内容ではないので「読みながら確かめてみてください」と添える\n`;
 }
 
 // withDate=true のとき、本に紐づくメモ/synth 行のヘッダにも記録日を付ける。
@@ -1829,8 +1866,9 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
   // 読む前に書いたこと（読書準備）しか無い本（2026-11-27 オーナーの確かめ「メモ 0 件の本の仮説を『この本の考え方は』と答えた」）。
   //   指示文の決まりだけでは効かなかったので、その本の名前を質問のすぐ前に書く（質問ごとの塊＝キャッシュの芯は変えない）。
   const prepOnlyBlock = prepOnlyNote([...ranked, ...extra], all);
-  const questionBlockText = priorBlock + prepOnlyBlock +
-    `\n===== QUESTION_START =====\n${safeQuestion}\n===== QUESTION_END =====\n` +
+  //   質問の前に置いたら守られなかった（本番の Web で 2 回確かめた）ので、質問のすぐ後ろ＝いちばん最後に読む所に置く。
+  const questionBlockText = priorBlock +
+    `\n===== QUESTION_START =====\n${safeQuestion}\n===== QUESTION_END =====\n` + prepOnlyBlock +
     voiceBlock(persona) +
     (!scoped
       ? `（回答は 1 冊の本だけでなく、関連する複数の本のメモを横断して組み立てること）`
@@ -1903,7 +1941,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     text: m.text || '', // 引用の照合用（evidenceCheck.js・画面には一致したものだけ出す）
   }));
   return {
-    empty: false, userPrompt, userBlocks, stats, sources, perbookBooks,
+    empty: false, userPrompt, userBlocks, stats, sources, perbookBooks, prepOnlyTitles: prepOnlyTitles([...ranked, ...extra], all),
     earlyShelfTitles: earlyShelf.titles,
     voice: persona ? { title: persona.title, author: persona.author } : null,
     decide: hint.decide,
@@ -1968,6 +2006,18 @@ export function evidenceFromRefs(refs, sources, now = Date.now(), verified = nul
     for (const h of hit) {
       const t = Date.parse(h.created_at || '');
       if (Number.isFinite(t) && (oldest == null || t < oldest)) oldest = t;
+    }
+  }
+  // AI が根拠の行に『書名』を書かず引用だけを書いた答え（2026-11-27 本番の Web で確かめた）は、書名からは数えられない。
+  //   引用をメモと照らし合わせた結果（一致した記録の種類＝q・本＝b）で数える。
+  if (count === 0 && prepCount === 0 && Array.isArray(verified)) {
+    const seen = new Set();
+    for (const v of verified) {
+      if (!v || v.s !== 'ok' || !v.x) continue;
+      const key = `${v.b || v.t || ''}|${String(v.x).slice(0, 40)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (v.q) prepCount += 1; else count += 1;
     }
   }
   if (count === 0) return prepCount > 0 ? `読む前に書いたこと ${prepCount} 件から答えました（読んで書いたメモはまだありません）` : null;
@@ -2391,9 +2441,11 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   const parsed = parseRefs(fullText);
   // 出力上限による途中切れは本文末尾に注記して伝える（無音の劣化にしない）。
   const truncated = streamMeta?.stopReason === 'max_tokens';
+  // メモの無い本の予想を「『X』の考え方は」と書いた答えを、読む前の予想として言い直す（決まりを守らなかったときの受け止め・2026-11-27）
+  const fixedBody = fixPrepOnlyPhrases(parsed.body, ctx.prepOnlyTitles);
   const body = truncated
-    ? `${parsed.body}\n\n※ 回答が長さの上限に達したため途中までです。質問を絞ると最後まで生成できます。`
-    : parsed.body;
+    ? `${fixedBody}\n\n※ 回答が長さの上限に達したため途中までです。質問を絞ると最後まで生成できます。`
+    : fixedBody;
   let quoteRefs = [];
   try { quoteRefs = verifyAnswerQuotes(parsed.body, ctx.sources); } catch { /* 確かめられなければ付けない（古い答えと同じ見せ方） */ }
   // 関係するメモが無いと答えたときは、サーバーがトークンを返している（streamClaude の meta.refund）。

@@ -496,3 +496,26 @@ describe('副題つきの書名（2026-11-27 オーナーの確かめ）', () =>
     expect(bookForRef('『確率思考の戦略論』の予想', [{ id: 'k', title: long }])?.id).toBe('k');
   });
 });
+
+describe('メモの無い本の答えの言い直し（2026-11-27）', () => {
+  it('「『X』の考え方は」を「『X』を読む前のあなたの予想では」に', async () => {
+    const { fixPrepOnlyPhrases } = await import('./ai');
+    const titles = ['確率思考の戦略論 USJでも実証された数学マーケティングの力'];
+    expect(fixPrepOnlyPhrases('『確率思考の戦略論』の考え方は、営業の判断を変えます。', titles)).toBe('『確率思考の戦略論』を読む前のあなたの予想では、営業の判断を変えます。');
+    expect(fixPrepOnlyPhrases('『確率思考の戦略論』によると、市場は…', titles)).toBe('『確率思考の戦略論』を読む前のあなたの予想では、市場は…');
+    expect(fixPrepOnlyPhrases('『考え方』の考え方は大事', titles)).toBe('『考え方』の考え方は大事');
+  });
+});
+describe('書名の無い根拠の行（2026-11-27）', () => {
+  it('照らし合わせの結果で数える・相談相手を決める', async () => {
+    const { evidenceFromRefs } = await import('./ai');
+    const { partnerFromRefs } = await import('./consultPartner');
+    const verified = [{ k: 'r', t: '確率思考の戦略論 USJ', s: 'ok', x: '市場の構造を…', q: '仮説', b: 'k' }];
+    expect(evidenceFromRefs(['市場の構造を数学的に…'], [{ title: 'x', personal: false, prep: '仮説', text: 'x' }], Date.now(), verified)).toBe('読む前に書いたこと 1 件から答えました（読んで書いたメモはまだありません）');
+    const refs = ['市場の構造を数学的に…', `🔎 ${JSON.stringify(verified[0])}`];
+    const { QUOTE_PREFIX } = await import('./evidenceCheck');
+    const p = partnerFromRefs(['市場の構造を数学的に…', `${QUOTE_PREFIX}${JSON.stringify(verified[0])}`], [{ id: 'k', title: '確率思考の戦略論 USJでも実証された数学マーケティングの力', author: '森岡毅' }]);
+    expect(p?.books?.[0]?.id).toBe('k');
+    expect(refs.length).toBe(2);
+  });
+});
