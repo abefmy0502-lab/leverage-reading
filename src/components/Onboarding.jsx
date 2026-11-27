@@ -445,8 +445,9 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             <div style={{ paddingTop: 'var(--space-3)' }}>
               <p id="onb-habit-q" style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', textAlign: 'left' }}>最近、本を読んでいますか？</p>
               <div role="radiogroup" aria-labelledby="onb-habit-q" style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                <Chip size="select" stretch active={habit === 'yes'} role="radio" aria-checked={habit === 'yes'} onClick={() => pickHabit('yes')}>読んでいる</Chip>
-                <Chip size="select" stretch active={habit === 'little'} role="radio" aria-checked={habit === 'little'} onClick={() => pickHabit('little')}>あまり読まない</Chip>
+                {/* 文字が大きいと「あまり読まない」がはみ出すので、文節の切れ目で折り返せるように（wrap・2026-11-27 ui-critic） */}
+                <Chip size="select" stretch wrap active={habit === 'yes'} role="radio" aria-checked={habit === 'yes'} onClick={() => pickHabit('yes')}>{withPhraseBreaks('読んでいる')}</Chip>
+                <Chip size="select" stretch wrap active={habit === 'little'} role="radio" aria-checked={habit === 'little'} onClick={() => pickHabit('little')}>{withPhraseBreaks('あまり読まない')}</Chip>
               </div>
               {/* 下のボタンが入れ替わったことを読み上げで伝える（見えない 1 行） */}
               <p role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', margin: 0 }}>
