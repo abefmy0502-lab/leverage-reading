@@ -102,19 +102,27 @@ export function useHomeMemoState(books = []) {
 //   あれば、催促ではなく問いに替える＝「前回読んだところで、覚えている 1 語は？」＋「メモに書く」（その本のメモのシートを、同じ問いを添えて開く）。
 // readingMode（2026-11-27 模擬 7 回目）: 'word'＝1 語の問い／'read'＝まだ読んだ記録が無い本は「まずは 15 分だけ」／
 //   'back'＝しばらく読んでいない本は「久しぶりに、少し前から 15 分」（責めない）／'hidden'＝上の 1 行が同じことを言っている。
-//   読む形の主ボタンは集中モードの 15 分（onReadBook）。読み終えたら集中モードのおわりで「心に残った 1 行は？」を聞く。
+//   'resume'＝読んだところ（ページ・％）はあるが集中モードの記録は無い＝「続きを 15 分だけ」＋「p.120 から」。
+//   読む形の主ボタンは集中モードの 15 分（onReadBook）。15 分たったら集中モードのおわりで「心に残った 1 行は？」を聞く。
 export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, readingBook = null, readingMode = 'word', onReadBook = null, onWriteMemo = null }) {
   if (bookCount === 0 || !onQuickstart) return null;
   if (readingBook && readingMode === 'hidden') return null;
-  if (readingBook && onReadBook && (readingMode === 'read' || readingMode === 'back')) {
+  if (readingBook && onReadBook && (readingMode === 'read' || readingMode === 'back' || readingMode === 'resume')) {
     const back = readingMode === 'back';
+    const resume = readingMode === 'resume';
+    // 読んだところ（ページ・％）がある本は「続きを 15 分だけ」＋「p.120 から」（読んだ人に「まずは」と言わない・2026-11-27 ui-critic）
+    const cur = Math.round(Number(readingBook.currentPage ?? readingBook.current_page) || 0);
+    const unit = readingBook.progressUnit ?? readingBook.progress_unit;
+    const from = resume && cur > 0 ? (unit === 'percent' ? `${cur}％から` : `p.${cur} から`) : '';
     return (
       <section aria-labelledby="home-first-step-title" style={card}>
         <h2 id="home-first-step-title" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          {withPhraseBreaks(back ? '久しぶりに、少し前から 15 分' : 'まずは 15 分だけ読んでみる')}
+          {withPhraseBreaks(resume ? '続きを 15 分だけ' : back ? '久しぶりに、少し前から 15 分' : 'まずは 15 分だけ読んでみる')}
         </h2>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          {withPhraseBreaks(`『${readingBook.title}』・読み終えたら、心に残った 1 行だけ聞きます`)}
+          {/* 行の頭の『は全角の左の空きを詰める（題の左端とそろえる）。中黒でつながず、書名を文の中に入れる。
+              「読み終えたら」は読了と読み分けられないので「15 分たったら」（2026-11-27 ui-critic） */}
+          <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(from ? `${readingBook.title}』を ${from}。15 分たったら、心に残った 1 行だけ聞きます` : `${readingBook.title}』を読んで、15 分たったら心に残った 1 行だけ聞きます`)}
         </p>
         <button type="button" onClick={() => onReadBook(readingBook)} aria-label={`『${readingBook.title}』を 15 分だけ読む`} style={btnPrimary}>15 分だけ読む</button>
       </section>
@@ -127,7 +135,7 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, r
           {withPhraseBreaks('前回読んだところで、覚えている 1 語は？')}
         </h2>
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-          {withPhraseBreaks(`『${readingBook.title}』・1 語で十分です`)}
+          <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(`${readingBook.title}』。1 語で十分です`)}
         </p>
         <button type="button" onClick={() => onWriteMemo(readingBook)} style={btnPrimary}>メモに書く</button>
       </section>

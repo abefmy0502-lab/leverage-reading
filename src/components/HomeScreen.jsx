@@ -662,7 +662,8 @@ export default function HomeScreen({
     if (!focusReadingBook) return null;
     const rows = (Array.isArray(homeSessions) ? homeSessions : []).filter((r) => r.book_id === focusReadingBook.id);
     const lastAt = rows.reduce((mx, r) => Math.max(mx, Date.parse(r.started_at || '') || 0), 0);
-    const mode = !lastAt ? 'read' : Date.now() - lastAt > 14 * 86400000 ? 'back' : 'word';
+    const hasProgress = (Number(focusReadingBook.currentPage ?? focusReadingBook.current_page) || 0) > 0;
+    const mode = !lastAt ? (hasProgress ? 'resume' : 'read') : Date.now() - lastAt > 14 * 86400000 ? 'back' : 'word';
     if (mode !== 'word' && !onReadFirst) return 'word';
     if (mode !== 'word' && moment?.action === 'focus' && moment?.book?.id === focusReadingBook.id) return 'hidden';
     return mode;
