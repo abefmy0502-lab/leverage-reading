@@ -67,7 +67,8 @@ export function useReturnMoment(active, books, waitMs) {
   const [rows, setRows] = useState(() => (userId ? peekAllMemoRows(userId) : null));
   const [timedOut, setTimedOut] = useState(false);
   // 結論まで行かなかった前の相談（2 日以上あけた日だけ読む・いちばん新しい 2 行＝相談と答え）。
-  const backDay = gap != null && gap >= BACK_AFTER_DAYS && !done.has(`back:${today}`);
+  //   はじめて N の日も読む（節目の 1 行の 2 つ目「前の相談の続き」・2026-11-27）。
+  const backDay = (gap != null && gap >= BACK_AFTER_DAYS && !done.has(`back:${today}`)) || (!!ann && !done.has(ann.key));
   const [openConsult, setOpenConsult] = useState(backDay ? undefined : null);
   useEffect(() => {
     if (!active || !backDay || !userId || openConsult !== undefined) return undefined;

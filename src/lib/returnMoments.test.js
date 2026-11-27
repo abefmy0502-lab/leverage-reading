@@ -220,3 +220,28 @@ describe('5 回目の歩き直し（2026-11-27）', () => {
   });
 });
 
+
+describe('6 回目の模擬（2026-11-27）', () => {
+  const dayStr = (n) => jstDay(NOW + n * DAY);
+  it('期限を過ぎた行動を、今日が期限の行動より先に（結果を話す入口を隠さない）', () => {
+    const books = [{ id: 'b', title: 'A', actions: [
+      { text: '今日の分', done: false, deadline: dayStr(0) },
+      { text: '昨日の分', done: false, deadline: dayStr(-1) },
+      { text: '3 日前の分', done: false, deadline: dayStr(-3) },
+    ] }];
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books });
+    expect(m.lead).toBe('期限が来ている行動');
+    expect(m.quote).toBe('「昨日の分」');
+    expect(m.secondary.action).toBe('result');
+  });
+  it('節目の日に止まった相談があれば、2 つ目に「前の相談の続き」（1 年からは「この 1 年を 1 枚に」が 2 つ目）', () => {
+    const memos = [memo('a', 80)];
+    const open = { question: '部下に任せた仕事がいつも遅れる', at: NOW - 3 * DAY };
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(90), prevDay: '2026-11-25', memos, openConsult: open });
+    expect(m.kind).toBe('anniv');
+    expect(m.secondary).toEqual({ action: 'resume', label: '前の相談の続き', question: open.question });
+    expect(m.consultAt).toBe(open.at);
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(90), prevDay: '2026-11-25', memos, openConsult: open, done: new Set([`c:${open.at}`]) }).secondary).toBeUndefined();
+    expect(pickReturnMoment({ now: NOW, createdAt: ago(365), prevDay: '2026-11-25', memos, openConsult: open }).secondary).toBeUndefined();
+  });
+});

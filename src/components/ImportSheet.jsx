@@ -283,6 +283,25 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
     content = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
         {error && <ErrorMessage icon={null} title="取り込めませんでした" description={error} />}
+        {/* パソコンが要る手順（ブクログ・読書メーター・Kindle）を、スマホから自分のパソコンへ送る（2026-11-27）。
+            手順の一覧とは線と見出しで分ける（6 つ目の取り込み元に見えないように）。
+            一覧の上に置く（スマホで開いた人が最初に読むのはブクログの「スマホのアプリからは書き出せません」＝そこで止まらないように・2026-11-27 模擬 6 回目）。 */}
+        {handoffOn && (
+          <section aria-labelledby="import-handoff-title" style={{ borderBottom: '1px solid var(--separator)', paddingBottom: 'var(--space-3)' }}>
+            <p id="import-handoff-title" style={{ ...groupTitle, margin: 0 }}>パソコンが手元に無いとき</p>
+            <p id="import-handoff-desc" style={{ ...body, marginTop: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('手順とコードを、メールやメモで自分のパソコンへ送れます。')}</p>
+            <button type="button" onClick={sendHandoff} aria-describedby="import-handoff-desc" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Share size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
+              <span aria-live="polite">{handoffState === 'copied' ? 'コピーしました。パソコンへ送ってください' : '手順をパソコンへ送る'}</span>
+            </button>
+            {handoffState === 'manual' && (
+              <>
+                <p role="alert" style={{ ...body, color: 'var(--error)', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('この端末ではコピーできませんでした。下の文を長押しで選んでコピーしてください。')}</p>
+                <textarea readOnly rows={6} value={importHandoffText()} aria-label="パソコンへ送る手順" style={{ ...uiInput, resize: 'none', marginTop: 'var(--space-2)', lineHeight: 1.6 }} />
+              </>
+            )}
+          </section>
+        )}
         <ul style={list}>
           <li style={howItem}>
             <p style={howTitle}>ブクログ</p>
@@ -333,24 +352,6 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             <p style={body}>{withPhraseBreaks('書き出した CSV をそのまま選びます。棚・星・読了日・レビューも取り込みます。')}</p>
           </li>
         </ul>
-        {/* パソコンが要る手順（ブクログ・読書メーター・Kindle）を、スマホから自分のパソコンへ送る（2026-11-27）。
-            手順の一覧とは線と見出しで分ける（6 つ目の取り込み元に見えないように）。 */}
-        {handoffOn && (
-          <section aria-labelledby="import-handoff-title" style={{ borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-6)' }}>
-            <p id="import-handoff-title" style={{ ...groupTitle, margin: 0 }}>パソコンが手元に無いとき</p>
-            <p id="import-handoff-desc" style={{ ...body, marginTop: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('手順とコードを、メールやメモで自分のパソコンへ送れます。')}</p>
-            <button type="button" onClick={sendHandoff} aria-describedby="import-handoff-desc" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Share size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
-              <span aria-live="polite">{handoffState === 'copied' ? 'コピーしました。パソコンへ送ってください' : '手順をパソコンへ送る'}</span>
-            </button>
-            {handoffState === 'manual' && (
-              <>
-                <p role="alert" style={{ ...body, color: 'var(--error)', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('この端末ではコピーできませんでした。下の文を長押しで選んでコピーしてください。')}</p>
-                <textarea readOnly rows={6} value={importHandoffText()} aria-label="パソコンへ送る手順" style={{ ...uiInput, resize: 'none', marginTop: 'var(--space-2)', lineHeight: 1.6 }} />
-              </>
-            )}
-          </section>
-        )}
         {largeText && localNote}
       </div>
     );

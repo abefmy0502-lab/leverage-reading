@@ -638,14 +638,21 @@ export default function HomeScreen({
   }, [loading, loadError, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // 集中モードで 2 回以上読んだ読みかけの本（メモ 0 件のホームのカードを問いに替える・HomeFirstStep）。
   const { rows: homeSessions } = useReadingSessions();
-  const focusReadingBook = useMemo(() => {
-    const rows = Array.isArray(homeSessions) ? homeSessions : [];
-    const reading = books.filter((b) => b.status === 'reading' && !b.archivedAt);
-    if (rows.length < 2 || reading.length === 0) return null;
-    const last = [...rows].sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || ''))).find((r) => reading.some((b) => b.id === r.book_id));
-    return last ? reading.find((b) => b.id === last.book_id) : null;
-  }, [homeSessions, books]);
   const moment = returnMoment.moment;
+  // 1 語の問いの本（2026-11-27 模擬 6 回目「集中モードを使わない人には、何日たっても同じ催促が出る」「上の行と別の本を指す」）。
+  //   読書中の本があれば、集中モードを使っていなくても出す。上の 1 行が読書中の本を指していれば、その本にそろえる
+  //   → 無ければ最後に集中モードで読んだ本 → 無ければいちばん最近さわった読書中の本。
+  const focusReadingBook = useMemo(() => {
+    const reading = books.filter((b) => b.status === 'reading' && !b.archivedAt);
+    if (reading.length === 0) return null;
+    const momentId = moment?.book?.id || moment?.memo?.bookId || moment?.bookId || null;
+    const same = momentId ? reading.find((b) => b.id === momentId) : null;
+    if (same) return same;
+    const rows = Array.isArray(homeSessions) ? homeSessions : [];
+    const last = [...rows].sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || ''))).find((r) => reading.some((b) => b.id === r.book_id));
+    if (last) return reading.find((b) => b.id === last.book_id);
+    return [...reading].sort((a, b) => String(b.updated_at || b.updatedAt || '').localeCompare(String(a.updated_at || a.updatedAt || '')))[0];
+  }, [homeSessions, books, moment]);
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === (moment.memo?.bookId || moment.bookId)) || null;
   // 押した先（読み返す＝メモを開く・いまの考えと比べる＝相談の下書き・読み始める＝一覧の「読み始める」と同じ）。押す先が用意されていなければ出さない。
   // 期限が来た行動は、月末の共有の 1 行より先（使う目的が「仕事で使う」人に、共有の案内が行動を押しのけていた・2026-11-26 体験した人の声）。
@@ -787,6 +794,8 @@ export default function HomeScreen({
               // 1 行の 2 つ目（読みたいの本の「本を見る」・期限を過ぎた行動の「やってみた結果を話す」・2026-11-27）
               : moment.secondary?.action === 'open' && momentBook
               ? { label: moment.secondary.label, onClick: () => { returnMoment.close('open'); onOpenBook(momentBook); } }
+              : moment.secondary?.action === 'resume' && onResumeConsult
+              ? { label: moment.secondary.label, onClick: () => { returnMoment.close('open'); track('return_moment', { kind: moment.kind, action: 'resume' }); onResumeConsult(moment.secondary.question); } }
               : moment.secondary?.action === 'result' && onConsultDraft
               ? { label: moment.secondary.label, onClick: () => { returnMoment.close('open'); onConsultDraft(moment.secondary.question, 'moment_result'); } }
               : null}

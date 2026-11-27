@@ -144,11 +144,25 @@ export function dueActionOf(books, now) {
       if (n != null && n <= 0 && n >= -3) list.push({ ...a, bookId: b.id, _n: n });
     }
   }
-  list.sort((x, y) => y._n - x._n || String(x.text).localeCompare(String(y.text)));
+  // 期限を過ぎた行動を、今日が期限の行動より先に（今日の分があると、過ぎた行動と「やってみた結果を話す」が隠れていた・2026-11-27 模擬 6 回目）。
+  //   過ぎた行動の中では、過ぎたばかりのもの（−1 日）から。
+  list.sort((x, y) => (x._n < 0 ? 0 : 1) - (y._n < 0 ? 0 : 1) || y._n - x._n || String(x.text).localeCompare(String(y.text)));
   return list[0] || null;
 }
 
-export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set(), readSeconds = 0, openConsult = null } = {}) {
+// 節目の 1 行（はじめて 1 年より前）に、止まっている相談があれば 2 つ目の「続きを話す」（2026-11-27 模擬 6 回目「90 日目に、止まった相談が隠れる」）。
+export function pickReturnMoment(args = {}) {
+  const m = pickReturnMomentBase(args);
+  const { now, done = new Set(), openConsult = null } = args;
+  if (m && m.kind === 'anniv' && !m.secondary && !(Number(String(m.key || '').split(':')[1]) >= 365)
+    && openConsult && openConsult.question && Number.isFinite(Number(openConsult.at))
+    && !done.has(`c:${openConsult.at}`) && now - Number(openConsult.at) <= OPEN_CONSULT_DAYS * DAY_MS) {
+    return { ...m, consultAt: openConsult.at, secondary: { action: 'resume', label: '前の相談の続き', question: openConsult.question } };
+  }
+  return m;
+}
+
+function pickReturnMomentBase({ now, createdAt = null, prevDay = null, memos = [], bookIds = null, books = null, done = new Set(), readSeconds = 0, openConsult = null } = {}) {
   const today = jstDay(now);
   const own = ownBookMemos(memos, bookIds);
   const ann = anniversaryOf(createdAt, now);
