@@ -175,6 +175,7 @@ import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
 import { storeLinkFor, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
+import { isLocalReminderCapable, isLocalReminderOn, rescheduleLocalReminders } from './lib/localReminder';
 import UpdateBanner from './components/UpdateBanner';
 import { useWhatsNew } from './hooks/useWhatsNew';
 import OfflineNotice from './components/OfflineNotice';
@@ -216,7 +217,7 @@ import BookStoreLinks from './components/BookStoreLinks';
 import { getRakutenLink } from './lib/rakutenLink';
 import { loadNavState, saveNavState } from './lib/navState';
 import { consultCanLeave } from './lib/consultBack';
-import { actionGist, actionResultQuestion, firstConsultQuestion as firstConsultFromMemos } from './lib/consultHelpers';
+import { actionGist, actionResultQuestion, firstConsultQuestion as firstConsultFromMemos, memoConsultQuestion } from './lib/consultHelpers';
 import { appPurposeTextFor, purposeConsultQuestion } from './lib/appPurpose';
 import { peekAllMemoRows, loadAllMemoRows } from './hooks/useAllMemoRows';
 import { takeOnboardPathDone, GROWTH_GOAL } from './lib/firstDay';
@@ -788,6 +789,14 @@ function AuthedApp() {
   const haptic = useHaptic();
   const toast = useToast();
   const confirm = useConfirm();
+  // 🔔📱 端末の中だけの通知（lib/localReminder.js）: 本棚・行動が変わったら、期限の日の朝の通知を置き直す
+  //   （相談から行動を足してそのままアプリを閉じても、明日の朝に届く・2026-11-27 体験した人の声）。
+  //   メモはホームで置いたときのものを使う（ここでは読み直さない）。2 秒まとめて 1 回。
+  useEffect(() => {
+    if (booksLoading || !isLocalReminderCapable() || !isLocalReminderOn()) return undefined;
+    const t = setTimeout(() => { rescheduleLocalReminders({ books: rawBooks }).catch(() => {}); }, 2000);
+    return () => clearTimeout(t);
+  }, [rawBooks, booksLoading]);
   // AI 選書の会話履歴。advisor_sessions テーブル未マイグレーションなら
   // available=false で UI 側が履歴ボタンを隠す。
   const advisorSessions = useAdvisorSessions();
@@ -7028,7 +7037,7 @@ function AuthedApp() {
                     type: 'success',
                     message: '保存しました。',
                     duration: 6000,
-                    action: { label: '相談してみる', onClick: () => openConsultDraft(firstConsultQuestion({ books: [b, ...books.filter((x) => x.id !== b.id)], memoBookIds: new Set([b.id]) }), 'home_memo') },
+                    action: { label: '相談してみる', onClick: () => openConsultDraft(memoConsultQuestion(actionText) || firstConsultQuestion({ books: [b, ...books.filter((x) => x.id !== b.id)], memoBookIds: new Set([b.id]) }), 'home_memo') },
                   }));
                 } else if (actionText && b?.id) {
                   bindToastToBook(b.id, toast.show({

@@ -171,3 +171,14 @@ describe('はじめて 1 年（2026-11-26 3 回目）', () => {
   });
 });
 
+
+describe('節目の言い方（2026-11-27）', () => {
+  it('「はじめて半年」は空けない・メモが無くても 1 年からは読了の冊数', async () => {
+    const { annLead } = await import('./returnMoments');
+    expect(annLead({ label: '半年' })).toBe('orime をはじめて半年。');
+    expect(annLead({ label: '3 か月' })).toBe('orime をはじめて 3 か月。');
+    const books = [{ id: 'r', title: 'R', status: 'reading' }, { id: 'd', title: 'D', status: 'done' }];
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(366), memos: [], books, readSeconds: 3600 });
+    expect(m.lead).toBe('orime をはじめて 1 年。読了 1 冊・これまで 1 時間 読みました。読みかけの本');
+  });
+});

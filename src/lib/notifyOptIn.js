@@ -84,6 +84,6 @@ export function notifyPromptedWithin(ms = 60000, now = Date.now()) {
 // 案内の文: 端末の中だけの通知は、開かなくなったときだけ・行動の期限は届けない（約束と違うことを言わない）。
 export function notifyOptInBody() {
   return isLocalReminderCapable()
-    ? 'しばらく開かなかったときだけ、前に残したメモを多くても週に 1\u00a0回お届けします。通知は設定からいつでもオフにできます。'
+    ? 'しばらく開かなかったときだけ、前に残したメモを多くても週に 1\u00a0回お届けします。行動は期限の日の朝にお知らせします。通知は設定からいつでもオフにできます。'
     : null;
 }

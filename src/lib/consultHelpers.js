@@ -858,8 +858,9 @@ export function actionResultQuestion(actionText, reflection = '') {
 }
 
 // 思い出しカードの「このメモで相談する」: 「メモの一節」と書いたメモを、いまの自分にどう活かせる？
+//   （2026-11-27 から、ホームでメモを書いたあとの「相談してみる」にも使う＝書いたメモと関係ない下書きにしない。頭の「問い：…」の行は外す）
 export function memoConsultQuestion(memoText) {
-  const gist = clip(nestQuotes(memoText), 40);
+  const gist = clip(nestQuotes(String(memoText || '').replace(/^問い[:：][^\n]*\n/, '')), 40);
   if (!gist) return '';
   return `「${gist}」と書いたメモを、いまの自分にどう活かせる？`;
 }

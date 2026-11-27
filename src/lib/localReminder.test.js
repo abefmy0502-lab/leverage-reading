@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false, isPluginAvailable: () => false } }));
-import { planReminders, REMINDER_IDS, REMINDER_HOUR, isLocalReminderCapable } from './localReminder';
+import { planReminders, planDeadlineReminders, REMINDER_IDS, DEADLINE_IDS, REMINDER_HOUR, DEADLINE_HOUR, isLocalReminderCapable } from './localReminder';
 
 const NOW = Date.parse('2026-11-26T03:00:00Z');
 const DAY = 86400000;
@@ -30,3 +30,24 @@ describe('端末の中だけの思い出しの通知（2026-11-26）', () => {
     expect(planReminders({ now: NOW, memos: [], books: [{ id: 'r', title: 'x', status: 'reading' }] })).toEqual([]);
   });
 });
+
+describe('行動の期限の日の朝の通知（2026-11-27）', () => {
+  const ymd = (d) => { const x = new Date(NOW + d * DAY); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  it('期限の日の朝 8 時に 1 通・同じ日はまとめる・終わった行動と過ぎた期限は出さない・近い 3 日まで', () => {
+    const books = [
+      { id: 'a', title: 'A', actions: [{ text: '1on1 で質問から入る', deadline: ymd(1), done: false }, { text: '朝 15 分読む', deadline: ymd(1), done: false }, { text: '済んだ', deadline: ymd(2), done: true }, { text: '昔', deadline: ymd(-2), done: false }] },
+      { id: 'b', title: 'B', actions: [{ text: 'x', deadline: ymd(3) }, { text: 'y', deadline: ymd(4) }, { text: 'z', deadline: ymd(5) }, { text: '遠い', deadline: ymd(20) }] },
+      { id: 'c', title: 'C', archivedAt: '2026-11-01', actions: [{ text: 'しまった本', deadline: ymd(1) }] },
+    ];
+    const plan = planDeadlineReminders({ now: NOW, books });
+    expect(plan.map((p) => p.id)).toEqual(DEADLINE_IDS);
+    expect(plan[0].title).toBe('今日が期限の行動');
+    expect(plan[0].body).toBe('「1on1 で質問から入る」 ほか 1 件');
+    expect(plan[1].body).toBe('「x」');
+    plan.forEach((p) => expect(new Date(p.at).getHours()).toBe(DEADLINE_HOUR));
+  });
+  it('期限の無い行動・行動が無い本では何も置かない', () => {
+    expect(planDeadlineReminders({ now: NOW, books: [{ id: 'a', actions: [{ text: 'x' }] }, { id: 'b' }] })).toEqual([]);
+  });
+});
+

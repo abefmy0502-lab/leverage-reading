@@ -1265,8 +1265,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
           <Group label="通知" ariaLabel="通知">
             {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
-              title={localReminder ? '思い出しの通知' : '思い出しと行動の通知'}
-              desc={localReminder ? 'しばらく開かなかったときだけ、前のメモが夜 8 時ごろに届きます（週 1 回まで）。' : '思い出し（週 1 回まで）と、行動の期限の日の朝 8 時ごろに届きます。'}
+              title="思い出しと行動の通知"
+              desc={localReminder ? 'しばらく開かなかったときだけ前のメモ（週 1 回まで・夜 8 時ごろ）と、行動の期限の日の朝 8 時ごろに届きます。' : '思い出し（週 1 回まで）と、行動の期限の日の朝 8 時ごろに届きます。'}
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch

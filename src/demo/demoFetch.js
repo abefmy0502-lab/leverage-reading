@@ -1067,9 +1067,9 @@ export function installDemoFetch(store) {
           : `今月のトークンは、ここまでです。${nextFirst}に 800 トークンに戻ります。`;
         return json({ error: { message }, error_code: 'monthly_budget_exceeded', ...(tier === 'trial' ? { trial: true } : null) }, 429);
       }
-      // 使った量（目安）: 相談 約 9 トークン・AI 選書 約 20・そのほか 約 3。
+      // 使った量（目安）: 相談 約 3 トークン（Haiku 5.5 の実際＝ANSWER_TOKENS・2026-11-27 に約 9 から）・AI 選書 約 20・そのほか 約 3。
       row.calls += 1;
-      const callMjpy = payload.purpose === 'consult' ? 2760 : payload.purpose === 'book_brief' ? 420 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900;
+      const callMjpy = payload.purpose === 'consult' ? 840 : payload.purpose === 'book_brief' ? 420 : (payload.max_tokens || 0) >= 3000 ? 6000 : 900;
       row.cost_mjpy = (row.cost_mjpy || 0) + callMjpy;
       // 🪙📊 使い道の内訳（api/claude.js の add_ai_purpose_cost と同じ・関係するメモが無かった相談は下で戻す）。
       if (!(aiMode === 'noinfo' && payload.purpose === 'consult')) addDemoPurposeCost(row, payload.purpose, callMjpy);
@@ -1088,7 +1088,7 @@ export function installDemoFetch(store) {
       // &ai=noinfo: 関係するメモが無いと答え、トークンを返す（本番の api/claude.js と同じく message_stop のあとに
       //   orime_token_refund の枠を送る・相談の答えの下の「トークンは使っていません」の確認用）。
       const noInfo = aiMode === 'noinfo' && payload.purpose === 'consult';
-      if (noInfo) { row.calls -= 1; row.cost_mjpy = Math.max(0, (row.cost_mjpy || 0) - 2760); }
+      if (noInfo) { row.calls -= 1; row.cost_mjpy = Math.max(0, (row.cost_mjpy || 0) - 840); }
       const full = noInfo
         ? ['【結論】', 'あなたの読書記録には、このトピックに関する情報がまだありません。このテーマの本を読んだら、心が動いた一行をメモに残すと、ここで答えられるようになります。'].join('\n')
         : aiReply(store, payload, aiMode);

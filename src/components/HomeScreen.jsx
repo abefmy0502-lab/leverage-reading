@@ -26,7 +26,7 @@ import ShareNudge, { useShareNudge } from './ShareNudge';
 import { firstConsultDone, takeMemosReached, growthMeterText, rememberHomeMemoCount, lastHomeMemoCount, showGrowthPlaceholder, grownLinePending, markGrownLineDone, GROWTH_GOAL } from '../lib/firstDay';
 import { displayTitle } from '../lib/bookTitle';
 import { appNow } from '../lib/appNow';
-import { firstConsultQuestion } from '../lib/consultHelpers';
+import { firstConsultQuestion, memoConsultQuestion } from '../lib/consultHelpers';
 import { appPurposeTextFor, purposeConsultQuestion } from '../lib/appPurpose';
 import { useAuth } from '../hooks/useAuth';
 import { usePaywall } from '../state/PaywallContext';
@@ -526,10 +526,12 @@ function useAnnualNudge(active) {
 
 // 🔗 ホームのメモを書くで保存したメモと似たことを、ほかの本でも書いていたら題の下に 1 行（MemoLinks の line・× で閉じる）。
 //   見つからなければ何も出さない（全部のメモを読むのは保存したときだけ）。
-function HomeSavedLinks({ books, saved, onOpen, onDismiss }) {
+// offerNotify: 似たメモが無いときに、思い出しの通知の 1 回だけの案内（自分のメモが 3 件以上・2026-11-26）を出す。
+function HomeSavedLinks({ books, saved, onOpen, onDismiss, offerNotify = false }) {
   const { find } = useMemoLinkFinder({ books, enabled: !!saved });
   const links = useMemo(() => (saved ? find({ text: saved.text, bookId: saved.bookId, memoId: saved.id }) : []), [saved, find]);
-  if (!saved || links.length === 0) return null;
+  if (!saved) return null;
+  if (links.length === 0) return offerNotify ? <NotifyOptInCard where="memo3" primary={false} /> : null;
   return <MemoLinks variant="line" links={links} onOpen={onOpen} onDismiss={onDismiss} />;
 }
 
@@ -607,7 +609,8 @@ export default function HomeScreen({
   // 🌱 育つまでの一行の右の次の一歩（2026-10-20）: はじめての相談の前は「相談してみる」（入れた理由かメモから下書き・送らない）、
   //   相談したあとは「一文をメモする」（メモの無い読んだ本へ・初日クイックスタートの一言の段）。どちらか 1 つだけ。
   const growthAction = !onConsultDraft ? null : !firstConsultDone()
-    ? { label: '相談してみる', onClick: () => { track('home_growth_action', { action: 'consult' }); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'growth'); } }
+    // 書いたばかりのメモがあれば、そのメモから（入れた理由より先＝いま書いた言葉が答えのもとになるのが見える・2026-11-27）。
+    ? { label: '相談してみる', onClick: () => { track('home_growth_action', { action: 'consult' }); onConsultDraft(memoConsultQuestion(savedMemo?.text) || purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'growth'); } }
     : onAddOneLines ? { label: '一文をメモする', onClick: () => { track('home_growth_action', { action: 'one_line' }); onAddOneLines(); } } : null;
   // メモがあるか（はじめの一歩を出すか）。分かるまではスケルトン（カードを遅れて差し込まない・最大 800ms）。
   const memoState = useHomeMemoState(books);
@@ -698,15 +701,16 @@ export default function HomeScreen({
           <GrowthMeter memoCount={memoState.count} action={growthAction} />
         ) : books.length > 0 && showGrown && !(momentShown && actionFirst) ? (
           <GrownLine
+            // 実際の件数で（取り込んだ 240 件の人に「10 件になり」と出していた・2026-11-27 体験した人の声）
+            text={memoState.count != null && memoState.count > GROWTH_GOAL ? `メモが ${memoState.count}\u00a0件になり、相談相手が育ちました` : null}
             onConsult={() => { closeGrown('open'); onConsultDraft(purposeConsultQuestion(appPurposeTextFor(user)) || firstConsultQuestion({ books, memoCount: memoState.count }), 'grown'); }}
             onDismiss={() => closeGrown('dismiss')}
           />
         ) : null}
         {/* 🔗 ホームのメモを書くで保存したメモの似たメモ（題の下の静かな 1 行・2026-10-10）。 */}
-        {homeKnown && books.length > 0 && <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} />}
-        {/* 🔔 思い出しの通知の 1 回だけの案内（2026-11-26 体験した人の声「設定の奥でしか見つからない」）: ホームでメモを保存した直後、
-            自分のメモが 3 件以上になってから（何を思い出させるのかが分かってから）。答えたら・閉じたら他の場所と同じきまりで出さない。 */}
-        {homeKnown && savedMemo && memoState.count != null && memoState.count >= 3 && <NotifyOptInCard where="memo3" primary={false} />}
+        {/* 🔔 思い出しの通知の 1 回だけの案内は、似たメモが無かったときだけ（HomeSavedLinks の中・2026-11-27 体験した人の声
+            「重なりの発見と通知の案内が同時に出て、いちばんいい瞬間が埋もれる」）。 */}
+        {homeKnown && books.length > 0 && <HomeSavedLinks books={books} saved={savedMemo} onOpen={onOpenMemo} onDismiss={onDismissSavedMemo} offerNotify={memoState.count != null && memoState.count >= 3} />}
         {homeKnown && tokensBack.show && (
           <GrownLine
             mark="tokens-back"

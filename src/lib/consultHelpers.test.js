@@ -429,3 +429,10 @@ describe('challengeQuestion（2026-11-22）', () => {
     expect(challengeQuestion('')).toBe('');
   });
 });
+
+describe('memoConsultQuestion の問いの行（2026-11-27）', () => {
+  it('頭の「問い：…」の行は外す', async () => {
+    const { memoConsultQuestion } = await import('./consultHelpers');
+    expect(memoConsultQuestion('問い：明日から何を変える？\n朝 15 分読む')).toBe('「朝 15 分読む」と書いたメモを、いまの自分にどう活かせる？');
+  });
+});

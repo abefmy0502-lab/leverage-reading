@@ -47,6 +47,11 @@ export function dayDiff(fromDay, toDay) {
   return Math.round((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / DAY_MS);
 }
 
+// 「orime をはじめて 3 か月。」（数で始まる区切りだけ前に空き＝「はじめて 半年」と空けない・2026-11-27）
+export function annLead(ann) {
+  return `orime をはじめて${/^\d/.test(String(ann?.label || '')) ? ' ' : ''}${ann?.label || ''}。`;
+}
+
 // 今日が「はじめて N」の 14 日のうちなら { days, label, key }。作った日が読めなければ null。
 export function anniversaryOf(createdAt, now) {
   const t = new Date(createdAt || '').getTime();
@@ -161,24 +166,29 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
       // 1 年からは、この間に積み重ねたもの（読了の冊数・自分のメモの件数）を 1 行に（365 日目に「1 年で何が変わったか」が
       //   無かった・2026-11-26 体験した人の声 3 回目）。数だけ・順位・目標・%・前年比はしない（記録の画面と同じ数え方）。
       const doneCount = (Array.isArray(books) ? books : []).filter((b) => b && b.status === 'done' && !b.archivedAt).length;
-      const yearLine = ann.days >= 365 ? `${[doneCount ? `読了 ${doneCount} 冊` : '', `メモ ${own.length} 件`].filter(Boolean).join('・')}。` : '';
+      // メモの件数は相談の上の行と同じ数え方（自分の言葉のメモ＝学びも入れる・AI のまとめは数えない・2026-11-27 体験した人の声
+      //   「1 年の行は 27 件、相談は 30 件」）。
+      const memoN = (Array.isArray(memos) ? memos : []).filter((m) => m && String(m.text || '').trim() && !isAiWritten(m)).length;
+      const yearLine = ann.days >= 365 ? `${[doneCount ? `読了 ${doneCount} 冊` : '', `メモ ${memoN} 件`].filter(Boolean).join('・')}。` : '';
       if (ann.days >= COMPARE_FROM_DAYS) {
         const excerpt = memoExcerpt(first.text || '', 60).replace(/「/g, '『').replace(/」/g, '』');
         return {
           kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'compare', actionLabel: 'いまの考えと比べる',
-          lead: `orime をはじめて ${ann.label}。${yearLine}${memoLabel}`, quote: momentQuote(first),
+          lead: `${annLead(ann)}${yearLine}${memoLabel}`, quote: momentQuote(first),
           question: `${isFirst ? `${ann.label}前` : (recallFraming(first.createdAt, now) || '前').replace(/に書いたメモ$/, '')}に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
         };
       }
-      return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `orime をはじめて ${ann.label}。${memoLabel}`, quote: momentQuote(first) };
+      return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `${annLead(ann)}${memoLabel}`, quote: momentQuote(first) };
     }
     // メモがまだ無い人（読書の習慣がない人に多い）: 読みかけの本の続き・本棚で待っている本。
     //   読んだ時間があれば「これまで 45 分 読みました」（節目ごとに同じ文にしない・2026-11-26 体験した人の声 2 回目）。
     //   待っている本をもう全部見せていたら（同じ本を何度もすすめない）、いまの悩みで 1 冊探し直す＝AI 選書。
     const pick = fallbackBook(books, done);
     if (!pick) return null;
-    const prefix = `orime をはじめて ${ann.label}。`;
-    const readLine = readSeconds >= 60 ? `これまで ${fmtDuration(readSeconds)} 読みました` : '';
+    const prefix = annLead(ann);
+    // 1 年からは、メモが無くても読了の冊数を（2026-11-27 体験した人の声「メモ 0 件の自分には 1 年でも何も数えられない」）。
+    const doneN = (Array.isArray(books) ? books : []).filter((b) => b && b.status === 'done' && !b.archivedAt).length;
+    const readLine = [ann.days >= 365 && doneN ? `読了 ${doneN} 冊` : '', readSeconds >= 60 ? `これまで ${fmtDuration(readSeconds)} 読みました` : ''].filter(Boolean).join('・');
     // 前の節目でも同じ読みかけの本を出していたら（done の 'r:<id>'）、続きを迫らず、ほかの本に替えてもよいと伝えて 1 冊探す。
     if (pick.mode === 'reading' && done.has(`r:${pick.book.id}`)) {
       return { kind: 'anniv', key: ann.key, label: ann.label, book: pick.book, action: 'advisor', actionLabel: '1 冊探す', lead: `${prefix}${readLine ? `${readLine}。` : ''}合う本に替えてもかまいません`, quote: `『${pick.book.title}』` };

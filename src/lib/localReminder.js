@@ -12,6 +12,7 @@
 //     本棚で待っている本。どちらも無ければ置かない。
 //   - 届く時刻は端末の 20 時（夜の読書の前）。押すとアプリが開き、ホームの「また開いたときの 1 行」が出る。
 //   - APNs の通知を使うビルド（VITE_NATIVE_PUSH=on）では使わない（2 重に届けない）。
+//   - 行動の期限の日の朝 8 時にも 1 通（2026-11-27・planDeadlineReminders）。
 //
 // ⚠️ Capacitor の部品は Promise で返さない（箱 { plugin } で返す・capacitorPluginBox.test.js）。
 
@@ -19,10 +20,18 @@ import { Capacitor } from '@capacitor/core';
 import { NATIVE_PUSH_ON } from './nativePush';
 import { pickRecallMemo, pickFallbackMemo, memoExcerpt, isAiWritten } from './recall';
 
+const ALL_IDS = () => [...REMINDER_IDS, ...DEADLINE_IDS];
+
 export const LOCAL_REMINDER_KEY = 'orime.localReminder.v1';
 export const REMINDER_IDS = [7101, 7102, 7103];
 export const REMINDER_AFTER_DAYS = [3, 10, 24];
 export const REMINDER_HOUR = 20;
+// 🎯 行動の期限の通知（2026-11-27 体験した人の声「行動を決めても、アプリの外から呼び戻すものが無い」）:
+//   期限の日の朝 8 時に 1 通（APNs の期限の通知と同じ約束・期限の日ごとにまとめる・近い 3 日まで・14 日先まで）。
+//   本棚や行動が変わるたびに置き直す＝完了した行動・消した行動には届かない。
+export const DEADLINE_IDS = [7111, 7112, 7113];
+export const DEADLINE_HOUR = 8;
+export const DEADLINE_AHEAD_DAYS = 14;
 
 let available = null;
 // この端末で使えるか（iPhone のアプリ・部品が入っている・APNs の通知を使わないビルド）。
@@ -74,7 +83,7 @@ export async function disableLocalReminder() {
   if (!isLocalReminderCapable()) return;
   try {
     const { plugin: LN } = await loadLN();
-    await LN.cancel({ notifications: REMINDER_IDS.map((id) => ({ id })) });
+    await LN.cancel({ notifications: ALL_IDS().map((id) => ({ id })) });
   } catch { /* ignore */ }
 }
 
@@ -110,21 +119,50 @@ export function planReminders({ now = Date.now(), memos = [], books = [] } = {})
   return out;
 }
 
-// アプリを開いたとき: 先の予定を消して置き直す（開いている人には届かない）。オンでなければ何もしない。
-export async function rescheduleLocalReminders({ memos = [], books = [], now = Date.now() } = {}) {
+// 期限の日の朝の通知（純関数・テストあり）。books: [{ id, title, archivedAt?, actions: [{ text, deadline 'YYYY-MM-DD', done }] }]
+export function planDeadlineReminders({ now = Date.now(), books = [] } = {}) {
+  const byDay = new Map();
+  for (const b of Array.isArray(books) ? books : []) {
+    if (!b || b.archivedAt) continue;
+    for (const a of Array.isArray(b.actions) ? b.actions : []) {
+      const text = String(a?.text || '').trim();
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(a?.deadline || ''));
+      if (!a || a.done || !text || !m) continue;
+      const at = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), DEADLINE_HOUR, 0, 0, 0).getTime();
+      if (!(at > now) || at - now > DEADLINE_AHEAD_DAYS * 86400000) continue;
+      const list = byDay.get(at) || [];
+      list.push(text);
+      byDay.set(at, list);
+    }
+  }
+  return [...byDay.entries()].sort((x, y) => x[0] - y[0]).slice(0, DEADLINE_IDS.length).map(([at, texts], i) => ({
+    id: DEADLINE_IDS[i], at, kind: 'deadline', title: '今日が期限の行動',
+    body: `「${memoExcerpt(texts[0], 60)}」${texts.length > 1 ? ` ほか ${texts.length - 1} 件` : ''}`,
+  }));
+}
+
+// 直前に置いたときのメモ（本棚や行動が変わったときに、メモを読み直さずに置き直す）
+let lastMemos = null; // null＝この回はまだメモを読んでいない（メモの通知には触らない）
+
+// アプリを開いたとき・本棚や行動が変わったとき: 先の予定を消して置き直す（開いている人には届かない）。オンでなければ何もしない。
+//   memos を渡さなければ、直前に置いたときのメモを使う。
+export async function rescheduleLocalReminders({ memos = null, books = [], now = Date.now() } = {}) {
   if (!isLocalReminderCapable() || !isLocalReminderOn()) return false;
+  if (Array.isArray(memos)) lastMemos = memos;
   try {
     const { plugin: LN } = await loadLN();
     const perm = await LN.checkPermissions();
     if (perm?.display !== 'granted') return false;
-    await LN.cancel({ notifications: REMINDER_IDS.map((id) => ({ id })) }).catch(() => {});
-    const plan = planReminders({ now, memos, books });
+    // メモをまだ読んでいない回（ホームを開く前に本棚が変わった）は、期限の通知だけを置き直す（前に置いたメモの通知を消さない）。
+    const memosKnown = Array.isArray(lastMemos);
+    await LN.cancel({ notifications: (memosKnown ? ALL_IDS() : DEADLINE_IDS).map((id) => ({ id })) }).catch(() => {});
+    const plan = [...(memosKnown ? planReminders({ now, memos: lastMemos, books }) : []), ...planDeadlineReminders({ now, books })];
     if (!plan.length) return true;
     await LN.schedule({
       notifications: plan.map((p) => ({
         id: p.id, title: p.title, body: p.body,
         schedule: { at: new Date(p.at), allowWhileIdle: true },
-        extra: { url: '/', kind: `local_${p.kind}` },
+        extra: { url: p.kind === 'deadline' ? '/?tab=review&sub=action' : '/', kind: `local_${p.kind}` },
       })),
     });
     return true;
