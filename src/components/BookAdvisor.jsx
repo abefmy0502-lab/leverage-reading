@@ -146,6 +146,17 @@ const ADVISOR_EXAMPLES = [
   '仕事を抱えすぎて、いつも時間が足りない。読むならどの本？',
   'お金の不安を減らしたい。最初に読む 1 冊は？',
 ];
+// まだ読み終えた本が無い人には、読む習慣をつける例を先に（仕事の悩みと読んだ本を前提にしない・2026-11-27 模擬 6 回目
+//   「読書習慣の無い人の入口が、仕事の悩みばかり」）。数は 3 つのまま。
+export const ADVISOR_EXAMPLES_NEW_READER = [
+  '本を読む習慣をつけたい。薄くて読みやすい 1 冊は？',
+  '人前で話すのが苦手。おすすめの本は？',
+  '仕事を抱えすぎて、いつも時間が足りない。読むならどの本？',
+];
+export function advisorExamplesFor(books) {
+  const doneCount = (Array.isArray(books) ? books : []).filter((b) => b && b.status === 'done' && !b.archivedAt).length;
+  return doneCount === 0 ? ADVISOR_EXAMPLES_NEW_READER : ADVISOR_EXAMPLES;
+}
 // 空の画面の見出しと説明・入力欄の案内（相談の「困っていることを、相談してください」と書く場所を迷わせない）。
 export const ADVISOR_START_TITLE = '次に読む本を探す';
 export const ADVISOR_START_LEAD = '悩みに合う、まだ読んでいない本を選びます';
@@ -1987,7 +1998,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
       {showConcernInput && !showErrorState && !(freeMode && poolOut) && (
         <div className="example-chips example-chips--stack" style={{ marginTop: showStartHeading ? 'var(--space-6)' : 'var(--space-2)' }}>
           <p className="example-chips-label">たとえば</p>
-          {ADVISOR_EXAMPLES.map((ex) => (
+          {advisorExamplesFor(books).map((ex) => (
             <button
               type="button"
               key={ex}
