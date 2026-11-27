@@ -5,7 +5,7 @@
 // 読み取りは端末の中だけ（AI も外部送信も使わない）。保存は App の onImport（重複は既存の本に足す）。
 // 見た目は DESIGN.md のトークンのみ。主ボタンは各段で 1 つ。
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { FileUp, BookOpen, ClipboardPaste } from 'lucide-react';
+import { FileUp, BookOpen, ClipboardPaste, Share } from 'lucide-react';
 import MiniCover from './MiniCover';
 import { Chip } from './formPrimitives';
 import BottomSheet from './BottomSheet';
@@ -13,10 +13,12 @@ import { useConfirm } from './ConfirmDialog';
 import ErrorMessage from './ErrorMessage';
 import NotifyOptInCard from './NotifyOptInCard';
 import { withPhraseBreaks } from './TightBubble';
-import { btnPrimary, btnPrimaryOff, btnLink } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnLink, groupTitle } from '../styles/ui';
 import { resolveListBooks, setGuessedStatus, hasNotes } from '../lib/importLookup';
 import { BOOKMETER_BOOKMARKLET } from '../lib/bookmeterBookmarklet';
 import { KINDLE_BOOKMARKLET } from '../lib/kindleBookmarklet';
+import { importHandoffText } from '../lib/importHandoff';
+import { shareReferral } from '../lib/referral';
 import { searchBooksOnServer } from '../lib/bookSearch';
 import { input as uiInput } from '../styles/ui';
 import { autoGrowTextarea } from '../hooks/useComposerHeight';
@@ -188,6 +190,19 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
   const copyBookmarklet = async () => {
     try { await navigator.clipboard.writeText(BOOKMETER_BOOKMARKLET); setCopied(true); track('import_bookmarklet_copied', {}); } catch { setCopied(false); }
   };
+  // 💻 パソコンで続ける（2026-11-27・lib/importHandoff.js）: 手順と 2 つのコードを共有シートで自分のパソコンへ。無ければコピー。
+  //   コピーもできなければ、読むだけの欄に文を出して長押しで選んでもらう（黙って失敗しない・ui-critic）。
+  //   パソコン（細かく指せる・hover できる）では出さない＝そこではもう手順どおりに進める。
+  const [handoffState, setHandoffState] = useState(''); // '' | 'copied' | 'manual'
+  const handoffOn = useMemo(() => {
+    try { return !window.matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return true; }
+  }, []);
+  const sendHandoff = async () => {
+    track('import_handoff', { action: 'open' });
+    const text = importHandoffText();
+    if (await shareReferral(text)) return;
+    try { await navigator.clipboard.writeText(text); setHandoffState('copied'); } catch { setHandoffState('manual'); }
+  };
   // Kindle のノートブックの全部の本を 1 回で保存するコードをコピー（2026-11-26・lib/kindleBookmarklet.js）。
   const [kindleCopied, setKindleCopied] = useState(false);
   const copyKindleBookmarklet = async () => {
@@ -318,6 +333,24 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             <p style={body}>{withPhraseBreaks('書き出した CSV をそのまま選びます。棚・星・読了日・レビューも取り込みます。')}</p>
           </li>
         </ul>
+        {/* パソコンが要る手順（ブクログ・読書メーター・Kindle）を、スマホから自分のパソコンへ送る（2026-11-27）。
+            手順の一覧とは線と見出しで分ける（6 つ目の取り込み元に見えないように）。 */}
+        {handoffOn && (
+          <section aria-labelledby="import-handoff-title" style={{ borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-6)' }}>
+            <p id="import-handoff-title" style={{ ...groupTitle, margin: 0 }}>パソコンが手元に無いとき</p>
+            <p id="import-handoff-desc" style={{ ...body, marginTop: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('手順とコードを、メールやメモで自分のパソコンへ送れます。')}</p>
+            <button type="button" onClick={sendHandoff} aria-describedby="import-handoff-desc" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Share size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
+              <span aria-live="polite">{handoffState === 'copied' ? 'コピーしました。パソコンへ送ってください' : '手順をパソコンへ送る'}</span>
+            </button>
+            {handoffState === 'manual' && (
+              <>
+                <p role="alert" style={{ ...body, color: 'var(--error)', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('この端末ではコピーできませんでした。下の文を長押しで選んでコピーしてください。')}</p>
+                <textarea readOnly rows={6} value={importHandoffText()} aria-label="パソコンへ送る手順" style={{ ...uiInput, resize: 'none', marginTop: 'var(--space-2)', lineHeight: 1.6 }} />
+              </>
+            )}
+          </section>
+        )}
         {largeText && localNote}
       </div>
     );
