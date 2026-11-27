@@ -54,7 +54,8 @@ describe('3 つの型 × 8 つの日（ホームの また開いたときの 1 �
     for (const p of ['little', 'lot']) {
       const r = walk(p);
       expect(r[1]).toBe(null);
-      for (const d of [3, 5, 7]) expect(r[d]).toBe('back:read');
+      // メモ 2 件の少し読む人は、7 日目にはもう見せたメモしか無い＝同じメモを繰り返さず読みかけの本の続きを 15 分（2026-11-27）
+      for (const d of [3, 5, 7]) expect(r[d]).toBe(p === 'little' && d === 7 ? 'back:focus' : 'back:read');
       expect(r[30]).toBe('anniv:read');
       for (const d of [90, 180, 365]) expect(r[d]).toBe('anniv:compare');
     }
@@ -62,8 +63,8 @@ describe('3 つの型 × 8 つの日（ホームの また開いたときの 1 �
   it('読書の習慣がない人（読みたいの本 1 冊・メモ 0 件）にも、3 日目から毎回なにかが出て、節目に同じ本をくり返さない', () => {
     const r = walk('none');
     expect(r[1]).toBe(null);
-    // 読みたいの本は手元に無いかもしれない＝本の詳細へ
-    for (const d of [3, 5, 7]) expect(r[d]).toBe('back:open');
+    // 読みたいの本は「手元にあれば読む」（2 つ目に「本を見る」）
+    for (const d of [3, 5, 7]) expect(r[d]).toBe('back:focus');
     // 3〜7 日目にもう見せた本は節目ですすめ直さず、いまの悩みで 1 冊探す
     for (const d of [30, 90, 180, 365]) expect(r[d]).toBe('anniv:advisor');
   });

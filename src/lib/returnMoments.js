@@ -18,6 +18,7 @@
 
 import { pickRecallMemo, pickFallbackMemo, recallFraming, memoExcerpt, isAiWritten } from './recall';
 import { daysUntilDeadline } from './homeActions';
+import { actionResultQuestion, memoConsultQuestion } from './consultHelpers';
 import { fmtDuration } from './readingTime';
 
 const DAY_MS = 86400000;
@@ -118,7 +119,9 @@ function bookMoment({ kind, key, label = null, prefix = '', pick, readLine = '' 
   const name = mode === 'reading' ? '読みかけの本' : mode === 'want' ? '読みたい本' : '本棚で待っている本';
   // 読んだ時間と本の種類は分けて書く（その本を 15 時間読んだように見えない・2026-11-26 体験した人の声 3 回目）
   const lead = readLine ? `${prefix}${readLine}。${name}` : `${prefix}${name}`;
-  if (mode === 'want') return { kind, key, label, book, action: 'open', actionLabel: '本を見る', lead, quote: `『${book.title}』` };
+  // 読みたいの本は手元に無いかもしれない: 主は「手元にあれば読む」（読み始めて 15 分）・2 つ目に「本を見る」（書店・積読に積む）
+  //   （本を見るだけでは、手元にある人も読み始める段まで進まなかった・2026-11-27 体験した人の声 5 回目）。
+  if (mode === 'want') return { kind, key, label, book, action: 'focus', actionLabel: '手元にあれば読む', secondary: { action: 'open', label: '本を見る' }, lead, quote: `『${book.title}』` };
   return { kind, key, label, book, action: 'focus', actionLabel: mode === 'reading' ? '続きを 15 分' : '15 分だけ読む', lead, quote: `『${book.title}』` };
 }
 
@@ -157,6 +160,8 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
     return {
       kind: 'action', key: actKey, action: 'actions', actionLabel: '行動を開く', bookId: due.bookId,
       lead: due._n === 0 ? '今日が期限の行動' : '期限が来ている行動', quote: `「${memoExcerpt(due.text, 40)}」`,
+      // 期限を過ぎた行動は「やってみた結果を話す」も（相談 → 行動 → 相談の輪をホームで閉じる・2026-11-27 体験した人の声 5 回目）
+      ...(due._n < 0 ? { secondary: { action: 'result', label: 'やってみた結果を話す', question: actionResultQuestion(due.text) } } : null),
     };
   }
   // 前に 1 行で見せたメモ（done の 'm:<id>'）は、ほかに候補があれば選ばない（3 日目と 7 日目に同じメモを出さない・2026-11-26 体験した人の声）。
@@ -230,6 +235,18 @@ export function pickReturnMoment({ now, createdAt = null, prevDay = null, memos 
     const seed = Number(today.replace(/-/g, '')) || 0;
     // 思い出しカードと同じ選び方。まだ若いメモしか無い人（はじめて数日）は、1 日以上前のメモから。
     const fresh = own.filter((m) => !seen(m));
+    // まだ見せていないメモが尽きたら（メモが少ない人）、同じメモを繰り返さず: 読みかけの本があれば続きを 15 分、
+    //   無ければいちばん新しいメモで相談の下書き（2026-11-27 体験した人の声 5 回目「メモ 3 件の人は数回で出すものが尽きる」）。
+    if (!fresh.length) {
+      const pick = fallbackBook(books, done);
+      if (pick?.mode === 'reading') return bookMoment({ kind: 'back', key: backKey, prefix: gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。' : '', pick });
+      const newest = [...own].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      const q = memoConsultQuestion(newest.text);
+      if (q) {
+        return { kind: 'back', key: backKey, action: 'compare', actionLabel: '相談してみる', question: q, bookId: newest.bookId,
+          lead: `${gap >= WELCOME_AFTER_DAYS ? 'おかえりなさい。' : ''}メモ ${own.length} 件から、いまの悩みを相談`, quote: momentQuote(newest) };
+      }
+    }
     const pool = fresh.length ? fresh : own;
     const memo = pickRecallMemo(pool, { now, minAgeDays: 2, seed }) || pickFallbackMemo(pool, { now, minAgeDays: 1, seed });
     if (!memo) return null;

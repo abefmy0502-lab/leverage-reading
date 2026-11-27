@@ -770,11 +770,16 @@ export default function HomeScreen({
             text={<><span data-lead style={{ display: 'block', paddingRight: 'var(--tap-min)' }}>{withPhraseBreaks(moment.lead)}</span>{moment.quote ? <span style={{ display: 'block', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.6, color: 'var(--text)' }}>{withPhraseBreaks(moment.quote)}</span> : null}</>}
             actionLabel={moment.actionLabel}
             // 読み上げは本の名前つき（同じ画面の一覧の「『書名』を読み始める」と見分ける・ui-critic）
-            actionAria={!momentBook ? (moment.action === 'advisor' ? 'いまの悩みに合う本を AI 選書で 1 冊探す' : moment.action === 'resume' ? '前の相談の続きを話す' : null) : moment.action === 'focus' ? `『${momentBook.title}』を${moment.actionLabel === '続きを 15 分' ? '続きから' : ''} 15 分だけ読む` : moment.action === 'open' ? `『${momentBook.title}』を開く` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
+            actionAria={!momentBook ? (moment.action === 'advisor' ? 'いまの悩みに合う本を AI 選書で 1 冊探す' : moment.action === 'resume' ? '前の相談の続きを話す' : null) : moment.action === 'focus' ? (moment.actionLabel === '手元にあれば読む' ? `『${momentBook.title}』が手元にあれば読む` : `『${momentBook.title}』を${moment.actionLabel === '続きを 15 分' ? '続きから' : ''} 15 分だけ読む`) : moment.action === 'open' ? `『${momentBook.title}』を開く` : moment.action === 'read' ? `『${momentBook.title}』のメモを読み返す` : null}
             onConsult={() => { returnMoment.close('open'); momentGo(); }}
             // はじめて 1 年（以後毎年）は「この 1 年を 1 枚に」＝写真で共有の「この 1 年」（はじめてからいままで・2026-11-27 体験した人の声）
             secondary={moment.kind === 'anniv' && Number(String(moment.key || '').split(':')[1]) >= 365 && onShareNudge && user?.created_at
               ? { label: 'この 1 年を 1 枚に', onClick: () => { track('return_moment', { kind: 'anniv', action: 'share' }); onShareNudge('year', { since: new Date(user.created_at).getTime() }); } }
+              // 1 行の 2 つ目（読みたいの本の「本を見る」・期限を過ぎた行動の「やってみた結果を話す」・2026-11-27）
+              : moment.secondary?.action === 'open' && momentBook
+              ? { label: moment.secondary.label, onClick: () => { returnMoment.close('open'); onOpenBook(momentBook); } }
+              : moment.secondary?.action === 'result' && onConsultDraft
+              ? { label: moment.secondary.label, onClick: () => { returnMoment.close('open'); onConsultDraft(moment.secondary.question, 'moment_result'); } }
               : null}
             onDismiss={() => returnMoment.close('dismiss')}
           />

@@ -77,10 +77,11 @@ describe('pickReturnMoment', () => {
     expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [] })).toBe(null);
     expect(pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [bk('d', 'done', 1)] })).toBe(null);
   });
-  it('読みたいの本は手元に無いかもしれない＝「本を見る」で本の詳細へ（すぐ読ませない）', () => {
+  it('読みたいの本は「手元にあれば読む」と、2 つ目に「本を見る」（手元に無いかもしれない）', () => {
     const m = pickReturnMoment({ now: NOW, createdAt: ago(31), memos: [], books: [{ id: 'w1', title: 'W', status: 'want' }] });
-    expect(m.action).toBe('open');
-    expect(m.actionLabel).toBe('本を見る');
+    expect(m.action).toBe('focus');
+    expect(m.actionLabel).toBe('手元にあれば読む');
+    expect(m.secondary).toEqual({ action: 'open', label: '本を見る' });
     expect(m.lead).toBe('orime をはじめて 1 か月。読みたい本');
   });
   it('読み始めてメモがまだ無い人には、読みかけの本の「続きを 15 分」（戻ってきても何も出ていなかった）', () => {
@@ -200,3 +201,22 @@ describe('前の相談の続き（2026-11-27）', () => {
     expect(pickReturnMoment({ now: NOW, createdAt: ago(60), prevDay: '2026-11-25', memos, openConsult: open })).toBe(null);
   });
 });
+
+describe('5 回目の歩き直し（2026-11-27）', () => {
+  const day = (n) => new Date(NOW + n * DAY).toISOString().slice(0, 10);
+  it('期限を過ぎた行動には「やってみた結果を話す」（今日が期限なら出さない）', () => {
+    const past = pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books: [{ id: 'b', title: 'A', actions: [{ text: '朝 15 分読む', done: false, deadline: day(-2) }] }] });
+    expect(past.secondary.action).toBe('result');
+    expect(past.secondary.question).toContain('朝 15 分読む');
+    const today = pickReturnMoment({ now: NOW, createdAt: ago(10), prevDay: '2026-11-25', memos: [], books: [{ id: 'b', title: 'A', actions: [{ text: 'x', done: false, deadline: day(0) }] }] });
+    expect(today.secondary).toBeUndefined();
+  });
+  it('見せていないメモが尽きたら、読みかけの本が無ければいちばん新しいメモで相談の下書き', () => {
+    const memos = [memo('a', 40), memo('b', 20)];
+    const m = pickReturnMoment({ now: NOW, createdAt: ago(60), prevDay: '2026-11-23', memos, books: [{ id: 'b1', title: 'B', status: 'done' }], done: new Set(['m:a', 'm:b']) });
+    expect(m.action).toBe('compare');
+    expect(m.lead).toBe('メモ 2 件から、いまの悩みを相談');
+    expect(m.question).toContain('メモ b の本文');
+  });
+});
+

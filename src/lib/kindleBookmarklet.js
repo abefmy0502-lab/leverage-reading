@@ -4,6 +4,8 @@
 //   ノートブックのページから、左の本の一覧を読み、1 冊ずつハイライトとメモを読む（0.8 秒あけて・Amazon に負担をかけない）。
 //   保存するのは Kindle アプリの「エクスポート」と同じ形の HTML（.bookTitle・.authors・.noteHeading・.noteText）を
 //   本の数だけ並べたもの＝orime は今の読み取り（parseKindleNotebookHtml・何冊でも読める）で読む。外には何も送らない。
+//   本ごとの「最後にハイライトした日」（左の一覧の日付）も data-date に残す＝メモの日付と読了の日の目安（2026-11-27 体験した人の声
+//   「取り込んだハイライトが全部取り込んだ日になる」）。
 //   ⚠️ Amazon のページの作りが変わると読めなくなる。読めなかった本は数えて知らせる（黙って欠けさせない）。
 
 const CODE = `(async()=>{
@@ -15,6 +17,7 @@ if(!lib.length){alert('本の一覧が見つかりませんでした。ログイ
 let out='';let books=0;let notes=0;let failed=0;
 for(const el of lib){
 const asin=el.id;const title=txt(el.querySelector('h2'));const author=txt(el.querySelector('p')).replace(/^(著者|By)\\s*[:：]\\s*/i,'');
+const dv=(el.querySelector('input[id^="kp-notebook-annotated-date"]')||{}).value||'';const jd=dv.match(/(\\d{4})年(\\d{1,2})月(\\d{1,2})日/);const pd=jd?jd[1]+'-'+jd[2].padStart(2,'0')+'-'+jd[3].padStart(2,'0'):(Date.parse(dv.replace(/^[A-Za-z]+,?\\s*/,''))?new Date(Date.parse(dv.replace(/^[A-Za-z]+,?\\s*/,''))).toISOString().slice(0,10):'');
 if(!asin||!title)continue;
 let token='';let state='';let part='';let ok=true;
 for(let p=0;p<40;p++){
@@ -34,7 +37,7 @@ if(!token)break;
 await new Promise(s=>setTimeout(s,800));
 }
 if(!ok)failed++;
-if(part){out+='<div class="bookTitle">'+esc(title)+'</div><div class="authors">'+esc(author)+'</div>'+part;books++;}
+if(part){out+='<div class="bookTitle"'+(pd?' data-date="'+pd+'"':'')+'>'+esc(title)+'</div><div class="authors">'+esc(author)+'</div>'+part;books++;}
 document.title='orime に保存中… '+books+' 冊';
 await new Promise(s=>setTimeout(s,800));
 }

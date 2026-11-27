@@ -275,6 +275,13 @@ function parseKindleNotebookOne(html) {
   const title = pick('bookTitle');
   const author = pick('authors');
   if (!title) return { source: 'kindle', books: [] };
+  // 全部の本を 1 回で保存したファイル（lib/kindleBookmarklet.js）は、本ごとに最後にハイライトした日を data-date に持つ。
+  //   メモの日付にし、30 日より前なら読了の日の目安にもする（30 日以内は読書中＝My Clippings と同じ決まり・2026-11-27）。
+  const dm = s.match(/class=["']bookTitle["'][^>]*data-date=["'](\d{4}-\d{2}-\d{2})["']|data-date=["'](\d{4}-\d{2}-\d{2})["'][^>]*class=["']bookTitle["']/i);
+  const lastDate = dm ? (dm[1] || dm[2]) : '';
+  const lastMs = lastDate ? Date.parse(`${lastDate}T12:00:00+09:00`) : NaN;
+  const createdAt = Number.isFinite(lastMs) ? `${lastDate}T12:00:00+09:00` : null;
+  const recent = Number.isFinite(lastMs) && Date.now() - lastMs < 30 * 86400000;
   const memos = [];
   const re = /class=["']noteHeading["'][^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class=["']noteText["'][^>]*>([\s\S]*?)<\/(?:div|h3)>/gi;
   let m;
@@ -283,9 +290,9 @@ function parseKindleNotebookOne(html) {
     const text = clean(decodeEntities(m[2]), 4000);
     if (!text || memos.some((x) => x.text === text)) continue;
     const page = Number((heading.match(/(?:ページ|Page)\s*(\d+)/i) || [])[1]) || null;
-    memos.push({ text, page, createdAt: null });
+    memos.push({ text, page, createdAt });
   }
-  return { source: 'kindle', books: [{ title, author, isbn: '', status: 'done', statusGuessed: true, rating: 0, doneDate: '', tags: [], review: '', memos }] };
+  return { source: 'kindle', books: [{ title, author, isbn: '', status: recent ? 'reading' : 'done', statusGuessed: true, rating: 0, doneDate: createdAt && !recent ? lastDate : '', tags: [], review: '', memos }] };
 }
 
 // ── 読書メーター（2026-09-29）────────────────────────────────────────

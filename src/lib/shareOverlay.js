@@ -105,6 +105,8 @@ export function readingStatValue(sec) {
   const h = Math.floor(m / 60);
   const r = m % 60;
   if (!h) return `${r}分`;
+  // 10 時間からは時間だけ（「15時間20分」は単位が小さく描かれるので「15 20」＝時刻に見えた・2026-11-27 体験した人の声）
+  if (h >= 10) return `${h}時間`;
   return r ? `${h}時間${r}分` : `${h}時間`;
 }
 function pushReadingStat(stats, readingSec) {
