@@ -148,6 +148,8 @@ export function verifyRefLine(rawLine, sources) {
     memoId: m?.card && m.id ? String(m.id) : '',
     bookId: m?.book_id ? String(m.book_id) : '',
     createdAt: m?.created_at ? String(m.created_at).slice(0, 10) : '',
+    // 読書準備（読む前に書いた 仮説・得たいこと など）の種別。答えの下の見出しを「読む前の仮説」にする（2026-11-27）
+    prep: m?.prep ? String(m.prep) : '',
   });
   const cands = candidatesFor(line, sources || []);
   // 渡したメモに無い本・学び → 出さない（'x'）
@@ -284,7 +286,7 @@ export function verifyAnswerQuotes(body, sources) {
         const v = verifyRefLine(l, sources);
         // u: 学びの行（書名が無い）・d: 一致した学びの記録日（見出し「自分の学び（M月D日）」用）
         // i: 一致したカード式のメモの id・b: その本の id・c: そのメモの記録日（本を探す問いの答えの行・2026-09-30）
-        out.push({ k: 'r', t: v.title, p: v.page, s: v.status, x: v.memo, l: v.line, ...(v.personal ? { u: 1 } : null), ...(v.date ? { d: v.date } : null), ...(v.memoId ? { i: v.memoId } : null), ...(v.bookId ? { b: v.bookId } : null), ...(v.createdAt ? { c: v.createdAt } : null) });
+        out.push({ k: 'r', t: v.title, p: v.page, s: v.status, x: v.memo, l: v.line, ...(v.personal ? { u: 1 } : null), ...(v.date ? { d: v.date } : null), ...(v.memoId ? { i: v.memoId } : null), ...(v.bookId ? { b: v.bookId } : null), ...(v.createdAt ? { c: v.createdAt } : null), ...(v.prep ? { q: v.prep } : null) });
       });
     } else if (/本ごと/.test(name)) {
       let cur = null;

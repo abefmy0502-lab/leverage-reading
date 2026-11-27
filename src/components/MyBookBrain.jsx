@@ -1316,7 +1316,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   相談相手・初日の下書き・使い切りが変わったときだけ作り直す。
   const examplesKey = `${scopeIds.join(',')}|${firstDayDraft || ''}|${freeUsedUp ? 1 : 0}`;
   const shownExamplesRef = useRef({ key: null, list: null });
-  if (memoStatsLoaded && shownExamplesRef.current.key !== examplesKey) {
+  //   メモのある本の一覧も分かってから固定する（分かる前の例が、メモの無い本の「…の学びで」のまま残っていた・2026-11-27）。
+  const memoBooksKnown = memoBookIds != null || !user || !isSupabaseConfigured;
+  if (memoStatsLoaded && memoBooksKnown && shownExamplesRef.current.key !== examplesKey) {
     shownExamplesRef.current = { key: examplesKey, list: introExamples };
   }
   const shownExamples = shownExamplesRef.current.list || introExamples;
@@ -4283,7 +4285,10 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
     if (!spot) return null;
     const ago = spot.c ? consultAgoLabel(spot.c) : '';
     const headTitle = spot.t ? `『${spot.t}』` : spot.u ? '自分の学び' : '';
-    const headTail = [spot.p != null ? `p.${spot.p}` : '', ago ? `${ago}のあなた` : 'あなたのメモ'].filter(Boolean).join(' · ');
+    // 読書準備（読む前に書いた仮説など）は「読む前の仮説」（本から学んだメモに見せない・2026-11-27 オーナー「まだメモも何も入れていないのに」）
+    const headTail = spot.q
+      ? [`読む前の${spot.q}`, ago].filter(Boolean).join(' · ')
+      : [spot.p != null ? `p.${spot.p}` : '', ago ? `${ago}のあなた` : 'あなたのメモ'].filter(Boolean).join(' · ');
     const head = [headTitle, headTail].filter(Boolean).join(' · ');
     const bookId = spot.b || null;
     const open = bookId && onOpenBook ? () => onOpenBook(bookId, spot.i || undefined) : null;

@@ -220,3 +220,13 @@ describe('hasGroundedEvidence（根拠を 1 件でも確かめられたか・202
     expect(hasGroundedEvidence([], [])).toBe(false);
   });
 });
+
+describe('読書準備の引用は「読む前の…」と分かる印を残す（2026-11-27）', () => {
+  it('仮説の行に一致したら q に種別', async () => {
+    const { verifyRefLine } = await import('./evidenceCheck');
+    const sources = [{ title: '確率思考の戦略論', page: null, created_at: '2026-11-20', personal: false, card: false, prep: '仮説', id: 'x', book_id: 'b1', text: '市場の構造を数学的に可視化すれば、感覚に頼っていた戦略の勝率を客観的に高められるのでは。' }];
+    const v = verifyRefLine('『確率思考の戦略論』「市場の構造を数学的に可視化すれば、感覚に頼っていた戦略の勝率を客観的に高められるのでは。」', sources);
+    expect(v.status).toBe('ok');
+    expect(v.prep).toBe('仮説');
+  });
+});

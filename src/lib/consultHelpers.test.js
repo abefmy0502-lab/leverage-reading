@@ -436,3 +436,26 @@ describe('memoConsultQuestion の問いの行（2026-11-27）', () => {
     expect(memoConsultQuestion('問い：明日から何を変える？\n朝 15 分読む')).toBe('「朝 15 分読む」と書いたメモを、いまの自分にどう活かせる？');
   });
 });
+
+describe('相談例の「…の学びで」はメモのある本だけ（2026-11-27）', () => {
+  it('メモのある本が分かる前・メモの無い本では出さない', () => {
+    const books = [{ id: 'b1', title: '確率思考の戦略論', status: 'reading', hypothesis: '市場の構造を数学的に' }];
+    const before = buildConsultExamples({ books, memoBookIds: null, count: 3 });
+    expect(before.some((e) => e.kind === 'book')).toBe(false);
+    const none = buildConsultExamples({ books, memoBookIds: new Set(), count: 3 });
+    expect(none.some((e) => e.kind === 'book')).toBe(false);
+    const has = buildConsultExamples({ books, memoBookIds: new Set(['b1']), count: 3 });
+    expect(has.find((e) => e.kind === 'book')?.text).toBe('『確率思考の戦略論』の学びで、明日から使えるものは？');
+  });
+});
+
+describe('読書準備は「読む前に書いたもの」として AI に渡す（2026-11-27）', () => {
+  it('得たいこと・現在の課題・仮説・選書理由に印・まとめや一番の収穫には付けない', async () => {
+    const { synthKindLabel } = await import('./ai');
+    expect(synthKindLabel('hypothesis')).toBe('仮説（読む前に書いたもの）');
+    expect(synthKindLabel('invest_purpose')).toBe('得たいこと（読む前に書いたもの）');
+    expect(synthKindLabel('summary')).toBe('まとめメモ');
+    expect(synthKindLabel('roi_summary')).toBe('一番の収穫');
+    expect(synthKindLabel('nope')).toBe('');
+  });
+});

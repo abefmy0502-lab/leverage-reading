@@ -379,7 +379,9 @@ export function buildConsultExamples({ books = [], memoBookIds = null, lastConsu
   if (withChallenge[0]) push(challengeQuestion(withChallenge[0].currentChallenge), 'challenge');
 
   // メモのある本＝カード式のメモがある本、または「この本のまとめ」が入っている本（メモ＝カード式＋まとめ式）。
-  const hasMemo = (b) => memoBookIds == null || memoBookIds.has(b.id) || hasSummaryMemo(b);
+  //   メモのある本が分かる前（memoBookIds が null）は、まとめの入っている本だけ（前は全部の本を「メモあり」にして、
+  //   メモの無い積読が「『…』の学びで、明日から使えるものは？」になっていた・2026-11-27 オーナー「まだメモも何も入れていないのに」）。
+  const hasMemo = (b) => (memoBookIds != null && memoBookIds.has(b.id)) || hasSummaryMemo(b);
   const recent = list.find((b) => b.status === 'reading' && hasMemo(b))
     || list.find((b) => b.status === 'done' && hasMemo(b))
     || (memoBookIds ? list.find((b) => hasMemo(b)) : null);

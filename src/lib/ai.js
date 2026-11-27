@@ -378,6 +378,15 @@ const SYNTH_LABEL = {
   ai_strategy: '読書計画シート',
 };
 
+// 読む前に本人が書いたもの（読書準備）。本から学んだことではないので、種別に「（読む前に書いたもの）」を添えて渡す
+//   （2026-11-27 オーナー「確率思考の本はまだメモも何も入れていないのに」＝仮説が「この本の学び」として答えられていた）。
+const PREP_KINDS = new Set(['invest_purpose', 'current_challenge', 'hypothesis', 'book_reason']);
+export function synthKindLabel(sourceType) {
+  const base = SYNTH_LABEL[sourceType];
+  if (!base) return '';
+  return PREP_KINDS.has(sourceType) ? `${base}（読む前に書いたもの）` : base;
+}
+
 // withDate=true のとき、本に紐づくメモ/synth 行のヘッダにも記録日を付ける。
 // 既定(false)は従来の出力を完全維持し、時系列追跡フロー(知識の足あと)だけが日付を要求する。
 function formatMemo(memo, opts) {
@@ -411,7 +420,7 @@ function formatMemo(memo, opts) {
     const parts = [`${dateTag}本: ${safeTitle}`];
     if (safeAuthor) parts.push(`著者: ${safeAuthor}`);
     if (ratingTag) parts.push(ratingTag);
-    parts.push(`種別: ${SYNTH_LABEL[memo.source_type]}`);
+    parts.push(`種別: ${synthKindLabel(memo.source_type)}`);
     return `【${parts.join(' / ')}】${safeText}${truncated}`;
   }
 
@@ -1510,7 +1519,7 @@ export function formatMemoPointer(memo) {
     return `- 自分の学び ${jstDayKey(memo?.created_at)}${excerpt}`;
   }
   const title = sanitizeForPrompt(memo.book?.title || '').slice(0, 80);
-  const kind = SYNTH_LABEL[memo.source_type] ? ` ${SYNTH_LABEL[memo.source_type]}` : '';
+  const kind = SYNTH_LABEL[memo.source_type] ? ` ${synthKindLabel(memo.source_type)}` : '';
   const page = Number.isFinite(memo.page_number) ? ` p.${memo.page_number}` : '';
   return `- 『${title}』${page}${kind}${excerpt}`;
 }
@@ -1738,6 +1747,7 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
           created_at: m.created_at || null,
           personal: false,
           card: !SYNTH_LABEL[m.source_type],
+          prep: PREP_KINDS.has(m.source_type) ? SYNTH_LABEL[m.source_type] : '',
           id: m.id || null,
           book_id: m.book_id || m.book?.id || null,
           text: m.text || '', // 引用の照合用（evidenceCheck.js・画面には一致したものだけ出す）
@@ -1859,6 +1869,8 @@ async function buildBrainContext({ userId, question, onStage, bookIds, mode = 'f
     created_at: m.created_at || null,
     personal: m.source_type === 'personal' || (!m.book && !m.book_id),
     card: !SYNTH_LABEL[m.source_type],
+    // 読書準備（読む前に書いた仮説など）は、答えの下で「読む前の仮説」と見出しを分ける（2026-11-27）
+    prep: PREP_KINDS.has(m.source_type) ? SYNTH_LABEL[m.source_type] : '',
     // 本を探す問いの答えで、一致したメモの行を押すとその本のそのメモを開く（2026-09-30）
     id: m.id || null,
     book_id: m.book_id || m.book?.id || null,
