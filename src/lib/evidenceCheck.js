@@ -135,6 +135,14 @@ export function stripPageRefs(text) {
 //     （それまでは 'none' として AI の文のまま「参照したメモ」に出ていた＝本棚に無い本・作ったページも出ていた）。
 //   ページ（2026-10-04）: 一致したメモのページだけを使う（AI が書いたページではなく）。AI の文のまま見せる行は、
 //     その本のメモに無いページを外す。
+// 記録した日（日本時間の日付 'YYYY-MM-DD'）。created_at（UTC）の頭 10 字を切ると、日本時間の 0〜9 時に書いたメモが
+//   前の日になり、相談の答えで今朝のメモが「昨日のあなた」と出ていた（2026-11-27 点検・consultAgoLabel は日本時間で数える）。
+export function jstYmd(iso) {
+  const t = Date.parse(iso || '');
+  if (!Number.isFinite(t)) return '';
+  return new Date(t + 9 * 3600000).toISOString().slice(0, 10);
+}
+
 export function verifyRefLine(rawLine, sources) {
   const line = String(rawLine || '').replace(/^\s*(?:[-*・•]|\d+[.)．])\s*/, '').trim();
   const title = titleOf(line);
@@ -143,11 +151,11 @@ export function verifyRefLine(rawLine, sources) {
   const withPersonal = (r, m) => ({
     ...r,
     personal: !!(m?.personal || personalLine),
-    date: m?.personal && m.created_at ? String(m.created_at).slice(0, 10) : '',
+    date: m?.personal && m.created_at ? jstYmd(m.created_at) : '',
     // 一致したメモそのもの（本を探す問いの答えで、押すとそのメモを開く・日付を出す・2026-09-30）
     memoId: m?.card && m.id ? String(m.id) : '',
     bookId: m?.book_id ? String(m.book_id) : '',
-    createdAt: m?.created_at ? String(m.created_at).slice(0, 10) : '',
+    createdAt: m?.created_at ? jstYmd(m.created_at) : '',
     // 読書準備（読む前に書いた 仮説・得たいこと など）の種別。答えの下の見出しを「読む前の仮説」にする（2026-11-27）
     prep: m?.prep ? String(m.prep) : '',
   });

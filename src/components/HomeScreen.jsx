@@ -347,13 +347,14 @@ export function authorNewsText({ fav, book, more = 0 }) {
   const title = t.length > 24 ? `${t.slice(0, 23)}…` : t;
   const when = shortPubdate(book?.pubdate);
   const upcoming = isUpcoming(book);
+  // 右上の × の下に文が潜らないように、× の幅だけ空ける（data-lead・2026-11-27 点検）。
   return (
-    <>
+    <span data-lead style={{ display: 'block', paddingRight: 'var(--tap-min)' }}>
       {withPhraseBreaks(`${fav.name}さんの新しい本`)}
       <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>『{title}』</span>
       {withPhraseBreaks(upcoming ? `が、${when}に出ます` : 'が出ました')}
       {more > 0 && <span style={{ whiteSpace: 'nowrap' }}>（ほか {more}&nbsp;冊）</span>}
-    </>
+    </span>
   );
 }
 
@@ -665,7 +666,8 @@ export default function HomeScreen({
     const hasProgress = (Number(focusReadingBook.currentPage ?? focusReadingBook.current_page) || 0) > 0;
     const mode = !lastAt ? (hasProgress ? 'resume' : 'read') : Date.now() - lastAt > 14 * 86400000 ? 'back' : 'word';
     if (mode !== 'word' && !onReadFirst) return 'word';
-    if (mode !== 'word' && moment?.action === 'focus' && moment?.book?.id === focusReadingBook.id) return 'hidden';
+    // 上の 1 行が同じ本の「続きを 15 分」なら、1 語の問いも出さない（同じ本に 2 つの声かけが縦に並んでいた・2026-11-27 点検）。
+    if (moment?.action === 'focus' && moment?.book?.id === focusReadingBook.id) return 'hidden';
     return mode;
   }, [focusReadingBook, homeSessions, moment, onReadFirst]);
   const momentBook = !moment ? null : moment.book ? books.find((b) => b.id === moment.book.id) || null : books.find((b) => b.id === (moment.memo?.bookId || moment.bookId)) || null;

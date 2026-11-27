@@ -641,6 +641,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // false＝閉じている / true＝誰に相談しますか？ / 'pair'＝「2 冊を選んで、考えをぶつける」の 2 冊を選ぶ（2026-11-26）
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [insightFor, setInsightFor] = useState(null); // ✍️ 気づきを書き残すの相談の文（null＝閉じている）
+  // ✍️ 気づきを残した答え（同じ答えから同じ気づきを重ねて残さない・残したことが分かる・2026-11-27 点検）。
+  const [insightSavedFor, setInsightSavedFor] = useState(null);
   // 📚 答え方（まとめて / 本ごとに）。相談相手が 1 冊のときは「まとめて」で答える（並べる本が無い）。
   const [savedAnswerMode, setAnswerMode] = useState(() => (resumed?.answerMode === 'perbook' || resumed?.answerMode === 'fused' ? resumed.answerMode : loadAnswerMode()));
   // 🌐 選んだ数冊と話すあいだだけの答え方（端末の好みは書き換えない・すべての本に戻したら元の好み・2026-11-26 点検）。
@@ -1880,6 +1882,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 「✅ 解決した」: chat view を空に戻す。DB は消さないので履歴タブには残る。
   // clearedAt を「今」にすることで、それ以降の新規メッセージだけが chat に
   // 出るようになる。
+  const scrollTopOnClearRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!scrollTopOnClearRef.current) return;
+    scrollTopOnClearRef.current = false;
+    if (chatScrollRef.current) chatScrollRef.current.scrollTop = 0;
+  }, [clearedAt]);
   const clearConversation = () => {
     firstThreadRef.current = false;
     // 境界は「保存済みの最新メッセージの時刻（サーバー時刻）」。端末の時計を使うと、
@@ -1889,6 +1897,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       ? saved.reduce((a, m) => (m.createdAt > a ? m.createdAt : a), saved[0].createdAt)
       : new Date().toISOString();
     setClearedAt(now);
+    // 新しい相談は空の画面の先頭から（前の会話の送り位置のまま、短くなった画面のいちばん下が出ていた・2026-11-27 点検）。
+    scrollTopOnClearRef.current = true;
     // メモが答える相談（画面の上だけのやりとり）は、新しい相談で消す。
     setMessages((arr) => (arr.some(isLocalMsg) ? arr.filter((m) => !isLocalMsg(m)) : arr));
     reserveRef.current = false;
@@ -2121,6 +2131,14 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       if (turn && primary) {
         const toTurn = turn.getBoundingClientRect().top - c.top - gap;
         if (toTurn >= 0 && toTurn < over && primary.getBoundingClientRect().bottom - toTurn + gap <= c.bottom) over = toTurn;
+      }
+      // 「行動に追加しました（期限は明日）見る・元に戻す」の箱は、上の端から出さない（下の AI 選書の文字ボタンを見せるより先・
+      //   押し間違えたときの「元に戻す」が上の行の下に隠れていた・2026-11-27 点検）。
+      const steps = el.querySelectorAll('[data-next-step]');
+      const step = steps[steps.length - 1];
+      if (step) {
+        const toStep = step.getBoundingClientRect().top - c.top - gap;
+        if (toStep < over) over = Math.max(0, toStep);
       }
       if (over > 0) el.scrollTo({ top: el.scrollTop + over, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     });
@@ -2940,9 +2958,15 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 📤 共有（2026-11-26 体験した人の声「1on1 で効いた答えをチームに見せる手段が無い」）: 結論と決めた一歩だけ（相談した文は入れない）。 */}
           {answerToolsShown && (
             <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginTop: 'var(--space-2)', marginLeft: `calc(${typeof ANSWER_COLUMN === 'number' ? `${ANSWER_COLUMN}px` : ANSWER_COLUMN} - var(--space-1))` }}>
-              <button type="button" onClick={() => { track('dialogue_insight_open', {}); setInsightFor(lastAsked || ''); }} style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)' }}>
-                <PencilLine size="1em" aria-hidden="true" />気づきを書き残す
-              </button>
+              {insightSavedFor === lastVisible?.id ? (
+                <span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', fontSize: 'var(--text-sub)', color: 'var(--text-2)' }}>
+                  <Check size="1em" aria-hidden="true" style={{ color: 'var(--success)' }} />気づきを残しました
+                </span>
+              ) : (
+                <button type="button" onClick={() => { track('dialogue_insight_open', {}); setInsightFor(lastAsked || ''); }} style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)' }}>
+                  <PencilLine size="1em" aria-hidden="true" />気づきを書き残す
+                </button>
+              )}
               {/* 聞き返しの途中の答えは出さない（結論が次の返事で変わる・共有するのは出きった答え・ui-critic） */}
               {lastParsed?.conclusion && !lastAsksBack && (
                 <button type="button" onClick={shareLastAnswer} aria-label="この答えを共有" style={{ ...uiBtnLinkQuiet, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)' }}>
@@ -2951,7 +2975,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               )}
             </div>
           )}
-          {insightFor != null && <KeepInsightSheet question={insightFor} onClose={() => setInsightFor(null)} />}
+          {insightFor != null && <KeepInsightSheet question={insightFor} onSaved={() => setInsightSavedFor(lastVisible?.id || null)} onClose={() => setInsightFor(null)} />}
           {/* 無料プランで今月のトークンを使い切ったら、答えの下（まだ話していなければ例の下）で静かに案内
               （読み終えるまで画面を奪わない） */}
           {freeUsedUp && !busy && lastIsAssistant && !isEmpty && (!lastIsMemoAnswer || (!lastMemoFound && lastMemoAnswer?.status !== 'loading')) && (

@@ -238,6 +238,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   const [srcPicked, setSrcPicked] = useState('');
   // 「どこで知りましたか」は畳んでおき、押したときだけ選択肢を出す（最後の画面の押せるものを減らす・2026-09-29）。
   const [srcOpen, setSrcOpen] = useState(false);
+  const bodyScrollRef = useRef(null);
   // 📖 最後の画面の 1 問「最近、本を読んでいますか？」（2026-11-27 オーナー承認「1 問で分ける」・模擬 6 回目で読書習慣の無い人の
   //   入口がいちばん重かった）。'' ＝まだ答えていない（今までの並び）・'yes' ＝今までの並び・'little' ＝主ボタンを「最初の 1 冊を探す」に。
   const [habit, setHabit] = useState('');
@@ -414,6 +415,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
         )}
 
         <div
+          ref={bodyScrollRef}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -521,7 +523,12 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               ) : (
                 <button
                   type="button"
-                  onClick={() => setSrcOpen(true)}
+                  onClick={() => {
+                    setSrcOpen(true);
+                    // 下の選択肢が出て本文の欄が縮むと、「最近、本を読んでいますか？」のチップが欄の下の端で半分に切れていた
+                    //   （低い画面・2026-11-27 点検）。本文の欄をいちばん下まで送って、チップを切らずに見せる。
+                    requestAnimationFrame(() => { const el = bodyScrollRef.current; if (el) el.scrollTop = el.scrollHeight; });
+                  }}
                   aria-expanded={false}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 'var(--tap-min)', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}
                 >

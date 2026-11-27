@@ -230,3 +230,12 @@ describe('読書準備の引用は「読む前の…」と分かる印を残す�
     expect(v.prep).toBe('仮説');
   });
 });
+
+describe('記録した日は日本時間（2026-11-27）', () => {
+  it('日本時間の朝 2 時に書いたメモは、その日の日付', async () => {
+    const { jstYmd } = await import('./evidenceCheck');
+    expect(jstYmd('2026-11-26T17:00:00.000Z')).toBe('2026-11-27');
+    expect(jstYmd('2026-11-27T05:00:00.000Z')).toBe('2026-11-27');
+    expect(jstYmd('')).toBe('');
+  });
+});

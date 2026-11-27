@@ -106,8 +106,12 @@ export function scopeQuestions(sk) {
   }
   if (sk.kind === 'author') {
     const a = sk.author;
+    // 本が 1 冊のときは、押した言葉と送る言葉をそろえる（「いちばん大事な考えは？」を押して「本に共通する考えは？」が送られていた・2026-11-27 点検）。
+    const many = sk.books?.length > 1;
     return [
-      { text: `${a}さんの本に共通する考えは？ 私のメモから教えて`, label: sk.books?.length > 1 ? '本に共通する考えは？ 私のメモから教えて' : 'いちばん大事な考えは？ 私のメモから教えて', kind: 'author' },
+      many
+        ? { text: `${a}さんの本に共通する考えは？ 私のメモから教えて`, label: '本に共通する考えは？ 私のメモから教えて', kind: 'author' }
+        : { text: `${a}さんのいちばん大事な考えは？ 私のメモから教えて`, label: 'いちばん大事な考えは？ 私のメモから教えて', kind: 'author' },
       { text: `${a}さんの考えなら、いまの私の悩みをどう見る？`, label: 'この考え方なら、いまの私の悩みをどう見る？', kind: 'author' },
       { text: `${a}さんの考えに、あえて反論するとしたら？`, label: 'あえて反論するとしたら？', kind: 'author' },
     ];

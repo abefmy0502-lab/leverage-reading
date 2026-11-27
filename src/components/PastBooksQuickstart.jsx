@@ -498,7 +498,12 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
                   style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', pointerEvents: 'none' }} />
                 <input
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setQuery(v);
+                    // 欄を空にしたら、前の検索結果を消して「よく読まれている本」に戻す（× で消したときと同じ・2026-11-27 点検）
+                    if (!v.trim()) { setResults(null); setSearched(''); setSearchError(false); }
+                  }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); runSearch(); } }}
                   placeholder="書名や著者名"
                   aria-label="書名や著者名で探す"
@@ -591,7 +596,8 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
               )}
 
               {/* 検索欄が空のとき: よく読まれている本（押すとそのまま選べる・AI は使わない） */}
-              {!searching && !results && !query.trim() && (
+              {/* 書いただけでまだ探していない間も出したまま（空白の画面にしない・2026-11-27 点検） */}
+              {!searching && !results && (
                 <section aria-labelledby="qs-popular" style={shelfBooks.length > 0 ? { marginTop: 'var(--space-6)' } : null}>
                   <h2 id="qs-popular" style={sectionLabel}>よく読まれている本</h2>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>

@@ -56,7 +56,7 @@ describe('pickReturnMoment', () => {
   it('3 か月からは最初のメモと「いまの考えと比べる」（相談の下書き）', () => {
     const m = pickReturnMoment({ now: NOW, createdAt: ago(92), prevDay: '2026-11-25', memos });
     expect(m.action).toBe('compare');
-    expect(m.question).toContain('3 か月前に「メモ a の本文」');
+    expect(m.question).toContain('1 か月前に「メモ a の本文」');
     expect(m.actionLabel).toBe('いまの考えと比べる');
   });
   it('メモがまだ無い人は、積読を先に本棚で待っている本＋15 分だけ読む（一覧に出ていない本を先に）', () => {

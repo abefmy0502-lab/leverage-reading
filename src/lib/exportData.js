@@ -14,6 +14,10 @@
 // that's null on row 1 but populated on row 5 still appears.
 
 import { supabase } from './supabase';
+import { toLocalYmd } from './dates';
+
+// 書き出しの日付は端末の日付（UTC の頭 10 字だと、朝 9 時前に書いたメモが前の日になっていた・2026-11-27）。
+const ymdOf = (iso) => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? toLocalYmd(new Date(t)) : ''; };
 import { SOCIAL_ON, loadFollows } from './social';
 import { isNative } from './iap';
 import { shareFileNative } from './shareImage';
@@ -263,7 +267,7 @@ export async function exportMemosAsMarkdown(userId) {
               .join(' ')
           : '';
         const meta = [page, tags].filter(Boolean).join(' ');
-        const dt = (m.created_at || '').slice(0, 10);
+        const dt = ymdOf(m.created_at);
         lines.push(`- ${mdLine(m.text)}${meta ? ` ${meta}` : ''}${dt ? `  _(${dt})_` : ''}`);
       }
       lines.push('');
@@ -278,7 +282,7 @@ export async function exportMemosAsMarkdown(userId) {
         ? m.tags.find((t) => typeof t === 'string' && t.startsWith('@')) || ''
         : '';
       const catLabel = cat ? `[${cat.slice(1)}] ` : '';
-      const dt = (m.created_at || '').slice(0, 10);
+      const dt = ymdOf(m.created_at);
       lines.push(`- ${catLabel}${mdLine(m.text)}${dt ? `  _(${dt})_` : ''}`);
     }
     lines.push('');

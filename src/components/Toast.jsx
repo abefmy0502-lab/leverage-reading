@@ -10,6 +10,7 @@ const ToastContext = createContext({
   info: () => '',
   undo: () => '',
   dismiss: () => {},
+  dismissAll: () => {},
 });
 
 // 下部バー（error / undo / info 用）の配色。success は下部バーを使わず、
@@ -449,6 +450,11 @@ export function ToastProvider({ children }) {
         action: { label: '元に戻す', onClick: onUndo },
       }),
     dismiss,
+    // 下のバーの知らせを全部閉じる（全画面に近いシートを開くとき＝知らせがシートの中身とボタンに重なっていた・2026-11-27 点検）。
+    //   元に戻すなどの処理は走らせない（閉じるだけ）。エラーは残す（何が起きたかを読めるように）。
+    dismissAll: ({ keepErrors = true } = {}) => {
+      toastsRef.current.filter((t) => t.type !== 'success' && !(keepErrors && t.type === 'error')).forEach((t) => dismiss(t.id, { skipExpire: true }));
+    },
   }), [show, dismiss]);
 
   const hudToasts = toasts.filter((t) => t.type === 'success');

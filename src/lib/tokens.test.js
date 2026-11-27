@@ -109,13 +109,13 @@ describe('🌱 無料プランのはじめの月（画面の写しはサーバ�
 });
 
 describe('量の目安（単位は AI の答え・1 回 約 3 トークン・2026-11-25 に 10 から）', () => {
-  it('無料 約 10 回・はじめの月 約 43 回・7 日間無料 約 50 回・プラン 約 267 回・追加 約 100／333 回分', async () => {
+  it('無料 約 10 回・はじめの月 約 43 回・7 日間無料 約 50 回・プラン 約 266 回・追加 約 100／333 回分', async () => {
     const { answerCountLabel, ANSWER_TOKENS, FREE_FIRST_MONTH_TOKENS, TOKEN_PACKS } = await import('./tokens.js');
     expect(ANSWER_TOKENS).toBe(TOKEN_COSTS.consult);
     expect(answerCountLabel(FREE_TOKENS)).toBe('約 10 回');
     expect(answerCountLabel(FREE_FIRST_MONTH_TOKENS)).toBe('約 43 回');
     expect(answerCountLabel(TRIAL_TOKENS)).toBe('約 50 回');
-    expect(answerCountLabel(PAID_TOKENS)).toBe('約 267 回');
+    expect(answerCountLabel(PAID_TOKENS)).toBe('約 266 回');
     expect(TOKEN_PACKS.map((p) => p.consults)).toEqual(['約 100 回', '約 333 回']);
   });
   it('残りの目安は切り捨て（言い過ぎない）・残りがあれば 1', async () => {

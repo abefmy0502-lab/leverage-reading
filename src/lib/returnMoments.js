@@ -202,7 +202,8 @@ function pickReturnMomentBase({ now, createdAt = null, prevDay = null, memos = [
         return {
           kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'compare', actionLabel: 'いまの考えと比べる',
           lead: `${annLead(ann)}${yearLine}${memoLabel}`, quote: momentQuote(first),
-          question: `${isFirst ? `${ann.label}前` : (recallFraming(first.createdAt, now) || '前').replace(/に書いたメモ$/, '')}に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
+          // いつ書いたかは、そのメモの日付から（取り込んだ・前から書いていたメモに、使い始めてからの長さを書いていた・2026-11-27 点検）
+          question: `${(recallFraming(first.createdAt, now) || '前に書いたメモ').replace(/に書いたメモ$/, '')}に「${excerpt}」とメモしました。いまの私の考えは、そこからどう変わっていますか？`,
         };
       }
       return { kind: 'anniv', key: ann.key, label: ann.label, memo: first, action: 'read', actionLabel: '読み返す', lead: `${annLead(ann)}${memoLabel}`, quote: momentQuote(first) };

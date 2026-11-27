@@ -215,7 +215,7 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
   ) : step === 'pick' ? (
     <>
       <button type="button" onClick={pick} style={btnPrimary}>
-        <IconLabel icon={Camera} size="1.1em">本棚を撮る・写真を選ぶ</IconLabel>
+        <IconLabel icon={Camera} size="1.1em">{failure ? '写真を選び直す' : '本棚を撮る・写真を選ぶ'}</IconLabel>
       </button>
       {hint && <p style={{ ...note, marginTop: 'var(--space-2)', textAlign: 'center', ...(usedUp ? {} : { color: 'var(--text-3)' }) }}>{hint.join('')}</p>}
     </>
@@ -262,7 +262,8 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
             </ul>
             <p style={{ ...note, color: 'var(--text-3)' }}>{withPhraseBreaks('写真は書名を読むためだけに AI（Anthropic の Claude）へ送り、保存しません。')}</p>
             {failure && (
-              <ErrorMessage title={failure.title} description={failure.message} actions={[{ label: '写真を選び直す', onClick: pick, variant: 'secondary' }]} />
+              // 選び直すのは下の「本棚を撮る・写真を選ぶ」1 つ（同じ働きのボタンを 2 つ並べない・2026-11-27 点検）
+              <ErrorMessage title={failure.title} description={failure.message} />
             )}
           </div>
         )}

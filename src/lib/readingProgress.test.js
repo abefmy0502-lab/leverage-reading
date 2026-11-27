@@ -26,3 +26,13 @@ describe('どこまで読んだか（2026-11-26）', () => {
     expect(isArchived({ archivedAt: null })).toBe(false);
   });
 });
+
+describe('空の欄は 0％ にしない（2026-11-27）', () => {
+  it('％で空・null は記録なし', async () => {
+    const { cleanProgress, hasProgress } = await import('./readingProgress');
+    expect(cleanProgress({ unit: 'percent', current: '' }).current).toBe(null);
+    expect(cleanProgress({ unit: 'percent', current: null }).current).toBe(null);
+    expect(hasProgress({ unit: 'percent', current: null })).toBe(false);
+    expect(cleanProgress({ unit: 'percent', current: '0' }).current).toBe(0);
+  });
+});

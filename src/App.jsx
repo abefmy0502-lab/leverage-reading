@@ -4224,6 +4224,8 @@ function AuthedApp() {
     setAuthorSheet({ names, reason: book?.status === 'done' && r >= 4 ? `『${String(book.title || '').slice(0, 40)}』に ★${r} を付けています。` : null });
     track('fav_author_sheet', { from: 'book' });
   };
+  // 保存の途中の本（素早く 2 回押すと、本棚に入る前の 2 回目も重ねて保存されていた・2026-11-27 点検）。
+  const wantInFlightRef = useRef(new Set());
   const addWantFromOther = async (book) => {
     const title = String(book?.title || '').trim().slice(0, 200);
     if (!user?.id || !title) return 'error';
@@ -4231,6 +4233,9 @@ function AuthedApp() {
     const isbn = String(book.isbn || '').replace(/[^0-9Xx]/g, '').slice(0, 13);
     const dup = findDuplicateBook(booksRef.current, { isbn, title, author });
     if (dup) { toast.info(`『${title}』はもう本棚にあります。`); return 'exists'; }
+    const flightKey = isbn || `${title}\u0000${author}`;
+    if (wantInFlightRef.current.has(flightKey)) return 'pending';
+    wantInFlightRef.current.add(flightKey);
     try {
       const saved = await saveBook({
         ...emptyBook(), title, author, isbn,
@@ -4244,6 +4249,8 @@ function AuthedApp() {
     } catch (e) {
       toast.error(toMessage(e, '読みたいに入れられませんでした。通信状況を確認して、もう一度お試しください。'));
       return 'error';
+    } finally {
+      wantInFlightRef.current.delete(flightKey);
     }
   };
 
@@ -4980,7 +4987,14 @@ function AuthedApp() {
   const openFocusStart = useCallback((b) => { haptic.light(); setFocusStartBook(b); }, [haptic]);
   // シート（読む前のシート・写真で共有）や集中モードを開いたら、本に結びついた知らせを閉じる
   // （「保存しました。」＋行動に追加などがシートの上に重なっていた・2026-10-10）。元に戻すなどの処理は走らせない。
-  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen || readTargetBook || progressBook);
+  const sheetOverBook = !!(focusStartBook || focusRun || shareSheet || quickMemoOpen || readTargetBook || progressBook || overlapReq || authorSheet);
+  // 重なり・著者のシートは高く、下の知らせ（「保存しました。行動に追加」「アーカイブしました。元に戻す」）が中身とボタンに
+  //   重なっていた（2026-11-27 点検）。開いたら本に結びつかない知らせも閉じる（元に戻すは走らせない）。
+  const tallSheetOpen = !!(overlapReq || authorSheet);
+  useEffect(() => {
+    if (tallSheetOpen) toast.dismissAll?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tallSheetOpen]);
   useEffect(() => {
     if (!sheetOverBook) return;
     bookToastsRef.current.forEach((_bookId, id) => toast.dismiss(id, { skipExpire: true }));

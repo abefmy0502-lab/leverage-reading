@@ -51,24 +51,23 @@ export default function ProgressSheet({ book, infoPages = 0, onSave, onClear, on
             </button>
           ))}
         </div>
-        {unit === 'page' ? (
-          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-            <label style={{ flex: 1, minWidth: 0 }}>
-              <span style={label}>いまのページ</span>
-              <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value))} onKeyDown={onKey} maxLength={5} placeholder="例：120" style={numInput} />
-            </label>
-            <label style={{ flex: 1, minWidth: 0 }}>
-              <span style={label}>総ページ</span>
-              <input type="text" inputMode="numeric" value={total} onChange={(e) => setTotal(digits(e.target.value))} onKeyDown={onKey} maxLength={5} placeholder="例：320" style={numInput} />
-              {fromInfo && <span style={{ ...label, margin: 'var(--space-1) 0 0', color: 'var(--text-3)' }}>本の情報から</span>}
-            </label>
-          </div>
-        ) : (
-          <label>
-            <span style={label}>読んだところ（％）</span>
-            <input type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value).slice(0, 3))} onKeyDown={onKey} maxLength={3} placeholder="例：45" style={{ ...numInput, width: 'calc(50% - var(--space-2))' }} />
+        {/* ページ｜％ を替えてもシートの高さを変えない（％のときも右の総ページの欄の場所を空けたまま・見えなくする・2026-11-27 点検:
+            替えるたびにシートの上端が 80 ほど上下していた）。 */}
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+          <label style={{ flex: 1, minWidth: 0 }}>
+            <span style={label}>{unit === 'page' ? 'いまのページ' : '読んだところ（％）'}</span>
+            {unit === 'page' ? (
+              <input key="page" type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value))} onKeyDown={onKey} maxLength={5} placeholder="例：120" style={numInput} />
+            ) : (
+              <input key="percent" type="text" inputMode="numeric" autoFocus value={current} onChange={(e) => setCurrent(digits(e.target.value).slice(0, 3))} onKeyDown={onKey} maxLength={3} placeholder="例：45" style={numInput} />
+            )}
           </label>
-        )}
+          <label style={{ flex: 1, minWidth: 0, visibility: unit === 'page' ? 'visible' : 'hidden' }} aria-hidden={unit === 'page' ? undefined : true}>
+            <span style={label}>総ページ</span>
+            <input type="text" inputMode="numeric" value={total} onChange={(e) => setTotal(digits(e.target.value))} onKeyDown={onKey} maxLength={5} placeholder="例：320" style={numInput} tabIndex={unit === 'page' ? undefined : -1} />
+            {fromInfo && <span style={{ ...label, margin: 'var(--space-1) 0 0', color: 'var(--text-3)' }}>本の情報から</span>}
+          </label>
+        </div>
         {over && (
           // 総ページが版違いのこともあるので、総ページを直す道も（2026-11-26 点検）
           <div role="status" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-3)' }}>

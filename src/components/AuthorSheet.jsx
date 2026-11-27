@@ -4,6 +4,7 @@
 //   設定の「お気に入りの著者」からは一覧（list）→ 押すとその著者。AI は使わない。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Star, ChevronRight, MessageCircle } from 'lucide-react';
+import { isLargeText } from '../lib/largeText';
 import BottomSheet from './BottomSheet';
 import ErrorMessage from './ErrorMessage';
 import EmptyState from './EmptyState';
@@ -104,6 +105,13 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
       track('fav_author_want', { fresh: newIsbns.has(book.isbn) });
     }
   };
+
+  const large = isLargeText();
+  const wantControl = (b, owned) => (owned ? (
+    <span style={{ display: 'inline-block', fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap', ...(large ? { marginTop: 'var(--space-2)' } : null) }}>本棚にあります</span>
+  ) : (
+    <button type="button" onClick={() => addWant(b)} style={{ ...btnTonal, minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', whiteSpace: 'nowrap', flexShrink: 0, ...(large ? { marginTop: 'var(--space-2)' } : null) }}>読みたいに追加</button>
+  ));
 
   const openAuthor = (name) => {
     setCurrent(name);
@@ -208,7 +216,8 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
               const owned = added.has(b.isbn) || !!hasBook?.(b);
               const fresh = newIsbns.has(b.isbn) || (isRecentBook(b) && !owned);
               return (
-                <li key={b.isbn} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3) 0', ...(b === state.books[0] ? { paddingTop: 0 } : null), borderBottom: '1px solid var(--separator)' }}>
+                // 文字が大きいときは「読みたいに追加」を書名の下へ（右の押せる欄に書名が押されて「エリック／・／シュミ…」と細切れになっていた・2026-11-27 点検）。
+                <li key={b.isbn} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: large ? 'flex-start' : 'center', padding: 'var(--space-3) 0', ...(b === state.books[0] ? { paddingTop: 0 } : null), borderBottom: '1px solid var(--separator)' }}>
                   <MiniCover title={b.title} cover={b.cover} width={44} />
                   {/* 書名は 3 行まで・長い語はカタカナと漢字の境で割る（「エリック・シュミットの、…」で本が見分けられなかった・2026-11-26 点検）。 */}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -217,12 +226,9 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
                       {fresh && <span style={{ color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>{isUpcoming(b) ? 'これから出る本' : '新しい本'}</span>}
                       <span style={{ whiteSpace: 'nowrap' }}>{releaseLabel(b)}</span>
                     </p>
+                    {large && wantControl(b, owned)}
                   </div>
-                  {owned ? (
-                    <span style={{ fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>本棚にあります</span>
-                  ) : (
-                    <button type="button" onClick={() => addWant(b)} style={{ ...btnTonal, minHeight: 'var(--tap-min)', padding: '0 var(--space-3)', fontSize: 'var(--text-sub)', whiteSpace: 'nowrap', flexShrink: 0 }}>読みたいに追加</button>
-                  )}
+                  {!large && wantControl(b, owned)}
                 </li>
               );
             })}

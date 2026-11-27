@@ -29,7 +29,7 @@ export function insightMemoText({ question, text, max = 5000 }) {
 
 const meta = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
-export default function KeepInsightSheet({ question = '', onClose }) {
+export default function KeepInsightSheet({ question = '', onClose, onSaved = null }) {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
@@ -54,6 +54,7 @@ export default function KeepInsightSheet({ question = '', onClose }) {
       cache.notifyMemosChanged({ bookId: null });
       track('dialogue_insight_saved', {});
       toast.success('気づきを残しました。次の相談で使えます。');
+      onSaved?.();
       onClose?.();
     } catch (e) {
       toast.error(toSaveMessage(e));

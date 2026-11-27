@@ -15,7 +15,9 @@ const PAGE_MAX = 20000;
 const P_KEY = (id) => `orime.progress.v1:${id}`;
 const A_KEY = (id) => `orime.archived.v1:${id}`;
 
+// 空・null は数ではない（Number('') === 0 で、空の欄や「記録を消す」が 0％ と保存されていた・2026-11-27）。
 const int = (v) => {
+  if (v == null || (typeof v === 'string' && v.trim() === '')) return NaN;
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? n : NaN;
 };

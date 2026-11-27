@@ -19,11 +19,12 @@ export const FREE_OCR_PER_MONTH = 10;
 //    ⚠️ 相談を Haiku 4.5 に戻す（AI_CONSULT_MODEL=claude-haiku-4-5）ときは、ここも 10 に戻す（画面が多く約束しすぎないように・2026-11-26 点検）。
 export const ANSWER_TOKENS = 3;
 export const CONSULT_ANSWERS_NOTE = '相談 1 つは、聞き返しを含めて 2〜3 回の答えです';
-// トークン → AI の答え何回（四捨五入・残りが少しでもあれば 1＝サーバーの「最後の 1 回」で始められる）。
+// トークン → AI の答え何回（切り捨て＝言い過ぎない・残りが少しでもあれば 1＝サーバーの「最後の 1 回」で始められる）。
+//   残りの数（remainingAnswersLabel）と同じ切り捨てにそろえた（800 トークンが「あと約 266 回」と「毎月 約 267 回」の 2 つの数に見えていた・2026-11-27 点検）。
 export function answersOf(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));
   if (t <= 0) return 0;
-  return Math.max(1, Math.round(t / ANSWER_TOKENS));
+  return Math.max(1, Math.floor(t / ANSWER_TOKENS));
 }
 // 「約 3 回」「約 80 回」。
 export function answerCountLabel(tokens) {
