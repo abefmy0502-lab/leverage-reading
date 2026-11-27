@@ -185,7 +185,8 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
         )}
 
         {onTalk && talkIds.length > 0 && (
-          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, current || null); }} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
+          // 相談（一番の価値）につながる「話す」を面の主に、「お気に入りに入れる」は枠のまま（同じ強さの枠が 2 つ並んでいた・2026-11-27 ui-critic）
+          <button type="button" onClick={() => { track('dialogue_pick', { kind: 'author_sheet', books: talkIds.length }); onTalk(talkIds, current || null); }} style={{ ...btnTonal, gap: 'var(--space-2)' }}>
             <MessageCircle size="1.1em" aria-hidden="true" />{talkIds.length > 1 ? `この著者の本と話す（${talkIds.length} 冊）` : 'この著者の本と話す'}
           </button>
         )}
@@ -223,7 +224,8 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 'var(--text-body)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(b.title, { scriptBreaks: true })}</p>
                     <p style={{ ...note, color: 'var(--text-3)', marginTop: 'var(--space-1)', display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-2)' }}>
-                      {fresh && <span style={{ color: 'var(--text-2)', fontWeight: 600, whiteSpace: 'nowrap' }}>{isUpcoming(b) ? 'これから出る本' : '新しい本'}</span>}
+                      {/* 太いのは書名だけ（ラベルまで 600 で太字が 3 行続いていた・2026-11-27 ui-critic） */}
+                      {fresh && <span style={{ color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{isUpcoming(b) ? 'これから出る本' : '新しい本'}</span>}
                       <span style={{ whiteSpace: 'nowrap' }}>{releaseLabel(b)}</span>
                     </p>
                     {large && wantControl(b, owned)}

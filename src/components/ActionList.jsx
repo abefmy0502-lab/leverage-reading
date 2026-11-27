@@ -411,7 +411,7 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
     >
       <button
         type="button"
-        aria-label="閉じる"
+        aria-label="ふりかえりを書かずに閉じる"
         onClick={onClose}
         style={{ position: 'absolute', top: 0, right: 0, width: 44, height: 44, display: 'grid', placeItems: 'center', background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer' }}
       >
@@ -457,7 +457,8 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
         </button>
         {/* 🔁 やってみた結果を相談へ（書いたふりかえりは残してから・相談は入力欄に入れるだけ・2026-10-10）。 */}
         {onConsult && (
-          <button type="button" onClick={onConsult} disabled={saving} style={{ ...btnLink, marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))', whiteSpace: 'nowrap' }}>
+          // 書く前は控えめ（--text-2）・書いたら栗色（欄の主役は「書く → 残す」・空の間に目が先に相談へ行っていた・2026-11-27 ui-critic）
+          <button type="button" onClick={onConsult} disabled={saving} style={{ ...(value.trim() ? btnLink : btnLinkQuiet), marginLeft: 'auto', marginRight: 'calc(-1 * var(--space-1))', whiteSpace: 'nowrap' }}>
             この結果を相談する
           </button>
         )}

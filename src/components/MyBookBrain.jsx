@@ -1195,8 +1195,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const box = boxes[boxes.length - 1];
       if (!box) return;
       const r = box.getBoundingClientRect();
-      if (r.bottom > prevBottom + 1 || r.bottom <= c.bottom) return; // 前から隠れていた・いまも見えている
-      const delta = Math.min(r.bottom - c.bottom, Math.max(0, r.top - c.top));
+      const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+      if (r.bottom > prevBottom + 1 || r.bottom + gap <= c.bottom) return; // 前から隠れていた・いまも余白つきで見えている
+      // 箱の下に 16 の余白まで見せる（角丸が線の下に入っていた・2026-11-27 ui-critic）。箱の上端は出さない。
+      const delta = Math.min(r.bottom + gap - c.bottom, Math.max(0, r.top - c.top - gap));
       if (delta > 0) el.scrollTop += delta;
     });
     ro.observe(el);
@@ -3242,7 +3244,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               </button>
             </div>
           )}
-          <div className="ai-input-area" style={(chrome.scopeBar && !outOfTokens && isEmpty) || resumeThread ? { borderTop: 'none' } : undefined}>
+          {/* 区切り線は入力欄のまとまりの上に 1 本（チップの行・空けた行があるときはその上の線だけ＝2 本にしない・2026-11-27 ui-critic） */}
+          <div className="ai-input-area" style={(chrome.scopeBar && !outOfTokens && isEmpty) || resumeThread || followups.length > 0 || !!regenLabel || chipHoldH > 0 ? { borderTop: 'none' } : undefined}>
             {chrome.scopeBar && !resumeThread && !outOfTokens && !isEmpty && (
               <button
                 type="button"
@@ -3584,9 +3587,14 @@ function revealLastNextStep(el) {
   const boxes = el.querySelectorAll('[data-next-step], [data-ask-box]');
   const box = boxes[boxes.length - 1];
   if (!box) return;
-  const r = box.getBoundingClientRect();
+  const r0 = box.getBoundingClientRect();
   const c = el.getBoundingClientRect();
   const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+  // 箱の下の 1 行（「あなたのメモ N 件から答えました」）まで入るなら、答えのまとまりの下端まで見せる
+  //   （箱の下端で止めると、その行が入力欄の線で文字の途中から切れていた・2026-11-27 ui-critic）。
+  const turnEl = box.closest('[data-turn]');
+  const tb = turnEl ? turnEl.getBoundingClientRect().bottom : r0.bottom;
+  const r = { top: r0.top, bottom: tb > r0.bottom && tb - r0.top + gap * 2 <= c.height ? tb : r0.bottom };
   if (r.bottom + gap <= c.bottom) return; // もう見えている
   // 答えの入れ物（data-turn＝名前の行から）の上端に揃えても箱が収まるなら、そこへ送る
   // （最小限の送りだと名前の行が文字の途中で切れて見えた・2026-09-30 ui-critic）。
