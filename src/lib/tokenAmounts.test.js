@@ -10,3 +10,13 @@ describe('本を探せる残り（2026-11-26）', () => {
     expect(canStartAdvisor(null)).toBe(true);
   });
 });
+
+describe('advisorConsultImpact（2026-11-26・本を探す前に相談の減りを見せる）', () => {
+  it('探す前と後の相談の答えの回数', async () => {
+    const { advisorConsultImpact } = await import('./tokenAmounts');
+    expect(advisorConsultImpact(30)).toEqual({ before: '約 10 回', after: '約 3 回' });
+    expect(advisorConsultImpact(15)).toEqual({ before: '約 5 回', after: '約 0 回' });
+    expect(advisorConsultImpact(0)).toBe(null);
+    expect(advisorConsultImpact(null)).toBe(null);
+  });
+});

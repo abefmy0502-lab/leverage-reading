@@ -44,6 +44,14 @@ export function remainingAdvisorLabel(tokens) {
   const n = t < ADVISOR_MIN_TOKENS ? 0 : Math.max(1, Math.floor(t / ADVISOR_TOKENS));
   return `約 ${n.toLocaleString('ja-JP')} 回`;
 }
+// 🔍 無料プランで本を探す前に、相談の答えがどれだけ減るかを見せる（2026-11-26 オーナー判断「今のまま・探す前に見せる」＝
+//   AI 選書と相談は同じ毎月のトークンを使う）。{ before: '約 10 回', after: '約 3 回' }。残りが分からなければ null。
+export function advisorConsultImpact(tokens) {
+  if (tokens == null || !Number.isFinite(Number(tokens))) return null;
+  const t = Math.max(0, Math.floor(Number(tokens)));
+  if (t <= 0) return null;
+  return { before: remainingAnswersLabel(t), after: remainingAnswersLabel(Math.max(0, t - ADVISOR_TOKENS)) };
+}
 // 残りのトークンで、あと AI の答え何回（切り捨て＝言い過ぎない・残りがあれば 1）。「約 5 回」。
 export function remainingAnswersLabel(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));

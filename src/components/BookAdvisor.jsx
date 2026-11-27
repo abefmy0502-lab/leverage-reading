@@ -38,7 +38,7 @@ import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { nextResetLabelJa, requestPaywall, isFreePoolOut, FREE_POOL_EVENT } from '../lib/freeTrial';
 import { monthDayLabelJa } from '../lib/tokens';
-import { showFreeTokenCount, remainingAdvisorLabel, canStartAdvisor } from '../lib/tokenAmounts';
+import { showFreeTokenCount, remainingAdvisorLabel, canStartAdvisor, advisorConsultImpact } from '../lib/tokenAmounts';
 import { isLowTokens } from '../lib/tokenUsage';
 import { fmtTokens } from '../lib/consultHelpers';
 import { trialCancelShortLine } from '../lib/trialNudge';
@@ -272,6 +272,7 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const tokenTotal = tokensRemaining != null && Number.isFinite(Number(tokensRemaining)) ? Number(tokensRemaining) + (purchasedTokens || 0) : null;
   const showCostLine = tokenTotal != null && tokenTotal > 0;
   const tokensLow = isLowTokens(tokensRemaining, tokenAllowance, purchasedTokens);
+  const advisorImpact = advisorConsultImpact(tokenTotal);
   // 生成中にアンマウントされたら進行中のストリームを中断する（コスト・二重セッション対策）。
   const activeControllerRef = useRef(null);
   const unmountedRef = useRef(false);
@@ -2613,6 +2614,14 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
                 <span style={{ whiteSpace: 'nowrap' }}>{`本を探すのは${plan !== 'trial' && !showFreeTokenCount(tokenTotal) ? '今月' : ''}`}</span><wbr />
                 <span style={{ whiteSpace: 'nowrap' }}>{`あと${remainingAdvisorLabel(tokenTotal)}`}<ChevronRight size="1.2em" aria-hidden="true" style={{ verticalAlign: '-0.25em', marginLeft: '0.15em' }} /></span>
               </span>
+              {/* 無料プランは相談と同じトークン: 探す前に、相談の答えがどれだけ減るかを 1 行（2026-11-26 オーナー判断・模擬の利用者の声
+                  「1 回探すと、その月の相談がほぼ無くなるのを後で知った」）。 */}
+              {freeMode && advisorImpact && (
+                <span style={{ display: 'block' }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>探すと、相談の答えは</span><wbr />
+                  <span style={{ whiteSpace: 'nowrap' }}>{`${advisorImpact.before} → ${advisorImpact.after}`}</span>
+                </span>
+              )}
             </button>
           )}
           <textarea
