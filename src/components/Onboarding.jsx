@@ -12,6 +12,7 @@ import { profileIssues, profileIssueMessage } from '../lib/profileFilter';
 import { saveProfileShared } from '../hooks/useProfile';
 import { toMessage } from '../lib/errors';
 import { useConfirm } from './ConfirmDialog';
+import { Chip } from './formPrimitives';
 
 const STORAGE_KEY = 'onboardingCompleted';
 
@@ -50,9 +51,14 @@ const slides = [
     //   本のページを撮るが副・ほかのアプリから取り込むは文字ボタン（ホームのはじめの一歩と同じ順）。
     //   どの道も、終えたら「相談してみる」（lib/firstDay.js）。（前は 2026-10-02 の 取り込む → 撮る → 一文 の順）
     title: 'まずはメモを入れましょう',
-    body: '読んだ本の、心に残った一文から始められます。まだ読んだ本がなければ、最初の\u00a01\u00a0冊から探せます。',
+    // 「まだ読んだ本がなければ…」は下の 1 問（最近、本を読んでいますか？）に任せる（2026-11-27）。
+    body: '読んだ本の、心に残った一文から始められます。',
   },
 ];
+
+// 「あまり読まない」と答えた人の最後の画面の題と本文（主ボタン「最初の 1 冊を探す」と同じ向き・2026-11-27 ui-critic）。
+const LITTLE_TITLE = 'まずは 1 冊から始めましょう';
+const LITTLE_BODY = '気になる本が見つかったら、心に残った一文をメモするところから。';
 
 // 1 枚目の見本: 「3 か月前のメモ」→「相談」→「答え」（本物の相談の答えと同じ部品の形・引用は左に線・明朝）。
 //   中身はサンプル（読み上げでは 1 つの例として読む）。動かない・押せない。
@@ -232,6 +238,10 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
   const [srcPicked, setSrcPicked] = useState('');
   // 「どこで知りましたか」は畳んでおき、押したときだけ選択肢を出す（最後の画面の押せるものを減らす・2026-09-29）。
   const [srcOpen, setSrcOpen] = useState(false);
+  // 📖 最後の画面の 1 問「最近、本を読んでいますか？」（2026-11-27 オーナー承認「1 問で分ける」・模擬 6 回目で読書習慣の無い人の
+  //   入口がいちばん重かった）。'' ＝まだ答えていない（今までの並び）・'yes' ＝今までの並び・'little' ＝主ボタンを「最初の 1 冊を探す」に。
+  const [habit, setHabit] = useState('');
+  const pickHabit = (v) => { setHabit(v); track('onboard_habit', { habit: v }); };
   const pickSource = (key) => {
     if (srcPicked) return;
     setSrcPicked(key);
@@ -424,13 +434,26 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             style={{ fontSize: 'var(--text-title)', color: 'var(--text)', margin: 0, fontWeight: 700, lineHeight: 1.3, textAlign: 'left', outline: 'none', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'balance' }}
           >
             {/* 題も文節の切れ目でだけ折り返す（auto-phrase は iOS の Safari が知らない・2026-10-04）。 */}
-            {withPhraseBreaks(slide.title)}
+            {withPhraseBreaks(isLast && habit === 'little' && onAdvisor ? LITTLE_TITLE : slide.title)}
           </h2>
           {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（「困った／ときに」のように語の途中で割らない・iOS の Safari は auto-phrase を知らない） */}
           <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
-            {withPhraseBreaks(slide.body)}
+            {withPhraseBreaks(isLast && habit === 'little' && onAdvisor ? LITTLE_BODY : slide.body)}
           </p>
           {slide.sample && <OnboardSample />}
+          {isLast && onAdvisor && (
+            <div style={{ paddingTop: 'var(--space-3)' }}>
+              <p id="onb-habit-q" style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', textAlign: 'left' }}>最近、本を読んでいますか？</p>
+              <div role="radiogroup" aria-labelledby="onb-habit-q" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <Chip size="select" stretch active={habit === 'yes'} role="radio" aria-checked={habit === 'yes'} onClick={() => pickHabit('yes')}>読んでいる</Chip>
+                <Chip size="select" stretch active={habit === 'little'} role="radio" aria-checked={habit === 'little'} onClick={() => pickHabit('little')}>あまり読まない</Chip>
+              </div>
+              {/* 下のボタンが入れ替わったことを読み上げで伝える（見えない 1 行） */}
+              <p role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', margin: 0 }}>
+                {habit === 'little' ? '最初の 1 冊を探す が先頭になりました' : habit === 'yes' ? '読んだ本の一文をメモする が先頭です' : ''}
+              </p>
+            </div>
+          )}
           {slide.id === 'profile' && (
             <div style={{ paddingTop: 'var(--space-2)' }}>
               <ProfileForm value={profile} onChange={(next) => { setProfile(next); if (profileError) setProfileError(''); }} showAvatar={SOCIAL_ON} showFavorite={!SOCIAL_ON} />
@@ -452,6 +475,18 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
           //   副＝本のページを撮る（写真から書き起こす）／文字ボタン＝ほかのアプリから取り込む。「どこで知りましたか」は一番下へ。
           //   どのアプリから取り込めるか（ブクログ・読書メーター・Kindle）は本文と、開いたシートで言う。
           <>
+            {habit === 'little' && onAdvisor ? (
+            // あまり読まない人: 主＝最初の 1 冊を探す（AI 選書に下書き）／副＝読んだ本の一文をメモする／文字＝ほかのアプリから取り込む。
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
+              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startAdvisor}>最初の 1 冊を探す</button>
+              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startQuickstart}>
+                <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
+              </button>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <button type="button" style={{ ...btnLinkQuiet, textAlign: 'center' }} onClick={startImport}>ほかのアプリから取り込む</button>
+              </div>
+            </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
               <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
                 {/* 文字が大きいと「…メモす／る」と 1 字だけ落ちていた（2026-11-25 点検） */}
@@ -474,6 +509,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                 </button>
               </div>
             </div>
+            )}
             {/* signup_source（任意）: 押しつけないよう一番下に小さく畳んでおく（13/--text-2 の一行＋▾）。
                 押したときだけ選択肢を出し、選んだあとは選んだチップを残してお礼だけ。 */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-1)' }}>
