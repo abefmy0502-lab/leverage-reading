@@ -10,6 +10,7 @@
 import CareNote from './CareNote';
 import { needsCareLine } from '../lib/advisorInterview';
 import { useChatImmersive } from '../hooks/useChatImmersive';
+import { useKeepScrollAnchored } from '../hooks/useKeepScrollAnchored';
 import { Fragment, cloneElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { markActivation } from '../lib/activation';
@@ -797,6 +798,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   // 行動を決める回を書き終えたら、一歩の箱（行動に追加まで）を見せる（ask が立て、書き終えた描画のあとで送る）。
   const revealStepRef = useRef(false);
   const spacerRef = useRef(null);
+  // 📏 チップの行（返事の候補）を押して送ったとき、答えを書いている間も行の高さを空けておく（2026-11-27）。
+  //   前は送ると行が消えて入力欄が下がり、書き終えるとまた行が出て上がっていた（入力欄が上下に動く）。
+  const chipRowRef = useRef(null);
+  const [chipHoldH, setChipHoldH] = useState(0);
   const messagesColRef = useRef(null);
   const sizeSpacer = useCallback(() => {
     const el = chatScrollRef.current;
@@ -1140,6 +1145,12 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const top = questionAlignTop(el);
     if (top != null && top > el.scrollTop + 1) el.scrollTop = top;
   }, [messages, busy, view]);
+  // 書き終えたら、空けておいたチップの行の高さを外す（チップが出ればそのまま入れ替わる・出なければ少し待ってから）。
+  useEffect(() => {
+    if (busy || chipHoldH === 0) return undefined;
+    const t = setTimeout(() => setChipHoldH(0), 700);
+    return () => clearTimeout(t);
+  }, [busy, chipHoldH]);
   // 8 秒たっても 1 文字も来なければ、静かな 1 行（止めるボタンは入力欄の右にそのまま）。
   useEffect(() => {
     if (!busy) { setSlowWait(false); return undefined; }
@@ -1161,6 +1172,9 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     if (col) ro.observe(col);
     return () => ro.disconnect();
   }, [view, sizeSpacer]);
+  // 📌 会話の欄の上の行が出たり消えたりしても、読んでいる文を動かさない（hooks/useKeepScrollAnchored.js・2026-11-27）。
+  //   キーボードを開いたときの「問いの箱を見せる」合わせ（keepAnswerEnd）はこのあとに走る（観察の順）。
+  useKeepScrollAnchored(chatScrollRef, view === 'chat', [view]);
   // ⌨️ 書いている間も、読みたい答えの終わりが見えるように（2026-10-08）。
   //   カーソルを置いたら最新の答えの終わりまで送る。キーボードが上がって欄が縮んだとき・入力欄が伸びたときは、
   //   その前に答えの終わりが見えていたときだけ見えたままにする（自分で上へ戻して読んでいる場所は奪わない）。
@@ -1413,12 +1427,10 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   const sendGuardRef = useRef(null);
   if (!sendGuardRef.current) sendGuardRef.current = createSendGuard();
   const ask = (questionText, opts = {}) => {
-    // ⌨️ 指で使う端末では、入力欄から送ったらキーボードを閉じる（2026-10-08）: 答えを画面いっぱいで読み、
-    //   書き終えたら入力欄の上のチップ（返事の候補・行動を決める）が出る。続けて書くときは入力欄を押す。
-    //   マウスの端末はそのまま（続けて打てる・チップは文字が無ければ出る）。
-    if (questionText == null && input.trim() && !busy && touchUi && typeof document !== 'undefined' && document.activeElement === inputRef.current) {
-      try { inputRef.current.blur(); } catch { /* ignore */ }
-    }
+    // ⌨️ 入力欄から送っても、キーボードは閉じない（2026-11-27 オーナー「LINE のトークくらいストレスなく」）。
+    //   前（2026-10-08〜）は送るたびに閉じていた＝上の行・サブタブ・下のタブが戻って会話の欄が縮み、相談の吹き出しを
+    //   上端へ送る動きと重なって画面がガクガクしていた。続けて書ける。チップ（返事の候補）は、会話の何もない所を
+    //   押してキーボードを閉じれば出る（onChatTap）。
     return sendGuardRef.current.run(() => askOnce(questionText, opts));
   };
   const askOnce = async (questionText, opts = {}) => {
@@ -1494,6 +1506,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       return;
     }
     setSendNotice('');
+    setChipHoldH(chipRowRef.current ? chipRowRef.current.offsetHeight : 0);
     userScrolledRef.current = false;
     sentAtRef.current = Date.now();
     reserveRef.current = true;
@@ -1509,13 +1522,37 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Optimistic insert: show the user's message immediately.
-    // ただし再生成（regenerate）は既存の質問を answer し直すだけなので、
-    // user 行を再 INSERT しない（skipUserInsert）。しないと押すたびに同じ質問が
-    // chat_messages に重複保存され、履歴と「会話 N 件」が水増しされる。
+    // ★ 送信後すぐに assistant 吹き出しを optimistically 追加。空文字 +
+    //   streaming:true で skeleton/cursor を出し、TTFT を体感的に短縮する。
+    const streamingId = `streaming-${Date.now()}`;
+    const streamingRow = (
+      {
+        id: streamingId,
+        role: 'assistant',
+        content: '',
+        refs: [],
+        createdAt: new Date().toISOString(),
+        streaming: true,
+        scopeIds: askBookIds, // 相談相手のアイコン（書いている間・失敗・関係するメモが無かった答えは相談相手から）
+        mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
+        // 本を探す問い（「…を書いた本はどれ？」）は問いも行動も無い答えなので、下に箱の形を取らない（2026-09-30）。
+        // 🔭 見方を変える頼みの答えは問いでも行動でもない（書いている途中は箱の形を取らない・2026-10-08 ui-critic）。
+        expect: isBookLookup(q) ? 'lookup' : expectAction ? 'action' : ((askThread.length > 0 || !!askPrior) && lensOf(q)) ? 'lens' : 'ask',
+      }
+    );
+    // 💬 相談の吹き出しと答えの吹き出しは、入力欄を空にするのと同じ描画で会話に入れる（2026-11-27 オーナー「チャットを続けると
+    //   画面がガクガクする」）。前は履歴への保存（通信 1 往復）を待ってから入れていたので、その間に前の答えの下の部品
+    //   （返事の候補・新しい相談をはじめる）だけが消えて会話が一度下がり、相談が入ってまた上がっていた。
+    //   保存できたら同じ吹き出しのまま保存した行に差し替える（key は変えない＝作り直さない）。保存できなければ取り下げる。
     let savedUserId = null; // 上限・お試し終了で答えられなかったら、履歴から質問を取り下げる
     let questionAt = opts.questionAt || null; // 質問の保存時刻（サーバー時刻・画面を離れて戻ったとき用）
-    if (!opts.skipUserInsert) {
+    const localUserId = opts.skipUserInsert ? null : `sending-q-${Date.now()}`;
+    setMessages((arr) => [
+      ...arr,
+      ...(localUserId ? [{ id: localUserId, key: localUserId, role: 'user', content: q, refs: [], createdAt: new Date().toISOString(), scopeLabel: askScopeLabel, sending: true }] : []),
+      { ...streamingRow, key: streamingId },
+    ]);
+    if (localUserId) {
       let userRow = null;
       try {
         const { data, error } = await supabase
@@ -1524,16 +1561,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           .select()
           .single();
         if (error) throw error;
-        userRow = { ...transformMessage(data), scopeLabel: askScopeLabel };
+        userRow = { ...transformMessage(data), scopeLabel: askScopeLabel, key: localUserId };
         savedUserId = data?.id || null;
         questionAt = data?.created_at || null;
-        setMessages((arr) => [...arr, userRow]);
+        setMessages((arr) => arr.map((m) => (m.id === localUserId ? userRow : m)));
         // 📊 first_consult_sent（lib/firstDay.js・2026-10-02）: はじめての相談を送った（AI に送る相談だけ・この端末で 1 回）。
         //   運営は「登録から 24 時間以内に最初の相談」をこれで数える。path＝初回ガイドで選んだ道（無ければ none）。
         if (!prevAskAt && takeFirstConsult()) {
           track('first_consult_sent', { memos: ownMemoTotalRef.current, path: getOnboardPath() || 'none', preset: questionText != null });
         }
       } catch (e) {
+        setMessages((arr) => arr.filter((m) => m.id !== localUserId && m.id !== streamingId));
         setBusy(false);
         reserveRef.current = false;
         abortRef.current = null;
@@ -1552,25 +1590,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     backgroundAsk = { questionAt, done: false, finishedAt: 0, leftWhileRunning: false, promise: bgPromise, controller, failed: false, aborted: false };
     const myBackground = backgroundAsk;
 
-    // ★ 送信後すぐに assistant 吹き出しを optimistically 追加。空文字 +
-    //   streaming:true で skeleton/cursor を出し、TTFT を体感的に短縮する。
-    const streamingId = `streaming-${Date.now()}`;
-    setMessages((arr) => [
-      ...arr,
-      {
-        id: streamingId,
-        role: 'assistant',
-        content: '',
-        refs: [],
-        createdAt: new Date().toISOString(),
-        streaming: true,
-        scopeIds: askBookIds, // 相談相手のアイコン（書いている間・失敗・関係するメモが無かった答えは相談相手から）
-        mode: askMode, // 本ごとには、書いている途中から本のカードの形で見せる（出来上がりで形が跳ねないように）
-        // 本を探す問い（「…を書いた本はどれ？」）は問いも行動も無い答えなので、下に箱の形を取らない（2026-09-30）。
-        // 🔭 見方を変える頼みの答えは問いでも行動でもない（書いている途中は箱の形を取らない・2026-10-08 ui-critic）。
-        expect: isBookLookup(q) ? 'lookup' : expectAction ? 'action' : ((askThread.length > 0 || !!askPrior) && lensOf(q)) ? 'lens' : 'ask',
-      },
-    ]);
     setStage('search');
 
     // ストリーミングで届いた最新の可視テキスト。abort 時に refs パースが
@@ -1684,7 +1703,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         // 楽観的な streaming 行を、永続化された row で差し替える。
         const saved = transformMessage(data);
         answerId = saved.id;
-        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...saved, ...perbookFallback, scopeIds: askBookIds } : m)));
+        setMessages((arr) => arr.map((m) => (m.id === streamingId ? { ...saved, ...perbookFallback, scopeIds: askBookIds, key: m.key || streamingId } : m)));
       } catch (saveErr) {
         // 表示は確定させたまま（streaming フラグだけ落とす）、保存失敗を控えめに知らせる。
         setMessages((arr) => arr.map((m) =>
@@ -1742,6 +1761,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         m.id === streamingId
           ? {
               id: `err-${Date.now()}`,
+              key: m.key || m.id,
               role: 'assistant',
               content: controller.signal.aborted
                 ? '回答を中止しました。'
@@ -2853,7 +2873,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               />
             )}
             {visibleMessages.map((m, i) => (
-              <Fragment key={m.id}>
+              <Fragment key={m.key || m.id}>
                 {/* 1 つのやりとりの入れ物（送ったあと相談の吹き出しを上端にそろえる alignTarget が data-turn で探す）。 */}
                 <div data-turn="" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {m.memoAnswer ? (
@@ -3079,8 +3099,11 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
           {/* 💬 深掘りのチップ（2026-09-30・SPEC §3）: 答えを書き終えたら、入力欄の上に続きの聞き方を 2〜3 つ。押すとすぐ送る。 */}
           {/* 1 行で横に送る（2026-10-10 ui-critic「入力欄のまとまりが高い」）: 返事の候補 →「ここで答えと行動を」→「別の角度で答えて」。
               右端は画面の端まで送る（切れたチップで、横に送れると分かる）。無料プランの「1 回 約 N トークン」は行の上に。 */}
+          {!(followups.length > 0 || regenLabel) && chipHoldH > 0 && (
+            <div aria-hidden="true" style={{ ...followupGroup, height: chipHoldH, boxSizing: 'border-box' }} />
+          )}
           {(followups.length > 0 || regenLabel) && (
-            <div role="group" aria-label="続けて聞く" style={followupGroup}>
+            <div ref={chipRowRef} role="group" aria-label="続けて聞く" style={followupGroup}>
               {chipCostLine && <div style={{ padding: '0 var(--space-4) var(--space-2)' }}>{chipCostLine}</div>}
               <div className="lvg-no-scrollbar" style={followupScroll}>
                 {followups.filter((c) => c.kind !== 'decide').map((c, i) => (

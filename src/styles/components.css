@@ -1425,19 +1425,60 @@ body.keyboard-open .bottom-nav {
   border-top: none !important;
   pointer-events: none !important;
 }
-/* キーボードが開いている間、相談・AI 選書のサブタブの行（相談｜AI 選書・過去の相談）を畳む。
-   答えと書いている文に場所を譲る（書き終えて閉じれば戻る・2026-10-08）。 */
-body.keyboard-open .ai-page > .sub-tabs {
-  display: none;
+/* キーボードが開いている間・会話を読み進めている間（body.chat-scroll-down）、相談・AI 選書のサブタブの行と上の行
+   （写真で共有・？・⚙️）を畳む。答えと書いている文に場所を譲る（書き終えて閉じれば戻る・2026-10-08）。
+   上の行は上の安全域（時計・ノッチ）の分だけ残す（2026-10-08 ui-critic）。
+   🫧 2026-11-27 オーナー「チャットを続けると画面がガクガクする・LINE のトークくらいストレスなく」: 前は一瞬で消す・出す
+   （display: none）だったので、キーボードを閉じるたびに会話が 117 ほど一気に下がっていた。行の高さを
+   キーボードと同じくらいの速さ（--duration-fast）で滑らかに縮める・伸ばす（grid の行の 1fr ↔ 0fr）。中身は先に薄れて消え、
+   伸ばすときは伸びきる少し前から現れる（縮んでいく途中で下にはみ出して見えない）。隠れている間は visibility: hidden
+   （読み上げ・押す対象から外す）。会話の欄は useKeepScrollAnchored が読んでいる文をその場に留める。 */
+.app-top-bar--fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--duration-fast) var(--ease-out), padding-bottom var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
-/* 同じく、上の行（ロゴ・写真で共有・？・⚙️）も畳む。上の安全域（時計・ノッチ）の分だけ残す（2026-10-08 ui-critic）。 */
-body.keyboard-open .app-top-bar--fold {
-  min-height: 0 !important;
+.app-top-bar--fold > .app-top-bar__row {
+  min-height: 0;
+  transition: opacity var(--duration-instant) var(--ease-out) var(--duration-instant), visibility 0s linear 0s;
+}
+.sub-tabs-fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  flex-shrink: 0;
+  transition: grid-template-rows var(--duration-fast) var(--ease-out);
+}
+.sub-tabs-fold > .sub-tabs {
+  min-height: 0;
+  transition: padding var(--duration-fast) var(--ease-out), border-bottom-width var(--duration-fast) var(--ease-out);
+}
+.sub-tabs-fold > .sub-tabs > * {
+  transition: opacity var(--duration-instant) var(--ease-out) var(--duration-instant), visibility 0s linear 0s;
+}
+body.keyboard-open .app-top-bar--fold,
+body.chat-active.chat-scroll-down .app-top-bar--fold {
+  grid-template-rows: 0fr;
   padding-bottom: 0 !important;
   border-bottom-color: transparent !important;
 }
-body.keyboard-open .app-top-bar--fold > * {
-  display: none !important;
+body.keyboard-open .app-top-bar--fold > .app-top-bar__row,
+body.chat-active.chat-scroll-down .app-top-bar--fold > .app-top-bar__row,
+body.keyboard-open .ai-page > .sub-tabs-fold > .sub-tabs > * {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-instant) var(--ease-out), visibility 0s linear var(--duration-fast);
+}
+body.keyboard-open .ai-page > .sub-tabs-fold {
+  grid-template-rows: 0fr;
+}
+body.keyboard-open .ai-page > .sub-tabs-fold > .sub-tabs {
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-top-bar--fold, .app-top-bar--fold > .app-top-bar__row,
+  .sub-tabs-fold, .sub-tabs-fold > .sub-tabs, .sub-tabs-fold > .sub-tabs > * { transition: none !important; }
 }
 
 /* =========================================================================
@@ -1796,14 +1837,7 @@ details[open] > summary .fold-chevron { transform: rotate(180deg); }
 /* 💬 会話の画面を広く使う（2026-11-15 オーナー「チャットの画面が小さい」・hooks/useChatImmersive.js）。
    会話を下へ読み進めている間は、上の行（ロゴ・写真で共有・？・⚙️）と下のタブを畳む（キーボードのときと同じ畳み方）。
    上へ少し戻すか先頭近くでは両方出る（？・⚙️・写真で共有にいつでも戻れる・2026-11-15 ui-critic）。 */
-body.chat-active.chat-scroll-down .app-top-bar--fold {
-  min-height: 0 !important;
-  padding-bottom: 0 !important;
-  border-bottom-color: transparent !important;
-}
-body.chat-active.chat-scroll-down .app-top-bar--fold > * {
-  display: none !important;
-}
+/* 上の行の畳み方は、キーボードのときと同じ（滑らかに縮める・上の body.keyboard-open の段にまとめた・2026-11-27）。 */
 body.chat-active.chat-scroll-down .bottom-nav {
   max-height: 0 !important;
   opacity: 0 !important;

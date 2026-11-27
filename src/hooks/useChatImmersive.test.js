@@ -22,3 +22,12 @@ describe('いちばん下で震えない（2026-11-17）', () => {
     expect(nextScrollDown(60, 20, true, { atBottom: true })).toBe(false);
   });
 });
+
+describe('本人が動かしたときだけ畳む（2026-11-27）', () => {
+  it('指が触れている間・慣性の間は数え、アプリが送っただけのときは数えない', async () => {
+    const { isUserScroll } = await import('./useChatImmersive');
+    expect(isUserScroll({ touching: true, now: 5000, until: 0 })).toBe(true);
+    expect(isUserScroll({ touching: false, now: 5000, until: 5200 })).toBe(true);
+    expect(isUserScroll({ touching: false, now: 5000, until: 4000 })).toBe(false);
+  });
+});

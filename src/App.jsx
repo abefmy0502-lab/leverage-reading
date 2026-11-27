@@ -6836,19 +6836,15 @@ function AuthedApp() {
      style={{
        flexShrink: 0,
        padding: "max(env(safe-area-inset-top, 4px), 4px) var(--space-4) var(--space-1)",
-       minHeight: 44,
-       display: "flex",
-       justifyContent: "space-between",
-       alignItems: "center",
-       gap: 'var(--space-2)',
        /* ページ（クリーム）と同色にして上部を一体化（iOS ナビバー流儀）。
           白いカードが下で浮く構図になる。 */
        background: "var(--bg)",
        // 中身を下へ送ったときだけ下に線（一番上では出さない）。線の太さぶんは常に取って高さを変えない。
        borderBottom: `1px solid ${pageScrolled ? 'var(--separator)' : 'transparent'}`,
-       transition: 'border-color var(--duration-fast) var(--ease-out)',
      }}
    >
+    {/* 行の中身は 1 つの入れ物に（相談・AI 選書で、キーボードの間に滑らかに畳む＝components.css の .app-top-bar__row・2026-11-27）。 */}
+    <div className="app-top-bar__row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 'var(--space-2)' }}>
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', minWidth: 0, flex: 1 }}>
       {/* 左上のロゴは 2026-11-25 にやめた（オーナー「左上のホームという表記とロゴは消していい」）。右のボタンの位置を保つための空き。 */}
     </div>
@@ -6906,6 +6902,7 @@ function AuthedApp() {
       >
         <UserAvatar avatarId={myProfile?.avatar} nickname={myProfile?.nickname} size={28} />
       </button>
+    </div>
     </div>
   </header>
    )}
@@ -7665,6 +7662,8 @@ function AuthedApp() {
             {/* サブタブは名前の幅（相談｜AI 選書）で左に寄せ、同じ行の右端にその画面の操作（相談の 🕒・…／AI 選書の履歴・新規）。
                 上の操作を「サブタブ／アイコンの行／件数の行」と 3 段に積まない（2026-10-01 ui-critic・DESIGN §5）。 */}
             {!(aiSubTab === 'brain' && consultPushed) && !(aiSubTab === 'advisor' && advisorPushed) && (
+            // キーボードの間・会話を読み進めている間は滑らかに畳む（components.css の .sub-tabs-fold・2026-11-27）。
+            <div className="sub-tabs-fold">
             <div className="sub-tabs sub-tabs--fit" data-scrolled={(aiSubTab === 'brain' && consultScrolled) || (aiSubTab === 'advisor' && advisorScrolled) ? '' : undefined} style={{ flexShrink: 0 }}>
             <div role="tablist" aria-label="相談のサブタブ" className="sub-tabs__list sub-tabs__seg" onKeyDown={onTabListKeyDown}>
               <SegThumb activeKey={aiSubTab} />
@@ -7695,6 +7694,7 @@ function AuthedApp() {
               </button>
             </div>
             <div ref={setAiBarSlot} className="sub-tabs__actions" />
+            </div>
             </div>
             )}
             {/* サブタブ（相談｜AI 選書）の下に説明文は置かない（各画面の見出しで伝わる・DESIGN §0-6）。 */}

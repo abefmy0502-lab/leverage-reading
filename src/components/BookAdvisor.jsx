@@ -4,6 +4,7 @@
 
 import { ADVISOR_EXAMPLES, ADVISOR_EXAMPLES_NEW_READER, advisorExamplesFor } from '../lib/advisorExamples';
 import { useChatImmersive } from '../hooks/useChatImmersive';
+import { useKeepScrollAnchored } from '../hooks/useKeepScrollAnchored';
 import { Fragment, useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import TokenUsageSheet from './TokenUsageSheet';
@@ -1646,6 +1647,8 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   const [scrolled, setScrolled] = useState(false);
   // 会話が始まったら画面を広く使う（上の行を畳み、読み進めている間は下のタブも隠す・2026-11-15）。
   const onImmersiveScroll = useChatImmersive(messages.length > 0 || !!interview || interviewLoading || interviewAnswers.length > 0);
+  // 📌 キーボードを閉じて上の行が戻っても、読んでいる文を動かさない（相談と同じ・hooks/useKeepScrollAnchored.js・2026-11-27）。
+  useKeepScrollAnchored(chatScrollRef, view !== 'history' && !(view === 'detail' && selectedSession), [view, !!selectedSession]);
   const onChatScroll = (e) => {
     onImmersiveScroll(e.currentTarget);
     const s = e.currentTarget.scrollTop > 0;
