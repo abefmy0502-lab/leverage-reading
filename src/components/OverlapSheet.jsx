@@ -258,10 +258,10 @@ export default function OverlapSheet({ source, targetId = null, aiOff = false, b
                 aria-label="自分の答え" placeholder="いま思うことを、自分の言葉で"
                 style={{ ...uiInput, resize: 'none', overflowY: 'hidden', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
               />
-              {aiPaused && ai.status !== 'ready' && (
-                <p style={{ ...meta, color: 'var(--text-2)' }}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、そのまま書いて残せます。')}</p>
-              )}
-              <p style={meta}>{withPhraseBreaks('学びとして残り、相談の材料になります。')}</p>
+              {/* AI を止めている間の注記は、欄の下の 1 つの段落にまとめる（同じ場所の補足を 2 段の濃さに分けない・2026-11-27 ui-critic）。 */}
+              {aiPaused && ai.status !== 'ready'
+                ? <p style={meta}>{withPhraseBreaks('今月の無料の AI は、ここまでです。')}<span style={{ whiteSpace: 'nowrap' }}>{nextResetLabelJa()}</span>{withPhraseBreaks('に戻ります。自分の答えは、学びとして残り、相談の材料になります。')}</p>
+                : <p style={meta}>{withPhraseBreaks('学びとして残り、相談の材料になります。')}</p>}
             </section>
           </>
         )}

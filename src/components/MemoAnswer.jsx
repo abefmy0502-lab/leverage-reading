@@ -150,7 +150,7 @@ export default function MemoAnswer({ planLabel = '', message, onOpen, onOpenLear
               <p style={{ ...meta, marginTop: 'var(--space-3)' }}>メモ {a.searched} 件から探しました</p>
               {/* 次にできること（AI なし）: 2 つのメモを並べて、自分の答えを書く。 */}
               {pair && (
-                <button type="button" onClick={() => onOverlap(pair)} style={{ ...btnLink, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
+                <button type="button" onClick={() => onOverlap(pair)} style={{ ...btnLink, display: 'flex', width: 'fit-content', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))', marginBottom: 'calc(-1 * var(--space-3))' }}>
                   <Blend size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />2 つのメモを重ねて考える
                 </button>
               )}
