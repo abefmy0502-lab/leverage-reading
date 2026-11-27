@@ -402,7 +402,8 @@ function ReflectCard({ a, value, onChange, onSave, saving, onClose, onConsult = 
       ref={ref}
       aria-label="完了した行動のふりかえり"
       style={{
-        background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: 'var(--space-4)', position: 'relative',
+        // 一覧（ul）の枠と角丸の中で、行と入れ替わる＝自分の枠は持たない（枠が二重に見えていた・2026-11-27）。
+        background: 'var(--surface)', padding: 'var(--space-4)', position: 'relative',
         // 下の知らせ（高さ約 56）＋タブバー＋セーフエリアの上に止める。
         scrollMarginBottom: 'calc(var(--tabbar-h) + var(--space-16) + var(--space-4) + env(safe-area-inset-bottom, 0px))',
         scrollMarginTop: 'var(--space-4)',
