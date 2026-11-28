@@ -771,7 +771,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const loaded = peek && typeof peek === 'object' ? peek.person : null;
     const p = loaded || person;
     const rel = loaded?.relation || person.relation || 'none';
-    const shared = !!(loaded && (loaded.bio || loaded.favLine || loaded.favTitle));
     const backLabel = back?.name === 'conn' ? `${who(back.person)}の${back.tab === 'followers' ? 'フォロワー' : 'フォロー中'}` : 'フォロー';
     const footer = rel === 'none' && peek !== 'none'
       ? <button type="button" onClick={() => ask(p)} disabled={!!askingId} aria-busy={askingId === p.publicId || undefined} style={btnPrimary}>{askingId === p.publicId ? '送っています…' : 'フォロー'}</button>
@@ -831,10 +830,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         {loaded && (
           <p style={{ ...note, marginTop: 'var(--space-8)' }}>
             {withPhraseBreaks(rel === 'pending'
-              ? '承認を待っています。承認されると、本棚と「この本のまとめ」を見られます。取り消すときは右上の「…」から。'
+              ? '承認を待っています。'
               : rel === 'accepted'
                 ? 'フォローしています。'
-                : `${shared ? '' : 'この人はプロフィールを公開していません。'}承認されると、本棚と「この本のまとめ」を見られ${followsVisible ? `、${who(p)}のフォロワーの一覧にもあなたが出ます` : 'ます'}。`)}
+                : '承認されると、本棚とまとめを見られます。')}
           </p>
         )}
         {rel === 'accepted' && <button type="button" onClick={() => openPerson(p, back)} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}>本棚を見る</button>}
@@ -919,7 +918,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             </div>
           ))}
         {loaded?.visible && !followsVisible && (
-          <p style={{ ...note, marginTop: 'var(--space-4)' }}>{withPhraseBreaks('あなたは一覧を見せない設定なので、ほかの人の一覧には出ません。')}</p>
+          <p style={{ ...note, marginTop: 'var(--space-4)' }}>{withPhraseBreaks('あなたは一覧を見せない設定です。')}</p>
         )}
         {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
         </div>
@@ -1029,7 +1028,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               <div role="list" style={{ marginTop: 'var(--space-3)' }}>
                 {tab === 'following' && (lists.following.length
                   ? lists.following.map((p, i) => <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={() => openPerson(p)} />)
-                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。相手のリンクからフォローできます。')}</p>)}
+                  : <p style={note}>{withPhraseBreaks('フォロー中の人はいません。')}</p>)}
                 {tab === 'followers' && (lists.followers.length
                   ? lists.followers.map((p, i) => (
                     <PersonRow key={p.publicId} first={i === 0} person={p} onOpen={mutual.has(p.publicId) ? () => openPerson(p) : undefined}>
@@ -1048,10 +1047,10 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                       </button>
                     </PersonRow>
                   ))
-                  : <p style={note}>{withPhraseBreaks(meReady ? 'フォロワーはいません。「あなたの ID」を渡すと、申し込みが届きます。' : 'フォロワーはいません。')}</p>)}
+                  : <p style={note}>{withPhraseBreaks('フォロワーはいません。')}</p>)}
                 {tab === 'requests' && (
                   <>
-                    {lists.sent.length === 0 && <p style={note}>{withPhraseBreaks(lists.requests.length && view.name !== 'list' ? '送った申し込みはありません。届いた申し込みは上にあります。' : '送った申し込みはありません。')}</p>}
+                    {lists.sent.length === 0 && <p style={note}>{'送った申し込みはありません。'}</p>}
                     {lists.sent.length > 0 && <p style={{ ...note, margin: '0 0 var(--space-2)' }}>相手の承認を待っています。</p>}
                     {lists.sent.map((p, i) => (
                       <PersonRow key={`s-${p.publicId}`} first={i === 0} person={p}>
@@ -1085,11 +1084,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>フォロー中・フォロワーを見せる</span>
                   <ToggleSwitch checked={followsVisible} onChange={toggleVisible} disabled={visibleBusy} ariaLabel="フォロー中・フォロワーを見せる" />
                 </div>
-                <p style={{ ...note, marginTop: 'var(--space-2)' }}>
-                  {withPhraseBreaks(followsVisible
-                    ? 'オフにすると、一覧を見せず、ほかの人の一覧にも出ません。'
-                    : 'いまは、だれにも一覧を見せず、ほかの人の一覧にもあなたは出ません。')}
-                </p>
               </div>
             )}
           </div>
@@ -1171,7 +1165,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               />
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
-            {!preview?.missing && <p style={note}>{withPhraseBreaks('名前では探せません。')}</p>}
             {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
             {preview?.person && (
               <div role="status" style={{ ...row(true), borderBottom: '1px solid var(--separator)' }}>
@@ -1221,14 +1214,13 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                       <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
                     </button>
                   </div>
-                  <p style={note}>{withPhraseBreaks('ID を押すとコピーできます。相手がこの ID を「ID でフォロー」に入れると、あなたに申し込みが届きます。')}</p>
                   <button type="button" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', gap: 'var(--space-2)' }}>
                     <QrCode size="1em" aria-hidden="true" />QR コードでフォロー
                   </button>
                 </>
               ) : (
                 <>
-                  <p style={note}>{withPhraseBreaks('フォローするには、先にプロフィールでニックネームを決めてください。')}</p>
+                  <p style={note}>{withPhraseBreaks('ニックネームを決めると使えます。')}</p>
                   <button type="button" onClick={() => setProfileOpen(true)} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>ニックネームを決める</button>
                 </>
               )}

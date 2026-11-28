@@ -111,8 +111,8 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
 
   const name = hasProfile(profile) ? (addressName(profile) || 'ニックネームなし') : 'ニックネームはまだありません';
   const status = guest ? '' : profile.isPublic
-    ? (profile.shelfPublic ? (profile.summaryPublic ? '公開中・本棚と本のまとめも' : '公開中・本棚も') : '公開中')
-    : '公開していません';
+    ? '公開中'
+    : '非公開';
   const followReady = followLists && typeof followLists === 'object';
   const requests = followReady ? followLists.requests.length : 0;
 

@@ -129,7 +129,6 @@ export default function QrSheet({ profile, onFound, onEditProfile, onClose }) {
                 {`ID ${publicId}`}<Copy size="1em" aria-hidden="true" style={{ color: 'var(--accent)' }} />
               </button>
             </div>
-            <p style={note}>{withPhraseBreaks('相手がこの QR コードを読むと、あなたをフォローできます。')}</p>
           </>
         ) : (
           <>

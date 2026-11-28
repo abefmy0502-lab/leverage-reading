@@ -83,15 +83,13 @@ export default function PublishSheet({ uid, profile, onClose, onPublished }) {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         <p style={{ ...note, fontSize: 'var(--text-sub)', color: 'var(--text)' }}>
-          {withPhraseBreaks('リンクを知っている人が、ニックネーム・自己紹介・好きな本を見られます。メモは見えません。')}
+          {withPhraseBreaks('メモは公開されません。')}
         </p>
-        <p style={note}>{withPhraseBreaks('一緒に見せるものを選んでください。あとからプロフィールを編集で変えられます。')}</p>
 
         <div style={{ ...rowStyle, marginTop: 'var(--space-4)' }}>
           <span style={label(true)}>本棚も公開する</span>
           <ToggleSwitch checked={shelf} onChange={() => { setShelf((v) => !v); if (shelf) setSummary(false); }} disabled={busy} ariaLabel="本棚も公開する" />
         </div>
-        <p style={note}>{withPhraseBreaks('本の書名・表紙・状態・評価を見せます。見せたくない本は、本の詳細の「…」から外せます。')}</p>
 
         {SOCIAL_ON && (
           <>
@@ -99,14 +97,12 @@ export default function PublishSheet({ uid, profile, onClose, onPublished }) {
               <span style={label(shelf)}>本のまとめも公開する</span>
               <ToggleSwitch checked={shelf && summary} onChange={() => setSummary((v) => !v)} disabled={busy || !shelf} ariaLabel="本のまとめも公開する" />
             </div>
-            <p style={note}>{withPhraseBreaks('本を押すと、あなたの「この本のまとめ」を読めます。メモの一覧は見せません。')}</p>
             {lists !== null && (
               <>
                 <div style={{ ...rowStyle, marginTop: 'var(--space-4)' }}>
                   <span style={label(true)}>フォロー中・フォロワーを見せる</span>
                   <ToggleSwitch checked={lists} onChange={() => setLists((v) => !v)} disabled={busy} ariaLabel="フォロー中・フォロワーを見せる" />
                 </div>
-                <p style={note}>{withPhraseBreaks('オフにすると、一覧を見せず、ほかの人の一覧にも出ません。')}</p>
               </>
             )}
           </>

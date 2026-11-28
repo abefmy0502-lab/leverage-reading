@@ -185,7 +185,7 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
               {canPublish && !hasName
                 ? 'ニックネームを入れると公開できます。'
                 : canPublish
-                ? <>オンにすると、リンクを知っている人が<br />ニックネーム・自己紹介・好きな本を見られます。<br />メモは見えません。</>
+                ? 'メモは公開されません。'
                 : guest ? 'アカウントを作ると公開できます（設定のいちばん上から）。' : 'いまは公開できません。この端末にだけ保存されます。'}
             </p>
             {/* 本棚も公開する（2026-11-21・公開するがオンのときだけ押せる・メモは出さない）。 */}
@@ -193,11 +193,7 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
               <span style={{ fontSize: 'var(--text-body)', color: draft.isPublic ? 'var(--text)' : 'var(--text-3)' }}>本棚も公開する</span>
               <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic} onChange={() => change({ ...draft, shelfPublic: !draft.shelfPublic, summaryPublic: draft.shelfPublic ? false : draft.summaryPublic })} disabled={!canPublish || !draft.isPublic || shelfUnready} ariaLabel="本棚も公開する" />
             </div>
-            <p style={note}>
-              {shelfUnready
-                ? 'いまは本棚を公開できません。'
-                : <>本の書名・表紙・状態・評価も見せます。<br />見せたくない本は、本の詳細の「…」から外せます。</>}
-            </p>
+            {shelfUnready && <p style={note}>いまは本棚を公開できません。</p>}
             {SOCIAL_ON && (
               <>
                 {/* 本のまとめも公開する（2026-11-21 3 回目・既定オフ・本棚も公開するのオンが前提）。 */}
@@ -205,16 +201,14 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
                   <span style={{ fontSize: 'var(--text-body)', color: draft.isPublic && draft.shelfPublic ? 'var(--text)' : 'var(--text-3)' }}>本のまとめも公開する</span>
                   <ToggleSwitch checked={!!draft.isPublic && !!draft.shelfPublic && !!draft.summaryPublic} onChange={() => change({ ...draft, summaryPublic: !draft.summaryPublic })} disabled={!canPublish || !draft.isPublic || !draft.shelfPublic || shelfUnready} ariaLabel="本のまとめも公開する" />
                 </div>
-                <p style={note}>本を押すと、あなたの「この本のまとめ」を読めます。<br />メモの一覧は見せません。</p>
                 {/* 公開の切り替えとは別に、承認したフォロワーには見えることを書いておく（App 審査 5.1.1・2026-11-22）。 */}
-                <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('フォローを承認した人は、公開の切り替えにかかわらず、本棚と「この本のまとめ」を見られます。')}</p>
+                <p style={{ ...note, marginTop: 'var(--space-2)' }}>{withPhraseBreaks('承認したフォロワーには、本棚とまとめがいつも見えます。')}</p>
                 {listsVisible !== null && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
                       <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>フォロー中・フォロワーを見せる</span>
                       <ToggleSwitch checked={listsVisible} onChange={toggleLists} disabled={listsBusy} ariaLabel="フォロー中・フォロワーを見せる" />
                     </div>
-                    <p style={note}>{withPhraseBreaks('オフにすると、一覧を見せず、ほかの人の一覧にも出ません。')}</p>
                   </>
                 )}
               </>
