@@ -126,12 +126,30 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
       interviewDirtyRef.current = false;
     }
     if (direct) { onClose?.(); return; }
-    if (view === 'plan') { setView('roadmap'); return; }
-    if (view === 'roadmap' || view === 'interview') { setView('goals'); return; }
+    // 戻った先は、前に見ていた位置から（ロードマップの下から読書計画へ行って戻ると、先頭へ飛んでいた・2026-11-28 点検）。
+    if (view === 'plan') { restoreScrollRef.current = true; setView('roadmap'); return; }
+    if (view === 'roadmap' || view === 'interview') { restoreScrollRef.current = true; setView('goals'); return; }
+    // ロードマップから開いた目標（目標を書き直す）は、ロードマップへ戻る（画面ごと閉じていた・2026-11-28 点検）。
+    if (view === 'goals' && baseView !== 'goals') { restoreScrollRef.current = true; setView(baseView); return; }
     onClose?.();
-  }, [view, onClose, direct, confirmGoal]);
+  }, [view, onClose, direct, confirmGoal, baseView]);
   useEdgeSwipeBack({ onBack: back, enabled: !editing });
-  useEffect(() => { scrollRef.current?.scrollTo?.({ top: 0 }); setScrolled(false); }, [view, horizon]);
+  // 画面ごとの読んでいた位置（戻ったときだけ戻す・進んだときは先頭から）。
+  const scrollPosRef = useRef(new Map());
+  const restoreScrollRef = useRef(false);
+  const viewKey = `${view}|${horizon}`;
+  useEffect(() => {
+    const el = scrollRef.current;
+    const want = restoreScrollRef.current ? (scrollPosRef.current.get(viewKey) || 0) : 0;
+    restoreScrollRef.current = false;
+    if (!el) return undefined;
+    el.scrollTo?.({ top: want });
+    setScrolled(want > 4);
+    if (!want) return undefined;
+    // 中身が伸びきる前は届かないので、次のコマでもう一度合わせる。
+    const raf = requestAnimationFrame(() => { if (Math.abs(el.scrollTop - want) > 2) el.scrollTo?.({ top: want }); });
+    return () => cancelAnimationFrame(raf);
+  }, [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (key, v) => { setHorizon(key); setView(v); };
   // 本を開いて戻ってきたら、同じ目標の同じ画面へ（App が覚えておく）。
@@ -145,12 +163,12 @@ export default function GoalScreen({ start = null, books = [], onClose, onOpenBo
     open(ALL_GOALS_KEY, 'interview');
   };
 
-  const backLabel = direct || view === 'goals' ? originLabel : view === 'plan' ? 'ロードマップ' : '目標';
+  const backLabel = direct ? originLabel : view === 'goals' ? (baseView !== 'goals' ? 'ロードマップ' : originLabel) : view === 'plan' ? 'ロードマップ' : '目標';
   const navTitle = view === 'interview' && interviewBuilding ? NAV_TITLE.roadmap : NAV_TITLE[view];
   return (
     <div className="goal-screen" role="dialog" aria-modal="true" aria-label={navTitle}>
       <AdvisorNavBar backLabel={backLabel} title={navTitle} onBack={back} pushed scrolled={scrolled} />
-      <div className="goal-scroll" ref={scrollRef} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
+      <div className="goal-scroll" ref={scrollRef} onScroll={(e) => { scrollPosRef.current.set(viewKey, e.currentTarget.scrollTop); setScrolled(e.currentTarget.scrollTop > 4); }}>
         <div className="goal-inner">
           {view === 'goals' && (
             <GoalsView
@@ -1495,7 +1513,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
                         <span className="plan-row-meta">
                           {isNow && <span className="plan-row-now">今日の本</span>}
                           <span>{fmtRange(x.start, x.end)}</span>
-                          <span>{x.days > 1 ? `${fmtSpan(x.days)} · 合わせて ${fmtHoursMin(x.minutes)}` : `残り ${fmtHoursMin(x.minutes)}`}</span>
+                          <span className="plan-row-dur">{x.days > 1 ? `${fmtSpan(x.days)} · 合わせて ${fmtHoursMin(x.minutes)}` : `残り ${fmtHoursMin(x.minutes)}`}</span>
                         </span>
                       </span>
                     </button>

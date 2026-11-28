@@ -1378,8 +1378,18 @@ function AuthedApp() {
   const [profileScreenOpen, setProfileScreenOpen] = useState(false);
   // どこから開いたか（'settings' なら、閉じたとき・「戻る」で設定に戻す＝トークンの追加と同じ・2026-11-23）。
   const profileFromRef = useRef(null);
+  // 設定から開いたヘルプ・取り込み・お気に入りの著者は、閉じたら設定へ戻す（プロフィール・トークンの追加と同じ・
+  //   前はホームに落ちて設定が消えていた・2026-11-28 点検）。ほかの画面へ進んだときは戻さない。
+  const settingsReturnRef = useRef(null);
+  const backToSettingsIf = (kind) => {
+    if (settingsReturnRef.current !== kind) return;
+    settingsReturnRef.current = null;
+    setSettingsOpen(true);
+  };
+  const closeHelp = () => { setHelpModalOpen(false); backToSettingsIf('help'); };
   // ヘルプの項目の「開く ›」（2026-11-23 ui-critic）。扱える行き先だけ HELP_OPEN_APP_TARGETS に入れる。
   const openFromHelp = (t) => {
+    settingsReturnRef.current = null;
     setHelpModalOpen(false);
     if (t === 'profile') openProfileScreen();
     else if (t === 'paywall') requestPaywall(null);
@@ -1433,6 +1443,22 @@ function AuthedApp() {
   // 下の「読了を写真で共有」: 出たとき（評価済み）と、評価を付けたときに画面の中まで送る（2026-11-23）。
   //   評価が 0 の間は送らない（送り先は見出しの「この本の評価は？」）。
   const justDoneShareRef = useRef(null);
+  // 積読に積んだ直後: 下の「積読に積みました。元に戻す」が「読書計画シートを作る」の行に重なっていたので、
+  //   その行を知らせの上まで送る（読了の「読了を写真で共有」と同じ考え・下の余白も同じだけ取る・2026-11-28 点検）。
+  const [justBeforeId, setJustBeforeId] = useState(null);
+  const justBeforeTimerRef = useRef(null);
+  useEffect(() => {
+    if (!justBeforeId || !current || current.id !== justBeforeId || current.status !== 'before') return undefined;
+    const raf = requestAnimationFrame(() => {
+      const el = typeof document !== 'undefined' && document.querySelector('[data-before-plan-cta]');
+      if (!el) return;
+      let reduce = false;
+      try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* noop */ }
+      try { el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }); } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [justBeforeId, current]);
+  useEffect(() => () => clearTimeout(justBeforeTimerRef.current), []);
   const justDoneRating = current && justDoneId === current.id ? (current.rating || 0) : 0;
   useEffect(() => {
     if (!justDoneId || justDoneRating <= 0) return undefined;
@@ -1649,7 +1675,7 @@ function AuthedApp() {
     window.addEventListener(OPEN_SETTINGS_EVENT, reopen);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, reopen);
   }, []);
-  useBackLayer(helpModalOpen, () => setHelpModalOpen(false));
+  useBackLayer(helpModalOpen, closeHelp);
   useBackLayer(addBookModalOpen, () => setAddBookModalOpen(false));
   useBackLayer(shelfScanOpen, () => setShelfScanOpen(false));
   const [quickMemoOpen, setQuickMemoOpen] = useState(false);
@@ -2500,7 +2526,7 @@ function AuthedApp() {
   // quickMemoOpen / fullEditorPrefill もリセットする — edge-swipe back や BottomNav
   // は QuickMemoSheet の onClose を経由しないため、開いたまま一覧へ戻ると次に
   // 開いた別の本の詳細でシートが勝手に開いてしまう。
-  const goList = () => { detailReturnRef.current = null; setJustDoneId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setDetailFromGoal(null); setJustMadePlanId(null); };
+  const goList = () => { detailReturnRef.current = null; setJustDoneId(null); setJustBeforeId(null); setView("list"); setCurrent(null); setEditPhaseOverride(null); setQuickMemoOpen(false); setQuickMemoPrompt(null); setFullEditorPrefill(null); setDetailKebab(null); setStoreSheetOpen(false); setAnalysisSheetOpen(false); setDetailFromSearchId(null); setDetailFromGoal(null); setJustMadePlanId(null); };
   // 本の詳細から 1 段戻る: 検索結果の「追加済み」から開いた本なら、さっきの検索結果へ戻す（2026-09-29）。
   const leaveDetail = () => {
     const toSearch = !!detailFromSearchId && current?.id === detailFromSearchId;
@@ -3492,6 +3518,11 @@ function AuthedApp() {
       dismissStatusUndo(book.id);
       // 「元に戻す」と並ぶので 390 幅で 1 行に収まる短さに（「「読書中」に／変更しました。」と 2 行に折れていた・DESIGN §5 トースト）。
       const shortDone = { before: '積読に積みました。', reading: '読書中にしました。' };
+      if (newStatus === 'before') {
+        clearTimeout(justBeforeTimerRef.current);
+        setJustBeforeId(book.id);
+        justBeforeTimerRef.current = setTimeout(() => setJustBeforeId(null), 6000);
+      }
       statusUndoToastRef.current.set(book.id, toast.undo({
         message: shortDone[newStatus] || `「${labels[newStatus] || newStatus}」にしました。`,
         destructive: false, // 状態の変更は消していないので、ゴミ箱ではなく中立の ↶
@@ -5215,6 +5246,9 @@ function AuthedApp() {
         loadMemoTexts={loadImportMemoTexts}
         onClose={() => {
           setShowImport(false);
+          // 設定から開いて、取り込まずに閉じたら、設定へ戻す（2026-11-28 点検）。
+          if (!importRanRef.current) backToSettingsIf('import');
+          settingsReturnRef.current = null;
           // クイックスタートから開いて、取り込まずに閉じたら、クイックスタートへ戻す（2026-11-23 点検）。
           const from = importFromQuickstartRef.current;
           importFromQuickstartRef.current = null;
@@ -5227,6 +5261,7 @@ function AuthedApp() {
         // メモも感想も無い新しい本に、初日クイックスタートの「一言」の段から一言を足す（2026-09-29）。
         onAddOneLine={(bare) => {
           importFromQuickstartRef.current = null;
+          settingsReturnRef.current = null;
           setShowImport(false);
           setQuickstartSeed(bare);
           setShowQuickstart(true);
@@ -5235,6 +5270,7 @@ function AuthedApp() {
         //   入れておく（2026-10-02・lib/firstDay.js＝送るのは本人が送信を押したとき）。
         onAsk={(outcome) => {
           importFromQuickstartRef.current = null;
+          settingsReturnRef.current = null;
           setShowImport(false);
           const consultBooks = Array.isArray(outcome?.consultBooks) ? outcome.consultBooks : [];
           openConsultDraft(firstConsultQuestion({ books: consultBooks, memoBookIds: new Set(outcome?.memoBookIds || []) }), 'import');
@@ -5347,9 +5383,9 @@ function AuthedApp() {
   // ✍️ 著者のシート（ホームの 1 行・設定・本の詳細の著者の名前から・2026-11-25）。本の詳細は別の描き分けなので両方に置く。
   const authorSheetLayer = authorSheet ? (
     <Suspense fallback={<OverlayFallback />}>
-      <AuthorSheet names={authorSheet.names} reason={authorSheet.reason} fav={favAuthors} onAddWant={addWantFromOther} hasBook={hasBookFromOther} onClose={() => setAuthorSheet(null)}
+      <AuthorSheet names={authorSheet.names} reason={authorSheet.reason} fav={favAuthors} onAddWant={addWantFromOther} hasBook={hasBookFromOther} onClose={() => { setAuthorSheet(null); backToSettingsIf('authors'); }}
         books={books}
-        onTalk={(ids, author = null) => { setAuthorSheet(null); setScopePreset({ bookIds: ids, author, nonce: Date.now() }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
+        onTalk={(ids, author = null) => { settingsReturnRef.current = null; setAuthorSheet(null); setScopePreset({ bookIds: ids, author, nonce: Date.now() }); setView('list'); setAiSubTab('brain'); setTab('ai'); }} />
     </Suspense>
   ) : null;
   const folderPickerSheet = folderPickerBook ? (() => {
@@ -5615,7 +5651,8 @@ function AuthedApp() {
                         2026-11-26 全体の UX 監査: 枠も面も外した文字の 1 行（高さ 44）に＝主ボタン「読み始める」を 390×844 の最初の画面に収める。 */}
                     <button type="button" onClick={() => { if (statusChangedRef.current.id === current.id && Date.now() - statusChangedRef.current.at < STATUS_TAP_LOCK_MS) return; runStrategyInPlace(current); }} disabled={!!planGen}
                       aria-busy={genHere || undefined}
-                      style={{ width: '100%', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, background: 'none', border: 'none', borderRadius: 0, fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
+                      data-before-plan-cta=""
+                      style={{ scrollMarginBottom: JUST_DONE_CLEARANCE, width: '100%', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, background: 'none', border: 'none', borderRadius: 0, fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
                       <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600, ...(planGen ? null : { color: 'var(--accent)' }) }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
                       {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
@@ -5850,7 +5887,7 @@ function AuthedApp() {
             // 下は右下の「メモを書く」の上まで、いちばん下のボタンを送れる分（ボタンの高さ＋12＋16＋セーフエリア・2026-09-30）。
             // 読了にした直後（「読了を写真で共有」を出している間）は、その上の「読了にしました。」の知らせの分（64）も足す
             // （いちばん下のボタンが知らせの下に隠れていた・2026-10-04）。
-            padding: `0 var(--space-4) ${justDoneId && current && justDoneId === current.id ? JUST_DONE_CLEARANCE : FAB_CLEARANCE}`,
+            padding: `0 var(--space-4) ${current && (justDoneId === current.id || (justBeforeId === current.id && current.status === 'before')) ? JUST_DONE_CLEARANCE : FAB_CLEARANCE}`,
           }}
         >
 
@@ -6460,10 +6497,11 @@ function AuthedApp() {
           <Suspense fallback={<OverlayFallback />}>
             <HelpModal
               helpKey={getCurrentHelpKey()}
-              onClose={() => setHelpModalOpen(false)}
+              onClose={closeHelp}
               openTargets={HELP_OPEN_APP_TARGETS}
               onOpen={openFromHelp}
               onShowOnboarding={() => {
+                settingsReturnRef.current = null;
                 setHelpModalOpen(false);
                 clearOnboardingCompletion();
                 setShowOnboarding(true);
@@ -6818,10 +6856,11 @@ function AuthedApp() {
           <Suspense fallback={<OverlayFallback />}>
             <HelpModal
               helpKey={getCurrentHelpKey()}
-              onClose={() => setHelpModalOpen(false)}
+              onClose={closeHelp}
               openTargets={HELP_OPEN_APP_TARGETS}
               onOpen={openFromHelp}
               onShowOnboarding={() => {
+                settingsReturnRef.current = null;
                 setHelpModalOpen(false);
                 clearOnboardingCompletion();
                 setShowOnboarding(true);
@@ -7886,13 +7925,13 @@ function AuthedApp() {
           <AccountSettings
             onClose={() => setSettingsOpen(false)}
             onAfterDelete={() => setSettingsOpen(false)}
-            onOpenImport={() => { setSettingsOpen(false); setShowImport(true); }}
-            onOpenHelp={() => { setSettingsOpen(false); setHelpModalOpen(true); }}
+            onOpenImport={() => { setSettingsOpen(false); importRanRef.current = false; settingsReturnRef.current = 'import'; setShowImport(true); }}
+            onOpenHelp={() => { setSettingsOpen(false); settingsReturnRef.current = 'help'; setHelpModalOpen(true); }}
             onProfileSaved={addFavoriteFromProfile}
             onAddWant={addWantFromOther}
             hasBook={hasBookFromOther}
             onOpenProfile={() => { setSettingsOpen(false); openProfileScreen('settings'); }}
-            onOpenFavAuthors={() => { setSettingsOpen(false); setAuthorSheet({ names: [], reason: null }); }}
+            onOpenFavAuthors={() => { setSettingsOpen(false); settingsReturnRef.current = 'authors'; setAuthorSheet({ names: [], reason: null }); }}
             favAuthorsCount={favAuthors.favs.length}
           />
         </Suspense>
@@ -8351,7 +8390,7 @@ function AuthedApp() {
         <Suspense fallback={<OverlayFallback />}>
           <HelpModal
             helpKey={getCurrentHelpKey()}
-            onClose={() => setHelpModalOpen(false)}
+            onClose={closeHelp}
             openTargets={HELP_OPEN_APP_TARGETS}
             onOpen={openFromHelp}
             onShowOnboarding={() => {

@@ -107,12 +107,13 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
                   </div>
                 </div>
                 {profile.bio && <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-body)', lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{profile.bio}</p>}
-                {profile.nickname && <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
-                  <button type="button" onClick={() => setEditOpen(true)} style={{ ...btnGhost, flex: 1, gap: 'var(--space-2)' }}>
+                {/* 2 つのボタンは 1 行に入らなければ縦に積む（「プロフィール／を編集」と割れていた・2026-11-28 点検） */}
+                {profile.nickname && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+                  <button type="button" onClick={() => setEditOpen(true)} style={{ ...btnGhost, flex: '1 1 auto', whiteSpace: 'nowrap', gap: 'var(--space-2)' }}>
                     <Pencil size="1em" aria-hidden="true" />プロフィールを編集
                   </button>
                   {url && (
-                    <button type="button" onClick={shareLink} style={{ ...btnGhost, flex: 1, gap: 'var(--space-2)' }}>
+                    <button type="button" onClick={shareLink} style={{ ...btnGhost, flex: '1 1 auto', whiteSpace: 'nowrap', gap: 'var(--space-2)' }}>
                       <Link2 size="1em" aria-hidden="true" />リンクを共有
                     </button>
                   )}

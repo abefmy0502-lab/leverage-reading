@@ -449,6 +449,9 @@
 .plan-row-meta { display: flex; flex-wrap: wrap; column-gap: var(--space-1); margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-2); line-height: 1.5; }
 .plan-row-meta > span { white-space: nowrap; }
 .plan-row-meta > span + span::before { content: "· "; color: var(--text-3); }
+/* 日数と時間は 2 行目に（折り返すと行の頭に「·」が来ていた・2026-11-28 点検） */
+.plan-row-meta > .plan-row-dur { flex-basis: 100%; }
+.plan-row-meta > .plan-row-dur::before { content: none; }
 .plan-row-now { color: var(--text); font-weight: 600; }
 
 /* ---- 行動リストの上の 1 行 ---- */

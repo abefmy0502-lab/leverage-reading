@@ -51,13 +51,21 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
   const confirm = useConfirm();
   useEffect(() => { if (!touched) setDraft(profile); }, [profile, touched]);
   // 直したら、前の保存のエラーは消す（直したのに赤い文が残っていた・2026-11-26 点検）
-  const change = (next) => { setTouched(true); setDraft(next); setError(''); };
+  // ニックネームが無いと公開のページに名前も中身も出ないので、公開はニックネームを入れてから（2026-11-28 点検）。
+  //   ニックネームを消したら、公開の切り替えも一緒にオフにする。
+  const change = (next) => {
+    const named = !!String(next?.nickname || '').trim();
+    setTouched(true);
+    setDraft(named ? next : { ...next, isPublic: false, shelfPublic: false, summaryPublic: false });
+    setError('');
+  };
   const profileDirty = JSON.stringify(normalizeProfile(draft)) !== JSON.stringify(normalizeProfile(profile));
   const url = profileUrl(profile.publicId);
   // 登録せずに始めた人は公開できない（データベースでも止める・App 審査 1.2）。
   const { user } = useAuth();
   const guest = isGuestUser(user);
   const canPublish = stored !== 'local' && !guest;
+  const hasName = !!String(draft?.nickname || '').trim();
   // 本棚の公開の列がまだ無い DB（前の版の SQL だけ）では本棚は公開できない（saveProfile が shelfReady: false を返す）。
   const [shelfUnready, setShelfUnready] = useState(false);
   const [shelfBooks, setShelfBooks] = useState([]);
@@ -171,10 +179,12 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--separator)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
               <span style={{ fontSize: 'var(--text-body)', color: 'var(--text)' }}>公開する</span>
-              <ToggleSwitch checked={!!draft.isPublic} onChange={() => change({ ...draft, isPublic: !draft.isPublic, shelfPublic: draft.isPublic ? false : draft.shelfPublic, summaryPublic: draft.isPublic ? false : draft.summaryPublic })} disabled={!canPublish} ariaLabel="プロフィールを公開する" />
+              <ToggleSwitch checked={!!draft.isPublic} onChange={() => change({ ...draft, isPublic: !draft.isPublic, shelfPublic: draft.isPublic ? false : draft.shelfPublic, summaryPublic: draft.isPublic ? false : draft.summaryPublic })} disabled={!canPublish || (!hasName && !draft.isPublic)} ariaLabel="プロフィールを公開する" />
             </div>
             <p style={note}>
-              {canPublish
+              {canPublish && !hasName
+                ? 'ニックネームを入れると公開できます。'
+                : canPublish
                 ? <>オンにすると、リンクを知っている人が<br />ニックネーム・自己紹介・好きな本を見られます。<br />メモは見えません。</>
                 : guest ? 'アカウントを作ると公開できます（設定のいちばん上から）。' : 'いまは公開できません。この端末にだけ保存されます。'}
             </p>
