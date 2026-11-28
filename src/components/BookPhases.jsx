@@ -497,7 +497,7 @@ export function BeforePhase({
         style={planReady && !aiLoading ? btnGhost : btnGhostOff}
       >
         <IcMap size={16} aria-hidden="true" />
-        {aiLoading ? "作成中…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作る")}
+        {aiLoading ? "作っています…" : (form.aiStrategy ? "読書計画シートを作り直す" : "読書計画シートを作る")}
       </button>
       {/* 作成中は点だけにしない（DESIGN §5）。ボタンの「作成中…」＋シートの形のスケルトン。 */}
       {showPlanSkeleton && (

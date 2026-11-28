@@ -27,7 +27,7 @@ describe('BookBrief', () => {
 
   it('作っている途中は「作成中…」と骨組み（目安の行は出さない）', () => {
     const html = renderToStaticMarkup(<BookBrief variant="inCard" material making costLine="1 回 約 2 トークン" onMake={() => {}} />);
-    expect(text(html)).toContain('作成中…');
+    expect(text(html)).toContain('作っています…');
     expect(html).toContain('ai-skeleton');
     expect(text(html)).not.toContain('1 回 約 2 トークン');
   });
@@ -76,7 +76,7 @@ describe('BookBrief', () => {
     const html = renderToStaticMarkup(<BookBrief variant="make" material={false} infoLoading onMake={() => {}} />);
     expect(html).toContain('disabled');
     expect(text(html)).toContain(BRIEF_MAKE_LABEL);
-    expect(text(html)).not.toContain('作成中');
+    expect(text(html)).not.toContain('作っています');
   });
 
   it('作ったあとの積読の畳み: 見出し＋右に「概要・学べること」・ふだんは閉じる', () => {

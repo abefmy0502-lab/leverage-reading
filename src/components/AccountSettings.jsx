@@ -1548,8 +1548,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                 </div>
               )}
               {!deleteOpen ? (
-                <button type="button" aria-label="アカウントの削除を開始" style={btnDestructiveGhost} onClick={() => withPurposeCheck('delete', 'どちらを選んでも、アカウント削除の手続きに進みます。', () => setDeleteOpen(true))}>
-                  アカウントの削除を開始
+                <button type="button" aria-label="アカウントを削除する" style={btnDestructiveGhost} onClick={() => withPurposeCheck('delete', 'どちらを選んでも、アカウント削除の手続きに進みます。', () => setDeleteOpen(true))}>
+                  アカウントを削除する
                 </button>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>

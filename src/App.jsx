@@ -3927,7 +3927,7 @@ function AuthedApp() {
         }
       } catch { /* 基準が読めなければそのまま */ }
       setBriefJustMadeId(bookId);
-      if (briefSaved?.failed) toast.info('作成しました。いまはこの端末にだけ保存されています。');
+      if (briefSaved?.failed) toast.info('作りました。いまはこの端末にだけ保存されています。');
       else toast.success('この本で学べることを作りました。');
     } catch (error) {
       // トークンの上限は案内として。プランの案内（402）は有料プランの画面が開くので重ねない。同意をやめたときは何も言わない。
@@ -5669,7 +5669,7 @@ function AuthedApp() {
                       data-before-plan-cta=""
                       style={{ scrollMarginBottom: JUST_DONE_CLEARANCE, width: '100%', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, background: 'none', border: 'none', borderRadius: 0, fontFamily: 'inherit', textAlign: 'left', cursor: planGen ? 'default' : 'pointer', color: planGen ? 'var(--text-3)' : 'var(--text)' }}>
                       {/* 無料プランには押す前に有料と分かる印（「AI に答えてもらう（プラン）」と同じ作法・2026-10-09） */}
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600, ...(planGen ? null : { color: 'var(--accent)' }) }}>{genHere ? '作成中…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sub)', fontWeight: 600, ...(planGen ? null : { color: 'var(--accent)' }) }}>{genHere ? '作っています…' : paywallFree ? '読書計画シートを作る（プラン）' : '読書計画シートを作る'}</span>
                       {!genHere && !paywallFree && planCostLine && planTokensOutId !== current.id && (
                         <span style={{ flexShrink: 0, fontSize: 'var(--text-meta)', color: 'var(--text-3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{planCostLine.split('・')[0]}</span>
                       )}

@@ -356,7 +356,7 @@ export function buildLpCopy({
       q: 'Android・パソコンでも使えますか？',
       a: prelaunch
         ? `まず App Store（iPhone）で公開します（${LAUNCH}の予定）。Android 版とパソコン版は準備中です。`
-        : 'いまは iPhone のアプリ（App Store）でだけ使えます。Android 版とパソコン版は準備中です。',
+        : 'いまは iPhone・iPad のアプリ（App Store）でだけ使えます。Android 版とパソコン版は準備中です。',
     },
     {
       q: '通常の AI と、何が違いますか？',

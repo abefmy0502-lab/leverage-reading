@@ -42,7 +42,7 @@ describe('公開後（既定）と公開前（VITE_LP_PRELAUNCH=on）', () => {
     const t = allText(c);
     expect(c.faq.some((f) => f.q === 'いつから使えますか？')).toBe(false);
     expect(t).not.toMatch(/公開する予定|の予定）|メールアドレスを登録/);
-    expect(c.faq.find((f) => f.q.startsWith('Android')).a).toContain('いまは iPhone のアプリ（App Store）で');
+    expect(c.faq.find((f) => f.q.startsWith('Android')).a).toContain('いまは iPhone・iPad のアプリ（App Store）で');
     expect(c.faq.find((f) => f.q.startsWith('Android')).a).toContain('Android 版とパソコン版は準備中');
   });
   it('公開前の形は「配信しています」と書かず、公開予定を先頭の問いで言う', () => {

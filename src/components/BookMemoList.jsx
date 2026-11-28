@@ -218,7 +218,7 @@ function SummarySection({ bookId, bookTitle, cards = [], summaryText, onSaveSumm
           style={{ ...btnLink, alignSelf: 'flex-start', padding: 0, gap: 'var(--space-1)', ...(generating ? { color: 'var(--text-3)', cursor: 'default' } : null) }}
         >
           <Sparkles size={16} aria-hidden="true" />
-          {generating ? 'まとめを作成中…' : 'メモからまとめを作る'}
+          {generating ? 'まとめを作っています…' : 'メモからまとめを作る'}
         </button>
       )}
       <textarea
