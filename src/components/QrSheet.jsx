@@ -26,7 +26,8 @@ export default function QrSheet({ profile, onFound, onEditProfile, onClose }) {
   const toast = useToast();
   const [scanning, setScanning] = useState(false);
   const publicId = profile?.publicId || '';
-  const ready = !!(publicId && String(profile?.nickname || '').trim());
+  const named = !!String(profile?.nickname || '').trim();
+  const ready = !!(publicId && named);
   const link = ready ? followLink(publicId) : '';
   // 真ん中にアイコンを重ねるので、誤り訂正を Q（25%）に上げる
   const qr = useMemo(() => (link ? qrPath(link, 'Q') : null), [link]);
@@ -85,12 +86,14 @@ export default function QrSheet({ profile, onFound, onEditProfile, onClose }) {
           </>
         ) : (
           <>
-            <p style={{ ...note, fontSize: 'var(--text-sub)', color: 'var(--text)' }}>{withPhraseBreaks('ニックネームを決めると、あなたの QR コードを作れます。')}</p>
+            {/* ニックネームはあるのに ID がまだ届いていない（保存の直後・つながらない）ときは、決め直しをすすめない */}
+            <p role={named ? 'alert' : undefined} style={{ ...note, fontSize: 'var(--text-sub)', color: 'var(--text)' }}>{withPhraseBreaks(named ? 'QR コードを用意できませんでした。閉じて、もう一度開いてください。' : 'ニックネームを決めると、あなたの QR コードを作れます。')}</p>
           </>
         )}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
           {/* ニックネームが無いとフォローできない（読み取っても先で止まる）ので、主ボタンは「ニックネームを決める」だけ（2026-11-28 ui-critic） */}
-          {!ready && onEditProfile && <button type="button" onClick={onEditProfile} style={btnPrimary}>ニックネームを決める</button>}
+          {!ready && !named && onEditProfile && <button type="button" onClick={onEditProfile} style={btnPrimary}>ニックネームを決める</button>}
+          {!ready && named && <button type="button" onClick={onClose} style={btnGhost}>閉じる</button>}
           {ready && (
             <button type="button" onClick={() => { track('follow_qr', { action: 'open_scanner' }); setScanning(true); }} style={{ ...btnPrimary, gap: 'var(--space-2)' }}>
               <ScanLine size="1.1em" aria-hidden="true" />QR コードを読み取る

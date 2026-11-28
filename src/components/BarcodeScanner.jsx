@@ -423,7 +423,7 @@ export default function BarcodeScanner({ existingBooks = [], onAdd, onUndo, onPi
                 key={flash}
                 aria-hidden="true"
                 className={flash ? 'barcode-frame-hit' : undefined}
-                style={{ position: 'relative', width: '80%', maxWidth: 360, aspectRatio: '10 / 3', border: '2px solid var(--on-cover)', borderRadius: 'var(--radius)', boxShadow: '0 0 0 100vmax var(--backdrop)', overflow: 'hidden' }}
+                style={{ position: 'relative', width: '80%', maxWidth: 360, aspectRatio: '10 / 3', border: '2px solid var(--on-cover)', borderRadius: 'var(--radius)', boxShadow: '0 0 0 100vmax color-mix(in srgb, var(--focus-bg) 72%, transparent)', overflow: 'hidden' }}
               >
                 {ready && !card && <span className="barcode-scanline" />}
               </div>

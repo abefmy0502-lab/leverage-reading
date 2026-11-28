@@ -13,6 +13,10 @@ import { btnPrimary } from '../styles/ui';
 import { canOpenAppSettings, openAppSettings } from '../lib/sharePhotoPick';
 import { scanResult } from '../lib/followQr';
 import { track } from '../lib/analytics';
+import { isDemo } from '../lib/supabase';
+
+// お試しモード（開発だけ）: &qrscan=denied|unsupported|self|other で、読み取りの画面の状態を撮れるように。
+const demoQrScan = isDemo && typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('qrscan') || '' : '';
 
 const HAS_NATIVE_DETECTOR = typeof window !== 'undefined' && 'BarcodeDetector' in window;
 export const QR_SCAN_SUPPORTED =
@@ -46,6 +50,7 @@ const roundBtn = {
   background: onCoverAlpha(16), color: 'var(--on-cover)', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
 };
+// 枠の外の暗幕は明暗の設定で変えない濃さ（白い映像の上でも案内の 1 行が読める・2026-11-28 ui-critic）。
 const DEFAULT_HINT = '相手の QR コードを枠の中に';
 
 /** myPublicId: 自分の ID（自分の QR を読んだと分かるように）。onFound(publicId)・onClose()。 */
@@ -107,7 +112,8 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
   useEffect(() => {
     let cancelled = false;
     async function start() {
-      if (!QR_SCAN_SUPPORTED) { setError('この端末では QR コードを読み取れません。相手に ID を教えてもらい、「ID でフォロー」から入れてください。'); return; }
+      if (demoQrScan === 'denied') { setSettingsDenied(true); setError('カメラの使用が許可されていません。'); return; }
+      if (!QR_SCAN_SUPPORTED || demoQrScan === 'unsupported') { setError('この端末では QR コードを読み取れません。相手に ID を教えてもらい、「ID でフォロー」から入れてください。'); return; }
       let detector = null;
       if (HAS_NATIVE_DETECTOR) {
         try { detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; }
@@ -141,6 +147,9 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
       }
       if (cancelled) return;
       setReady(true);
+      if (demoQrScan === 'self' || demoQrScan === 'other') {
+        setTimeout(() => handleRef.current(demoQrScan === 'self' ? `https://orime.vercel.app/?follow=${myPublicId || 'demo0me001'}` : 'https://example.com/'), 300);
+      }
       const canvas = canvasRef.current || document.createElement('canvas');
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const tick = async () => {
@@ -198,7 +207,7 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
             <video ref={videoRef} playsInline muted autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <canvas ref={canvasRef} hidden />
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div aria-hidden="true" style={{ width: '64%', maxWidth: 280, aspectRatio: '1 / 1', border: '2px solid var(--on-cover)', borderRadius: 'var(--radius)', boxShadow: '0 0 0 100vmax var(--backdrop)' }} />
+              <div aria-hidden="true" style={{ width: '64%', maxWidth: 280, aspectRatio: '1 / 1', border: '2px solid var(--on-cover)', borderRadius: 'var(--radius)', boxShadow: '0 0 0 100vmax color-mix(in srgb, var(--focus-bg) 72%, transparent)' }} />
               <p aria-live="polite" style={{ margin: 'var(--space-4) 0 0', padding: '0 var(--space-4)', textAlign: 'center', fontSize: 'var(--text-sub)', lineHeight: 1.5, color: onCoverAlpha(90), wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                 {ready ? withPhraseBreaks(hint) : 'カメラを起動しています…'}
               </p>
