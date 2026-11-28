@@ -34,7 +34,7 @@ App Store Connect → orime →「iOS App」で、1.0.1 の状態を見る。
    - 11/25 からの新しい SQL（`supabase_books_progress_archive.sql`・`supabase_hardening_2026_11.sql`・`supabase_admin_retention_days.sql`・`supabase_ai_free_pool.sql`・`supabase_favorite_authors.sql`・`supabase_follows.sql` の直し）が入る。どこまで読んだか・アーカイブ・お気に入りの著者は、流していなくても端末に控えて動くが、ほかの端末に出ない。
 2. 審査用のデモアカウントを、審査のあいだだけ有料（`active`）に。承認されたら `canceled` に戻す。
 
-## A. Mac の Claude Code に貼る指示文
+## A. Mac の Claude Code に貼る指示文（そのまま貼れる形は `mac-build-1.0.2-2026-11-28.md`）
 
 ---ここから---
 
