@@ -66,6 +66,8 @@ const roundBtn = {
   background: onCoverAlpha(16), color: 'var(--on-cover)', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
 };
+// 黒地の画面の主ボタンは明暗で変わらない集中モードの色（--focus-accent・2026-11-28 ui-critic）。
+const focusPrimary = { ...btnPrimary, background: 'var(--focus-accent)', color: 'var(--focus-accent-ink)' };
 const ISBN_HINT = 'ISBN を入力してください。';
 
 /**
@@ -405,11 +407,11 @@ export default function BarcodeScanner({ existingBooks = [], onAdd, onUndo, onPi
             <p role="alert" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(error)}</p>
             {settingsDenied ? (
               <>
-                <button type="button" onClick={() => { openAppSettings(); }} style={btnPrimary}>設定を開く</button>
+                <button type="button" onClick={() => { openAppSettings(); }} style={focusPrimary}>設定を開く</button>
                 <button type="button" onClick={() => { close(); onTypeIsbn?.(); }} style={{ ...btnLink, alignSelf: 'center', color: 'var(--on-cover)' }}>ISBN を入力する</button>
               </>
             ) : (
-              <button type="button" onClick={() => { close(); onTypeIsbn?.(); }} style={btnPrimary}>ISBN を入力する</button>
+              <button type="button" onClick={() => { close(); onTypeIsbn?.(); }} style={focusPrimary}>ISBN を入力する</button>
             )}
           </div>
         ) : (

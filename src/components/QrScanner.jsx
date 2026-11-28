@@ -51,6 +51,8 @@ const roundBtn = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
 };
 // 枠の外の暗幕は明暗の設定で変えない濃さ（白い映像の上でも案内の 1 行が読める・2026-11-28 ui-critic）。
+// 黒地の画面の主ボタンは明暗で変わらない集中モードの色（--focus-accent・2026-11-28 ui-critic）。
+const focusPrimary = { ...btnPrimary, background: 'var(--focus-accent)', color: 'var(--focus-accent-ink)' };
 const DEFAULT_HINT = '相手の QR コードを枠の中に';
 
 /** myPublicId: 自分の ID（自分の QR を読んだと分かるように）。onFound(publicId)・onClose()。 */
@@ -102,7 +104,7 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
     if (lastOtherRef.current === text) return;
     lastOtherRef.current = text;
     try { haptic.warning(); } catch { /* ignore */ }
-    setHint(r.kind === 'self' ? 'これはあなたの QR コードです。相手の QR を映してください。' : 'orime のプロフィールの QR コードではありません。');
+    setHint(r.kind === 'self' ? 'これはあなたの QR コードです。相手の QR コードを映してください。' : 'orime のプロフィールの QR コードではありません。相手のプロフィールの QR コードを映してください。');
     clearTimeout(hintTimerRef.current);
     hintTimerRef.current = setTimeout(() => { setHint(DEFAULT_HINT); lastOtherRef.current = ''; }, 3000);
   }, [myPublicId, haptic, stopAll, onFound]);
@@ -199,8 +201,8 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
             <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center' }}><Camera size={32} /></div>
             <p role="alert" style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-body)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(error)}</p>
             {settingsDenied
-              ? <button type="button" onClick={() => { openAppSettings(); }} style={btnPrimary}>設定を開く</button>
-              : <button type="button" onClick={close} style={btnPrimary}>閉じる</button>}
+              ? <button type="button" onClick={() => { openAppSettings(); }} style={focusPrimary}>設定を開く</button>
+              : <button type="button" onClick={close} style={focusPrimary}>閉じる</button>}
           </div>
         ) : (
           <>
