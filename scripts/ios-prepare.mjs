@@ -75,7 +75,7 @@ export const SCENE_MANIFEST_XML = `<dict>
 
 // Info.plist に入れる文字列（2026-10-11 に決めた文・company/app-store-submission.md §5）
 export const USAGE_STRINGS = {
-  NSCameraUsageDescription: '本のバーコードを読み取るとき、本のページを撮って文字に書き起こすとき、本棚を撮って本をまとめて追加するとき、メモに写真を添えるとき、写真で共有の画像を撮るときに使います。',
+  NSCameraUsageDescription: '本のバーコードやフォローの QR コードを読み取るとき、本のページを撮って文字に書き起こすとき、本棚を撮って本をまとめて追加するとき、メモに写真を添えるとき、写真で共有の画像を撮るときに使います。',
   NSPhotoLibraryUsageDescription: '本のページや本棚の写真から文字を読み取るとき、メモに添える写真や、写真で共有の背景にする写真をアルバムから選ぶときに使います。',
   NSPhotoLibraryAddUsageDescription: '写真で共有で作った画像を、写真に保存するときに使います。',
 };
