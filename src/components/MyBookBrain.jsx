@@ -1266,6 +1266,34 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     }, 200);
   };
   useEffect(() => () => clearTimeout(blurTimerRef.current), []);
+  // ⌨️ キーボードを閉じて上の行が戻ったとき（2026-11-28 提出前の ui-critic）: 書いている間は問いの箱を上に合わせているので、
+  //   閉じると答えの名前の行（data-turn の上端）が上の行の下で文字の途中から切れていた。問いの箱（下の端）が見えたまま
+  //   収まるなら、答えの入れ物の上端まで戻す（収まらなければ今のまま＝返事を書く相手を隠さない）。
+  const wasFocusedRef = useRef(false);
+  useEffect(() => {
+    const was = wasFocusedRef.current;
+    wasFocusedRef.current = inputFocused;
+    if (!was || inputFocused || view !== 'chat') return undefined;
+    const t = setTimeout(() => {
+      const el = chatScrollRef.current;
+      if (!el || userScrollingNow()) return;
+      const turns = el.querySelectorAll('[data-turn]');
+      const turn = turns[turns.length - 1];
+      if (!turn) return;
+      const c = el.getBoundingClientRect();
+      const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
+      const tr = turn.getBoundingClientRect();
+      const back = c.top + gap - tr.top;
+      // 入れ物の上端が欄の上にはみ出していて、その入れ物が欄の中に見えているときだけ
+      if (back <= 1 || tr.bottom <= c.top) return;
+      const boxes = turn.querySelectorAll('[data-ask-box], [data-next-step]');
+      const box = boxes[boxes.length - 1];
+      const keepBottom = box ? box.getBoundingClientRect().bottom : Math.min(tr.bottom, c.bottom - gap);
+      if (keepBottom + back + gap > c.bottom) return;
+      el.scrollTop = Math.max(0, el.scrollTop - back);
+    }, 320);
+    return () => clearTimeout(t);
+  }, [inputFocused, view]);
   // 入力補助のバー（∧∨✓）を消したので、会話の何もないところを押したらキーボードを閉じる（押せる部品・文字を選ぶ操作は除く）。
   const onChatTap = (e) => {
     if (!inputFocused) return;
