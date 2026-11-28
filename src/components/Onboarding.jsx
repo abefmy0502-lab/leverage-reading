@@ -3,7 +3,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import { track } from '../lib/analytics';
 import { rememberOnboardPath } from '../lib/firstDay';
 import { BookOpen, MessageCircle, X, ChevronLeft, ChevronDown } from 'lucide-react';
-import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink, btnLinkQuiet } from '../styles/ui';
+import { btnPrimary as uiBtnPrimary, btnPrimaryOff as uiBtnPrimaryOff, btnGhost as uiBtnGhost, btnLink } from '../styles/ui';
 import { withPhraseBreaks } from './TightBubble';
 import ProfileForm from './ProfileForm';
 import { SOCIAL_ON } from '../lib/social';
@@ -140,6 +140,8 @@ const cardStyle = {
   // ビューポートに収める。内側のスライド本文だけをスクロールさせ、フッター
   // (ドット + ボタン) は常に見える位置に固定する。
   maxHeight: 'calc(100dvh - var(--space-8))',
+  // どの枚も同じ高さ（「次へ」の位置が枚ごとに動かない・2026-11-28 提出前の点検）。低い画面では maxHeight が勝つ。
+  minHeight: 'min(36rem, calc(100dvh - var(--space-8)))',
   // 上の余白は描くときに paddingTop で決める（‹・× の行があるかどうか）。shorthand と混ぜると React が切り替えで上を 0 にする。
   paddingRight: 'var(--space-4)',
   paddingLeft: 'var(--space-4)',
@@ -425,6 +427,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             // 低い画面高でもボタンは常に押せる位置に残る。
             overflowY: 'auto',
             minHeight: 0,
+            flex: '1 1 auto',
             WebkitOverflowScrolling: 'touch',
           }}
         >
@@ -488,7 +491,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                 <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
               </button>
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button type="button" style={{ ...btnLinkQuiet, textAlign: 'center' }} onClick={startImport}>ほかのアプリから取り込む</button>
+                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>ほかのアプリから取り込む</button>
               </div>
             </div>
             ) : (
@@ -503,13 +506,10 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               {/* まだ読んだ本が無い人の入口（最初の 1 冊を探す）と、ほかのアプリの記録がある人の入口を 1 行に並べる（2026-11-25）。 */}
-              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-4)' }}>
-                {onAdvisor && (
-                  <button type="button" style={{ ...btnLinkQuiet, textAlign: 'center' }} onClick={startAdvisor}>
-                    最初の 1 冊を探す
-                  </button>
-                )}
-                <button type="button" style={{ ...btnLinkQuiet, textAlign: 'center' }} onClick={startImport}>
+              {/* 「最初の 1 冊を探す」は「あまり読まない」を選んだときの主ボタンに任せる（押せる物を減らす・2026-11-28 提出前の点検）。
+                  別の道は押せると分かる栗色の文字ボタン（灰色は説明の文に見えた）。 */}
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>
                   ほかのアプリから取り込む
                 </button>
               </div>
@@ -569,7 +569,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 'var(--space-3)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flexShrink: 0 }}>
             {/* 戻るは左上の ‹ だけ（最後の画面でも同じ場所にある・同じ操作を 2 か所に出さない）→「次へ」は常に全幅。 */}
             <button
               type="button"
@@ -578,6 +578,8 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             >
               次へ
             </button>
+            {/* プロフィールの枚の「あとで」の行と同じ高さを空けて、「次へ」の位置をそろえる */}
+            <div aria-hidden="true" style={{ minHeight: 'var(--tap-min)' }} />
           </div>
         )}
       </div>

@@ -86,7 +86,7 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan =
       {/* ボタンは横並びの箱なので、文節の切れ目つきの文字は span で 1 つにまとめる（切れ目ごとに別の項目に割れない）。 */}
       <button type="button" data-first-step="" onClick={onQuickstart} style={btnPrimary}><span>{withPhraseBreaks('読んだ本の一文をメモする')}</span></button>
       {onShelfScan ? (
-        <button type="button" onClick={onShelfScan} style={{ ...btnGhost, marginTop: 'var(--space-3)', gap: 'var(--space-2)' }}><Camera size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span>{withPhraseBreaks('本棚の写真からまとめて追加')}</span></button>
+        <button type="button" onClick={onShelfScan} style={{ ...btnGhost, marginTop: 'var(--space-3)', gap: 'var(--space-2)' }}><Camera size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} /><span>{withPhraseBreaks('本棚の写真から追加')}</span></button>
       ) : (
         <button type="button" onClick={onAddBook} style={{ ...btnGhost, marginTop: 'var(--space-3)' }}><span>{withPhraseBreaks('いま読んでいる本を追加する')}</span></button>
       )}

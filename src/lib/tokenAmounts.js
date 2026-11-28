@@ -26,9 +26,16 @@ export function answersOf(tokens) {
   if (t <= 0) return 0;
   return Math.max(1, Math.floor(t / ANSWER_TOKENS));
 }
+// 「約」を付けて言うときは、細かな 1 の位を見せない（20 回からは 5 の、100 回からは 10 の単位に切り捨て・「約 43 回」→「約 40 回」・2026-11-28 提出前の点検）。
+export function roughCount(n) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (v < 20) return v;
+  if (v < 100) return Math.floor(v / 5) * 5;
+  return Math.floor(v / 10) * 10;
+}
 // 「約 3 回」「約 80 回」。
 export function answerCountLabel(tokens) {
-  return `約 ${answersOf(tokens).toLocaleString('ja-JP')} 回`;
+  return `約 ${roughCount(answersOf(tokens)).toLocaleString('ja-JP')} 回`;
 }
 // 🔍 AI 選書（聞き取り＋推薦）1 回の目安（tokens.js の TOKEN_COSTS.advisor と同じ・2026-11-25）。
 export const ADVISOR_TOKENS = 20;
@@ -57,7 +64,7 @@ export function advisorConsultImpact(tokens) {
 export function remainingAnswersLabel(tokens) {
   const t = Math.max(0, Math.floor(Number(tokens) || 0));
   const n = t <= 0 ? 0 : Math.max(1, Math.floor(t / ANSWER_TOKENS));
-  return `約 ${n.toLocaleString('ja-JP')} 回`;
+  return `約 ${roughCount(n).toLocaleString('ja-JP')} 回`;
 }
 
 // 🪙 無料プランの画面（相談の上の行・初日クイックスタートのできあがり）では「AI の答え 約 N 回」だけを見せ、

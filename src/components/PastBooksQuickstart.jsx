@@ -17,11 +17,8 @@ import { scrollBehavior } from '../lib/motion';
 import NotifyOptInCard from './NotifyOptInCard';
 import GrowthMeter from './GrowthMeter';
 import { withPhraseBreaks } from './TightBubble';
-import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, countBooksWithMemos, fmtTokens } from '../lib/consultHelpers';
+import { firstConsultSuggestions, memoExampleForBook, countSummaryMemos, countBooksWithMemos } from '../lib/consultHelpers';
 import { X, Search, SearchX, Check, ChevronLeft, Plus } from 'lucide-react';
-import { usePaywall } from '../state/PaywallContext';
-import { remainingAnswersLabel } from '../lib/tokens';
-import { showFreeTokenCount } from '../lib/tokenAmounts';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { appPurposeTextFor, purposeConsultQuestion } from '../lib/appPurpose';
@@ -35,7 +32,7 @@ import { findDuplicateBook } from '../lib/checkDuplicate';
 import { invalidateKnowledgeCache } from '../lib/ai';
 import { LIMITS, clamp } from '../lib/limits';
 import { track, EVENTS } from '../lib/analytics';
-import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, btnLinkQuiet, input as inputStyle, card, groupTitle } from '../styles/ui';
+import { btnPrimary, btnPrimaryOff, btnGhost, btnGhostOff, btnLink, input as inputStyle, card, groupTitle } from '../styles/ui';
 import { MiniCover } from './BookCards';
 import { subtitleStyle } from './BookSearchModal';
 import EmptyState from './EmptyState';
@@ -132,7 +129,8 @@ const chipFace = {
 // 相談例（ホームの相談カードと同じ: --fill 面・枠なしの UI 文字・全幅で縦に並べる）。
 const askChip = {
   display: 'block', width: '100%', minHeight: 44, padding: 'var(--space-3)', textAlign: 'left',
-  background: 'var(--fill)', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer',
+  // 押せないときの「相談する」（--fill の面）と同じ形に見えないよう、例は枠の札に（2026-11-28 提出前の点検）
+  background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', cursor: 'pointer',
   fontFamily: 'inherit', fontSize: 'var(--text-sub)', color: 'var(--text)', lineHeight: 1.5, ...phraseWrap,
 };
 // 選ぶためのチップ（DESIGN §5: 高さ 44・15px・余白 8/12・選択中は --accent-soft 面＋--accent 文字＋✓）。
@@ -201,7 +199,6 @@ function ResultsSkeleton() {
 export default function PastBooksQuickstart({ books = [], initialBooks = null, initialPicked = null, onSaveBook, onAsk, onAskDraft, onClose, onWriteMemo, onImport, onShelfScan = null, onMarkRead, onMemosAdded }) {
   const { user } = useAuth();
   const toast = useToast();
-  const { freeMode, freeRemaining, freeFirstMonth } = usePaywall();
   const trapRef = useFocusTrap(true);
   // 本棚の本から始める（取り込みのあと）: 一言の段から。onShelf＝保存しなくても本棚にある本。
   const seeded = Array.isArray(initialBooks) && initialBooks.length > 0;
@@ -610,17 +607,17 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
                     })}
                   </div>
                   {/* 取り込みは脇道（初回ガイドで主ボタンとして一度見せている）。問い → 検索 → チップ の流れの後ろに控えめに（2026-10-21 ui-critic）。
-                      文字は灰（btnLinkQuiet）＝主役（本を選ぶ）と競わない（2026-11-26 全体の UX 監査） */}
+                      文字は栗色の文字ボタン（灰色は説明の文に見えた・2026-11-28 提出前の点検） */}
                   {(onImport || onShelfScan) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)', marginTop: 'var(--space-4)' }}>
                       {onImport && (
-                        <button type="button" onClick={() => onImport(picked.map((p) => p.book))} style={{ ...btnLinkQuiet, padding: 0 }}>
+                        <button type="button" onClick={() => onImport(picked.map((p) => p.book))} style={{ ...btnLink, padding: 0 }}>
                           ほかのアプリから取り込む
                         </button>
                       )}
                       {/* 紙の本が手元にある人の脇道（背表紙を撮ってまとめて本棚へ・2026-11-23 点検） */}
                       {onShelfScan && (
-                        <button type="button" onClick={() => onShelfScan(picked.map((p) => p.book))} style={{ ...btnLinkQuiet, padding: 0 }}>
+                        <button type="button" onClick={() => onShelfScan(picked.map((p) => p.book))} style={{ ...btnLink, padding: 0 }}>
                           本棚の写真から追加
                         </button>
                       )}
@@ -773,16 +770,7 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
                 <h2 id="qs-ask" style={{ fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, margin: '0 0 var(--space-3)', ...phraseWrap }}>
                   {withPhraseBreaks(purposeAsk ? '相談したいこと' : 'いま困っていること')}
                 </h2>
-                {freeMode && freeRemaining > 0 && (
-                  // 相談の上部の行と同じ形（2026-10-04 ui-critic）: 1 行目「今月の残り N トークン」・2 行目「AI の答え 約 N 回」
-                  // （AI の答え 1 回 約 10 トークン・はじめの月は「（はじめの月は 60 トークン）」を添える・2026-10-09）
-                  // （「・」でつなぐと 390 幅で途中から折り返し、切れる場所が毎回変わる＝相談の MyBookBrain と同じ理由）。
-                  <p style={{ ...sub, margin: 'calc(-1 * var(--space-2)) 0 var(--space-3)', fontVariantNumeric: 'tabular-nums' }}>
-                    {/* 🪙 「AI の答え 約 N 回」だけ。トークンの数は残り 20 以下のときだけ・はじめの月は数を言わない（2026-10-11）。 */}
-                    {showFreeTokenCount(freeRemaining) && <span style={{ display: 'block', whiteSpace: 'nowrap' }}>今月の残り {fmtTokens(freeRemaining)} トークン</span>}
-                    <span style={{ display: 'block' }}><span style={{ whiteSpace: 'nowrap' }}>AI の答え {remainingAnswersLabel(freeRemaining)}</span>{freeFirstMonth && <span style={{ whiteSpace: 'nowrap' }}>（はじめの 2 か月は多め）</span>}</span>
-                  </p>
-                )}
+                {/* 残りの量の行は置かない（見出しと入力欄だけ・2026-11-28 提出前の点検＝DESIGN 原則 7。量は相談の上の行とトークンの使い方で見られる） */}
                 <textarea
                   ref={askRef}
                   value={askText}
