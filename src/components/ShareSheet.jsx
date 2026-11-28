@@ -1049,7 +1049,7 @@ export default function ShareSheet({
           {quoteRowMode && status !== 'error' && (
             quoteRowMode === 'empty' ? (
               <p style={{ alignSelf: 'stretch', margin: 0, color: 'var(--text-2)', fontSize: 'var(--text-sub)', lineHeight: 1.6 }}>
-                {isPeriod ? 'この期間のメモがまだありません。' : 'この本のメモがまだありません。'}メモを書くと、心に残った一文を画像に入れられます。
+                {isPeriod ? 'この期間のメモがまだありません。' : 'この本のメモがまだありません。'}
               </p>
             ) : (
               <button

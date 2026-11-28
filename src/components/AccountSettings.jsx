@@ -1135,7 +1135,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   <button type="button" onClick={handleUpgradeAnnual} disabled={upgrading} style={{ ...(upgrading ? rowButtonBusy : rowButtonStyle), ...divider }}>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ ...rowTitleStyle, display: 'block', color: 'inherit' }}>{upgrading ? '手続き中…' : '年額プランに変える'}</span>
-                      <span style={{ ...rowDescStyle, display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(nativeView ? '有料プランの画面で、価格と更新の条件を確かめて選べます' : ANNUAL_UPGRADE_NOTE)}</span>
+                      {!nativeView && <span style={{ ...rowDescStyle, display: 'block', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(ANNUAL_UPGRADE_NOTE)}</span>}
                     </span>
                     <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                   </button>
@@ -1275,7 +1275,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             {/* 1 つのスイッチで 2 種類（思い出しの通知・行動の期限）をまとめてオン/オフする。 */}
             <SettingRow
               title="思い出しと行動の通知"
-              desc={localReminder ? 'しばらく開かなかったときだけ前のメモ（週 1 回まで・夜 8 時ごろ）と、行動の期限の日の朝 8 時ごろに届きます。' : '思い出し（週 1 回まで）と、行動の期限の日の朝 8 時ごろに届きます。'}
+              desc="思い出し（週 1 回まで）と、行動の期限の朝"
               extra={pushNote}
               control={canTogglePush ? (
                 <ToggleSwitch

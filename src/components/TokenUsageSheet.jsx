@@ -241,9 +241,7 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
             </div>
           ))}
           <p style={{ ...meta, marginTop: 'var(--space-2)' }}>
-            {withPhraseBreaks(trial
-              ? '無料期間のトークンを使い切ったあと、買った順に使われます。'
-              : 'その月のトークンを使い切ったあと、買った順に使われます。')}
+            {withPhraseBreaks('買った順に使われます。')}
           </p>
         </section>
       )}

@@ -1120,7 +1120,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
       <div style={wrap}>
         <EmptyState
           icon={<StickyNote size={34} aria-hidden="true" />}
-          title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>メモを残すと、</span><span style={{ display: 'inline-block' }}>忘れた頃にここへ戻ってきます</span></>}
+          title="メモはまだありません"
           actions={
             onAddNote && hasMemoableBooks
               ? [{ label: 'メモを書く', icon: <Plus size={18} aria-hidden="true" />, onClick: onAddNote, variant: 'secondary' }]

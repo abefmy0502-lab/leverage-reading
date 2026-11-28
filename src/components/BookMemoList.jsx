@@ -846,7 +846,6 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
         <EmptyState
           icon={<BookOpen size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="ページ番号つきのメモはまだありません"
-          description="ページ番号を入れたメモが、ここに並びます。"
           actions={[{ label: 'すべてのメモを表示', onClick: () => setQuoteOnly(false), variant: 'secondary' }]}
         />
       )}

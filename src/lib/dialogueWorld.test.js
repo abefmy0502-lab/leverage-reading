@@ -37,7 +37,7 @@ describe('対話の世界（2026-11-25）', () => {
     const qs = scopeQuestions(sk);
     expect(qs[0].text).toContain('D・カーネギーさん');
     expect(qs.every((q) => !q.label.includes('カーネギー'))).toBe(true);
-    expect(scopeNote(scopeKind(['a', 'c'], books))).toContain('著者本人の言葉ではありません');
+    expect(scopeNote(scopeKind(['a', 'c'], books))).toContain('著者本人の言葉ではなく');
   });
   it('書名は副題を落として短く', () => {
     expect(shortBookTitle('考え方 人生・仕事の結果が変わる')).toBe('考え方');

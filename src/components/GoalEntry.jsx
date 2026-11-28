@@ -19,7 +19,6 @@ export default function GoalEntry({ onOpen }) {
       <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: 'goals' })}>
         <span className="goal-entry-body">
           <span className="goal-entry-text" style={{ marginTop: 0, fontFamily: 'var(--font-ui)' }}>{withPhraseBreaks('1 年後・3 年後・5 年後の目標を書く')}</span>
-          <span className="goal-entry-next">{withPhraseBreaks('目標に向けて、読む本と道のりを決めます')}</span>
         </span>
         <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" />
       </button>
@@ -38,7 +37,7 @@ export default function GoalEntry({ onOpen }) {
     ? `${overdueList.map((o) => o.label).join('・')}の目標の期限が過ぎました`
     : rm
     ? (phase?.focus ? `いま：${phase.focus}` : 'ロードマップを見る')
-    : canBuildRoadmap(goals) ? 'ロードマップをつくる' : '1 年後の目標を書くと、ロードマップをつくれます';
+    : canBuildRoadmap(goals) ? 'ロードマップをつくる' : '1 年後の目標を書く';
   return (
     <button type="button" className="goal-entry" onClick={() => onOpen?.({ view: rm && !overdue ? 'roadmap' : 'goals', horizon: rm && !overdue ? ALL_GOALS_KEY : null })}>
       <span className="goal-entry-body">

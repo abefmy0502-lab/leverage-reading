@@ -122,7 +122,7 @@ export default function HomeFirstStep({ bookCount = 0, onQuickstart, onImport, r
         <p style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', margin: 'var(--space-2) 0 var(--space-4)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
           {/* 行の頭の『は全角の左の空きを詰める（題の左端とそろえる）。中黒でつながず、書名を文の中に入れる。
               「読み終えたら」は読了と読み分けられないので「15 分たったら」（2026-11-27 ui-critic） */}
-          <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(from ? `${readingBook.title}』を ${from}。15 分たったら、心に残った 1 行だけ聞きます` : `${readingBook.title}』を読んで、15 分たったら心に残った 1 行だけ聞きます`)}
+          <span style={{ fontFeatureSettings: '"halt"' }}>『</span>{withPhraseBreaks(from ? `${readingBook.title}』を ${from}` : `${readingBook.title}』`)}
         </p>
         <button type="button" onClick={() => onReadBook(readingBook)} aria-label={`『${readingBook.title}』を 15 分だけ読む`} style={btnPrimary}>15 分だけ読む</button>
       </section>

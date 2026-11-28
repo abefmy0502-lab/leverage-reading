@@ -415,7 +415,7 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
         {anyRoadmap && canBuild && isRoadmapStale(rec, goals) ? (
           <>
             <button type="button" style={btnPrimary} onClick={onInterview}>新しい目標でつくり直す</button>
-            <p className="plan-summary">{withPhraseBreaks(`目標が変わりました。「達成するには？」をもう一度聞いて、道のりをつくり直します（${ROADMAP_TOKENS_LABEL}）。`)}</p>
+            <p className="plan-summary">{withPhraseBreaks(`目標が変わりました（${ROADMAP_TOKENS_LABEL}）。`)}</p>
             <button type="button" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRoadmap}>いまのロードマップを見る</button>
           </>
         ) : anyRoadmap ? (
@@ -427,8 +427,8 @@ function GoalsView({ goals, roadmaps, purpose, loaded, onEdit, onCarry, onInterv
           <>
             <button type="button" style={btnPrimary} onClick={onInterview}>ロードマップをつくる</button>
             <p className="plan-summary">{withPhraseBreaks(allSet
-              ? `「達成するには？」の問いに 2 つまで答えると、3 つの目標をつなぐ道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`
-              : `「達成するには？」の問いに 2 つまで答えると、1 年後の目標までの道のりと読む本の順番をつくります（${ROADMAP_TOKENS_LABEL}）。`)}</p>
+              ? `2 つの問いに答えるだけ（${ROADMAP_TOKENS_LABEL}）。`
+              : `2 つの問いに答えるだけ（${ROADMAP_TOKENS_LABEL}）。`)}</p>
           </>
         ) : (
           <>
@@ -484,7 +484,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
       )}
     >
       <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
-        {withPhraseBreaks(`${h.label}に、どうなっていたいですか。どんな場面で何ができるようになりたいかまで書くと、道のりが具体的になります。`)}
+        {withPhraseBreaks(`${h.label}に、どうなっていたいですか。`)}
       </p>
       <textarea
         ref={ref}
@@ -500,7 +500,7 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
       <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-3)', textAlign: 'right' }}>{[...text].length} / {GOAL_MAX}</p>
       {hasRoadmap && dirty && (
         <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6 }}>
-          {withPhraseBreaks('ロードマップはそのまま残ります。新しい目標に合わせるときは、ロードマップの「つくり直す」から。')}
+          {withPhraseBreaks('ロードマップはそのまま残ります。')}
         </p>
       )}
       {initial && (
@@ -967,7 +967,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
                 <MiniCover book={{ id: `rec:${rec.title}`, title: rec.title, cover: rec.cover || '' }} width={32} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="rm-book-title">{withPhraseBreaks(`『${displayTitle(rec.title)}』`)}</span>
-                  <span className="rm-book-author">すすめた本（下の道のりから本棚に入れられます）</span>
+                  <span className="rm-book-author">すすめた本</span>
                 </span>
               </div>
             )))}
@@ -1021,10 +1021,10 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
         ) : (
           <>
             {recsNow > 0 ? (
-              <p className="plan-summary">{withPhraseBreaks(`この 3 か月に読む本を ${recsNow} 冊すすめています。本棚に入れると、読書計画のカレンダーに並べられます。`)}</p>
+              <p className="plan-summary">{withPhraseBreaks(`この 3 か月に読む本を ${recsNow} 冊すすめています。`)}</p>
             ) : (
               <>
-                <p className="plan-summary">{withPhraseBreaks('この 3 か月に読む本は、まだ決まっていません。AI 選書で探しましょう。')}</p>
+                <p className="plan-summary">{withPhraseBreaks('この 3 か月に読む本は、まだ決まっていません。')}</p>
                 <button type="button" style={{ ...(quiet ? linkStyle : { ...btnPrimary, marginTop: 'var(--space-3)' }), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }} onClick={() => onFindBooks?.(findDraft)}>
                   <Search size="1em" aria-hidden="true" />この 3 か月に読む本を探す
                 </button>
@@ -1190,7 +1190,7 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
           <button type="button" style={btnGhost} onClick={onPlan}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読書計画をカレンダーにする')}</span></button>
         )}
         <button type="button" style={{ ...btnLinkQuiet, marginTop: 'var(--space-2)', marginLeft: 'calc(-1 * var(--space-1))' }} onClick={onRebuild}>{`つくり直す（${ROADMAP_TOKENS_LABEL}）`}</button>
-        <p className="rm-footnote">{withPhraseBreaks('AI があなたの目標と答えからつくった道のりです。合わないところは「直す」で書き換えられます。')}</p>
+        <p className="rm-footnote">{withPhraseBreaks('AI がつくった道のりです。')}</p>
       </div>
       {editing && (
         <RoadmapEditSheet
@@ -1358,7 +1358,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
         {books.some((b) => !isPlanSkipped(b)) ? (
           <ErrorMessage
             title="読む本を選びましょう"
-            description="本棚から、この 3 か月に読む本を選ぶと、1 日に読む時間に合わせて日付を割り振ります。"
+            description="選んだ本を、1 日に読む時間に合わせて日付に並べます。"
             actions={[
               { label: '本棚から選ぶ', variant: 'primary', onClick: () => setOrdering(true) },
               ...(onRoadmap && phaseNeedsBooks(roadmap, books, here) ? [{ label: 'ロードマップで本を選ぶ', onClick: onRoadmap }] : []),
@@ -1368,7 +1368,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
         ) : (
           <ErrorMessage
             title="本棚に、まだ読む本がありません"
-            description="AI 選書で、この 3 か月に読む本を探しましょう。本棚に入れたら、ここで選べます。"
+            description="本棚に入れた本から選べます。"
             actions={[
               ...(onRoadmap && phaseNeedsBooks(roadmap, books, here) ? [{ label: 'ロードマップで本を選ぶ', variant: 'primary', onClick: onRoadmap }] : []),
               ...(onFindBooks ? [{ label: 'この 3 か月に読む本を探す', variant: onRoadmap && phaseNeedsBooks(roadmap, books, here) ? undefined : 'primary', onClick: () => onFindBooks(advisorDraftFor(goal.goals)) }] : []),

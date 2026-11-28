@@ -126,7 +126,7 @@ export default function AuthorSheet({ names = [], fav, onAddWant, hasBook, onClo
           <EmptyState
             icon={<Star size={28} />}
             title="お気に入りの著者は、まだいません"
-            description="本の詳細で著者の名前を押すと、お気に入りに入れられます。新しい本が出たら、ホームでお知らせします。"
+            description="本の詳細で著者の名前を押すと、入れられます。"
           />
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>

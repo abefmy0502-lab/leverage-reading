@@ -96,7 +96,7 @@ export function BookFieldsSheet({ selected = [], onDone, onClose }) {
       dismissLabel="キャンセル"
       subheader={(
         <p data-fields-limit="" style={{ margin: 0, fontSize: 'var(--text-meta)', color: full ? 'var(--text)' : 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }} aria-live="polite">
-          {withPhraseBreaks(full ? `選べるのは ${FIELD_MAX} つまでです。ほかを選ぶときは、どれかを外してください。` : `${FIELD_MAX} つまで選べます`)}
+          {withPhraseBreaks(full ? `${FIELD_MAX} つまでです。` : `${FIELD_MAX} つまで選べます`)}
         </p>
       )}
     >

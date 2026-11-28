@@ -196,7 +196,7 @@ export default function PromptMakerSheet({ books = [], initialBookIds = null, fr
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-      <p style={meta}>{withPhraseBreaks('ChatGPT・Claude に貼る文をつくります。トークンはかかりません。')}</p>
+      <p style={meta}>{withPhraseBreaks('トークンはかかりません。')}</p>
 
       <section style={section} aria-label="どの本から？">
         <h3 style={question}>どの本から？</h3>

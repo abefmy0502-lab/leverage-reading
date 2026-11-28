@@ -252,14 +252,10 @@ export default function ShelfScanSheet({ existingBooks = [], onAdd, onUndo, onCl
         <input ref={inputRef} type="file" accept="image/*" multiple onChange={onFile} style={{ display: 'none' }} />
         {step === 'pick' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {/* 説明は 1 行のコツだけ（2026-11-28 オーナー「文字の説明が多い。シンプルに」） */}
             <p style={{ margin: 0, fontSize: 'var(--text-body)', lineHeight: 1.5, color: 'var(--text)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-              {withPhraseBreaks('背表紙から書名を読み取ります。')}
+              {withPhraseBreaks('1 段ずつ、正面から撮ってください。')}
             </p>
-            <ul style={{ margin: 0, paddingLeft: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', ...note, fontSize: 'var(--text-sub)' }}>
-              <li>{withPhraseBreaks('横向きに持って、1 段ずつ正面から撮ると、よく読めます')}</li>
-              <li>{withPhraseBreaks('1 枚で 40 冊まで。写真は 3 枚まで一度に選べます')}</li>
-              <li>{withPhraseBreaks('入れる前に、1 冊ずつ確かめられます')}</li>
-            </ul>
             <p style={{ ...note, color: 'var(--text-3)' }}>{withPhraseBreaks('写真は書名を読むためだけに AI（Anthropic の Claude）へ送り、保存しません。')}</p>
             {failure && (
               // 選び直すのは下の「本棚を撮る・写真を選ぶ」1 つ（同じ働きのボタンを 2 つ並べない・2026-11-27 点検）

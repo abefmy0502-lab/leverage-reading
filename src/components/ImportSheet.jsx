@@ -5,7 +5,7 @@
 // 読み取りは端末の中だけ（AI も外部送信も使わない）。保存は App の onImport（重複は既存の本に足す）。
 // 見た目は DESIGN.md のトークンのみ。主ボタンは各段で 1 つ。
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { FileUp, BookOpen, ClipboardPaste, Share } from 'lucide-react';
+import { FileUp, BookOpen, ClipboardPaste, Share, ChevronDown } from 'lucide-react';
 import MiniCover from './MiniCover';
 import { Chip } from './formPrimitives';
 import BottomSheet from './BottomSheet';
@@ -41,8 +41,11 @@ const halt = { fontFeatureSettings: '"halt"' };
 const haltOpen = (str) => (typeof str === 'string' && str.startsWith('（') ? <><span style={halt}>（</span>{str.slice(1)}</> : str);
 const howTitle = { fontSize: 'var(--text-sub)', fontWeight: 600, color: 'var(--text)', margin: 0 };
 // 手順どうし（ブクログ・読書メーター・Kindle）の間は 24、見出しから本文は 4（まとまりの中 ＜ まとまりの間・2026-11-23 点検）。
-const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' };
-const howItem = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' };
+const list = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 0 };
+const howItem = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', borderBottom: '1px solid var(--separator)' };
+// アプリの名前だけを並べ、押すと手順が開く（2026-11-28 オーナー「文字の説明が多い。シンプルに」）。
+const howSummary = { ...howTitle, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', cursor: 'pointer', listStyle: 'none' };
+const howBody = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', paddingBottom: 'var(--space-2)' };
 
 // 初日クイックスタートで一度に一言を書ける冊数（PastBooksQuickstart の MAX_BOOKS と同じ）。
 const QUICKSTART_MAX_BOOKS = 5;
@@ -289,8 +292,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         {handoffOn && (
           <section aria-labelledby="import-handoff-title" style={{ borderBottom: '1px solid var(--separator)', paddingBottom: 'var(--space-3)' }}>
             <p id="import-handoff-title" style={{ ...groupTitle, margin: 0 }}>パソコンが手元に無いとき</p>
-            <p id="import-handoff-desc" style={{ ...body, marginTop: 'var(--space-1)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('手順とコードを、メールやメモで自分のパソコンへ送れます。')}</p>
-            <button type="button" onClick={sendHandoff} aria-describedby="import-handoff-desc" style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <button type="button" onClick={sendHandoff} style={{ ...btnLink, marginLeft: 'calc(-1 * var(--space-1))', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Share size="1.1em" aria-hidden="true" style={{ flexShrink: 0 }} />
               <span aria-live="polite">{handoffState === 'copied' ? 'コピーしました。パソコンへ送ってください' : '手順をパソコンへ送る'}</span>
             </button>
@@ -304,14 +306,20 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
         )}
         <ul style={list}>
           <li style={howItem}>
-            <p style={howTitle}>ブクログ</p>
+            <details>
+            <summary style={howSummary}>ブクログ<ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0, color: 'var(--text-3)' }} /></summary>
+            <div style={howBody}>
             {/* 公式ヘルプの手順（パソコンの Web 版だけ・本棚マーク → スパナ → エクスポート・2026-11-25 調査）。 */}
-            <p style={body}>パソコンの Web 版のブクログで、本棚の本棚マーク → スパナのマーク → 「エクスポート」で CSV を保存して選びます。スマホのアプリからは書き出せません。レビュー・読書メモ・カテゴリ（フォルダになります）も取り込みます。</p>
+            <p style={body}>パソコンの Web 版のブクログで、本棚の本棚マーク → スパナのマーク → 「エクスポート」で CSV を保存して選びます。スマホのアプリからは書き出せません。</p>
+            </div>
+            </details>
           </li>
           <li style={howItem}>
             {/* 読書メーターには公式の書き出しが無いので、パソコンで保存したページ（.html）を選ぶ。書き出しツールの CSV もそのまま読める（ヘルプ）。 */}
-            <p style={howTitle}>読書メーター</p>
-            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。感想も取り込みます。ページが分かれているときは、全部のページを保存してまとめて選べます。</p>
+            <details>
+            <summary style={howSummary}>読書メーター<ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0, color: 'var(--text-3)' }} /></summary>
+            <div style={howBody}>
+            <p style={body}>パソコンで「読んだ本」を「リスト」表示にして、ページを保存（.html）して選びます。ページが分かれているときは、まとめて選べます。</p>
             {/* 全ページを 1 回で（2026-11-25・lib/bookmeterBookmarklet.js）。本人のブラウザで本人の一覧を読むだけ・外へは送らない。 */}
             <details style={{ marginTop: 'var(--space-1)' }}>
               <summary style={{ ...body, color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center' }}>全ページを 1 回で保存する（パソコン）</summary>
@@ -324,12 +332,15 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
                 {copied ? 'コピーしました' : 'コードをコピー'}
               </button>
             </details>
+            </div>
+            </details>
           </li>
           <li style={howItem}>
-            <p style={howTitle}>Kindle アプリ</p>
+            <details>
+            <summary style={howSummary}>Kindle アプリ<ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0, color: 'var(--text-3)' }} /></summary>
+            <div style={howBody}>
             {/* 初めての人がたどり着ける手順（2026-10-08 オーナー承認・ui-critic）。補足は手順の後ろに小さく。 */}
             <p style={{ ...body, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('Kindle アプリで本を開き、画面を押して上のノートブックのアイコン ')}<span style={nowrap}>→ エクスポート。</span>{withPhraseBreaks('届いた HTML ファイルを「ファイル」に保存して、ここで選びます。')}</p>
-            <p style={{ ...body, fontSize: 'var(--text-meta)', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んでいる途中でも取り込めます。同じメモは二重に入りません。何冊分かをまとめて選べます。')}</p>
             {/* 全部の本を 1 回で（2026-11-26・lib/kindleBookmarklet.js）。本人のブラウザで本人のノートブックを読むだけ・外へは送らない。 */}
             <details style={{ marginTop: 'var(--space-1)' }}>
               <summary style={{ ...body, color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center' }}>全部の本を 1 回で保存する（パソコン）</summary>
@@ -342,14 +353,24 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
                 {kindleCopied ? 'コピーしました' : 'コードをコピー'}
               </button>
             </details>
+            </div>
+            </details>
           </li>
           <li style={howItem}>
-            <p style={howTitle}>Kindle 端末</p>
+            <details>
+            <summary style={howSummary}>Kindle 端末<ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0, color: 'var(--text-3)' }} /></summary>
+            <div style={howBody}>
             <p style={body}>パソコンにつないで、documents にある「<span style={nowrap}>My Clippings.txt</span>」を選びます。</p>
+            </div>
+            </details>
           </li>
           <li style={howItem}>
-            <p style={howTitle}>Goodreads・StoryGraph</p>
-            <p style={body}>{withPhraseBreaks('書き出した CSV をそのまま選びます。棚・星・読了日・レビューも取り込みます。')}</p>
+            <details>
+            <summary style={howSummary}>Goodreads・StoryGraph<ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0, color: 'var(--text-3)' }} /></summary>
+            <div style={howBody}>
+            <p style={body}>{withPhraseBreaks('書き出した CSV をそのまま選びます。')}</p>
+            </div>
+            </details>
           </li>
         </ul>
         {largeText && localNote}

@@ -210,7 +210,7 @@ export default function ProfileForm({ value, onChange, showBio = false, showAvat
           <div style={field}>
             <label htmlFor={ids.line} style={label}>その本のおすすめの 1 行<span style={fieldNote}>（任意）</span></label>
             <input id={ids.line} value={value.favLine} onChange={(e) => set({ favLine: cutChars(e.target.value, PROFILE_LIMITS.line) })} maxLength={PROFILE_LIMITS.line * 2} placeholder="例：仕事の見え方が変わった一冊" style={inputBase} />
-            <p style={hint}>好きな本は読了として本棚に入ります。<br />この 1 行は、その本のメモに残ります。</p>
+            <p style={hint}>好きな本は読了として本棚に入ります。</p>
           </div>
           </>
         ))}
@@ -315,7 +315,7 @@ function ShelfFavorite({ value, set, shelfBooks, loadMemos, ids }) {
                   <p style={{ ...label, margin: 0 }}>『{current.title}』のメモ</p>
                   <button type="button" style={{ ...btnLink, flexShrink: 0 }} onClick={() => setMemoOpen(false)}>閉じる</button>
                 </div>
-                <p style={hint}>{withPhraseBreaks(`押すと、その文が好きな言葉に入ります（${PROFILE_LIMITS.line} 字まで）。`)}</p>
+                <p style={hint}>{withPhraseBreaks(`${PROFILE_LIMITS.line} 字まで`)}</p>
                 <div role="list" aria-label="この本のメモ" style={{ borderBottom: '1px solid var(--separator)' }}>
                   {/* この本のメモは全部（2026-11-22 オーナー「メモ全て載っていない・全部選択できるように」）・本文も全部見せる。 */}
                   {memos.map((m) => (

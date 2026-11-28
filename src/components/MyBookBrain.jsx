@@ -128,8 +128,8 @@ let session = null;
 //   'perbook'＝本ごとに（本ごとの視点を並べてくらべる）。見る人ごとの好みなので端末にも覚える。
 const ANSWER_MODE_KEY = 'brain-answer-mode';
 const ANSWER_MODES = [
-  { id: 'fused', label: 'まとめて', sub: '選んだ本の考え方を合わせて、1 つにまとめて答えます' },
-  { id: 'perbook', label: '本ごとに', sub: '本ごとの視点を並べて、くらべられるように答えます' },
+  { id: 'fused', label: 'まとめて', sub: '1 つの答えに' },
+  { id: 'perbook', label: '本ごとに', sub: '本ごとに並べてくらべる' },
 ];
 const answerModeLabel = (id) => (ANSWER_MODES.find((m) => m.id === id) || ANSWER_MODES[0]).label;
 const loadAnswerMode = () => {
@@ -2743,7 +2743,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                   )}
                   {canContinue && isOldConsult(g) && (
                     <p style={{ margin: 'calc(-1 * var(--space-2)) 0 0', marginLeft: ANSWER_COLUMN, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
-                      {withPhraseBreaks(memosSince(g) > 0 ? `このあと、メモが ${memosSince(g)}\u00a0件増えました。増えたメモも使って答え直します` : 'そのあとのメモも使って答え直します')}
+                      {withPhraseBreaks(memosSince(g) > 0 ? `メモ +${memosSince(g)}\u00a0件` : '今のメモで答え直します')}
                     </p>
                   )}
                 </div>
@@ -2837,7 +2837,6 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 {beforeAfterDraft && input.trim() === beforeAfterDraft && (
                   <div style={{ marginBottom: 'var(--space-6)' }}>
                     <h2 id="brain-empty-title" style={{ ...headingStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読む前の問いに、答えは見つかった？')}</h2>
-                    <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5 }}>送るまでトークンは使いません</p>
                   </div>
                 )}
                 {(!input.trim() || firstDayDraft) && <>
@@ -4726,9 +4725,6 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
           </p>
           {onWriteLearning && /今月の AI/.test(message.content) && (
             <>
-              <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                それまでに残したメモや学びは、次の相談の材料になります。
-              </p>
               <button type="button" onClick={onWriteLearning} style={{ ...rowBtn, marginTop: 'var(--space-3)' }}>
                 <PencilLine size={16} aria-hidden="true" />学びを書く
               </button>
@@ -4984,7 +4980,7 @@ function ScopeSheet({ books = [], userId, initial = [], onClose, onApply, pickTw
           {mark(mode === 'all')}
         </button>
       )}
-      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{pickTwo ? `本を選ぶ（${picked.size} / ${PAIR_MAX} 冊）` : (countsLoading || pickable.length > 1) ? '本に絞る（複数選べます）' : '本に絞る'}</p>
+      <p style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{pickTwo ? `本を選ぶ（${picked.size} / ${PAIR_MAX} 冊）` : (countsLoading || pickable.length > 1) ? '本に絞る' : '本に絞る'}</p>
       {/* 件数を数え終わるまでは行の形だけ（あとで並び替わって跳ねないように）。行の数は、読書中・読了の本の数
           （＝出てくる行のおよその数・最大 6）にして、シートの高さが数え終わってから伸びないようにする（2026-09-29）。
           形の高さは本の行と同じ 72（表紙・書名・メモの件数の 2 行・2026-09-30）。 */}

@@ -43,7 +43,6 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 
 const MIN_BOOKS = 1;
-const RECOMMENDED_BOOKS = 3; // これより少ないときは「あと N 冊でもっと良くなります」（押せなくはしない）
 const MAX_BOOKS = 5;
 
 // 検索欄が空のときに出す、よく読まれているビジネス書（AI を使わない固定の一覧・押すとそのまま選べる）。
@@ -649,11 +648,6 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
               </div>
             )}
             {/* 1 冊から進めるが、3 冊ほどあると本をまたいだ答えになる（押せなくはしない・ヒントだけ） */}
-            {picked.length > 0 && picked.length < RECOMMENDED_BOOKS && (
-              <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
-                {RECOMMENDED_BOOKS} 冊ほどあると、本をまたいで答えます
-              </p>
-            )}
             <button type="button" style={picked.length >= MIN_BOOKS ? btnPrimary : btnPrimaryOff}
               disabled={picked.length < MIN_BOOKS}
               onClick={() => { setIdx(0); setStep('memo'); }}>

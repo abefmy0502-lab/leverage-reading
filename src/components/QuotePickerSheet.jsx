@@ -73,7 +73,7 @@ export default function QuotePickerSheet({ candidates, selected, selectedPart = 
   // 開いているメモ。はじめは、一部を選んでいるメモを開いておく。
   const [openIdx, setOpenIdx] = useState(selectedPart && selected >= 0 ? selected : null);
   const lead = candidates.length > 1
-    ? 'あなたが残したメモから選べます。長いメモは、▾ で使う文だけを選べます。'
+    ? '長いメモは、▾ で使う文だけを選べます。'
     : '長いメモは、▾ で使う文だけを選べます。';
   const check = <Check size="1.2em" color="var(--accent)" aria-hidden="true" style={{ marginTop: 'var(--space-1)' }} />;
   // 共有のシートの中から開くので、document.body に出す（親のシートの動きに位置が引きずられない）
@@ -136,11 +136,6 @@ export default function QuotePickerSheet({ candidates, selected, selectedPart = 
           );
         })}
       </ul>
-      {candidates.length === 1 && (
-        <p style={{ margin: 'var(--space-4) 0 0', color: 'var(--text-2)', fontSize: 'var(--text-meta)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
-          {withPhraseBreaks('この本のメモは、いまこの 1 件です。メモが増えると、ここから選べます。')}
-        </p>
-      )}
     </BottomSheet>,
     document.body,
   );

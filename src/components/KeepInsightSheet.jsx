@@ -82,7 +82,6 @@ export default function KeepInsightSheet({ question = '', onClose, onSaved = nul
           placeholder="話してみて気づいたことを、自分の言葉で"
           style={{ ...uiInput, resize: 'none', overflowY: 'hidden', minHeight: 'calc(var(--text-read) * 1.6 * 4 + var(--space-6))', fontFamily: 'var(--font-read)', lineHeight: 1.6 }}
         />
-        <p style={{ ...meta, color: 'var(--text-3)' }}>{withPhraseBreaks('AI の答えではなく、あなたの言葉が学びとして残り、次の相談の材料になります。')}</p>
       </div>
     </BottomSheet>
   );

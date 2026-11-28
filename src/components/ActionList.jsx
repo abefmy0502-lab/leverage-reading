@@ -733,7 +733,7 @@ export default function ActionList({ books, onOpenGoals = null, onToggleAction, 
         {onOpenGoals && <GoalEntry onOpen={onOpenGoals} />}
         <EmptyState
           icon={<ListTodo size={32} strokeWidth={1.5} aria-hidden="true" />}
-          title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>相談の答えや、</span><span style={{ display: 'inline-block' }}>メモから行動を作れます</span></>}
+          title="行動はまだありません"
           // 相談へ（主な入口）＋ 自分で書く「行動を追加」（2026-09-29・相談しなくても行動を置ける）。
           actions={[
             ...(onGoConsult ? [{ label: '相談する', icon: <MessageCircle size="1.1em" aria-hidden="true" />, onClick: onGoConsult, variant: 'primary' }] : []),

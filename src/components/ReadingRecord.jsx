@@ -729,7 +729,7 @@ export default function ReadingRecord({
       <div style={wrap}>
         <EmptyState
           icon={<BarChart3 size={34} aria-hidden="true" />}
-          title={<>{/* 句の途中で折り返さない */}<span style={{ display: 'inline-block' }}>本を読み、メモを残すと、</span><span style={{ display: 'inline-block' }}>ここに積み上がります</span></>}
+          title="記録はまだありません"
           actions={onGoToShelf ? [{ label: 'すべての本へ', icon: <BookOpen size={18} aria-hidden="true" />, onClick: onGoToShelf, variant: 'secondary' }] : []}
         />
       </div>
