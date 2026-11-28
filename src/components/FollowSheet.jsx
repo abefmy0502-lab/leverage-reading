@@ -1197,7 +1197,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                   </div>
                   <p style={note}>{withPhraseBreaks('相手がこの ID を「ID でフォロー」に入れると、あなたに申し込みが届きます。')}</p>
                   <button type="button" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', gap: 'var(--space-2)' }}>
-                    <QrCode size="1em" aria-hidden="true" />QR コードで交換する
+                    <QrCode size="1em" aria-hidden="true" />QR コードでフォロー
                   </button>
                 </>
               ) : (

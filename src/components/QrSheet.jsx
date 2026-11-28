@@ -13,8 +13,9 @@ import UserAvatar from './UserAvatar';
 import QrScanner from './QrScanner';
 import { useToast } from './Toast';
 import { withPhraseBreaks } from './TightBubble';
-import { btnPrimary, btnGhost, btnLink } from '../styles/ui';
+import { btnPrimary, btnGhost } from '../styles/ui';
 import { followLink, qrPath } from '../lib/followQr';
+import { avatarById } from '../lib/avatars';
 import { track } from '../lib/analytics';
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, textAlign: 'center', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
@@ -38,7 +39,7 @@ export default function QrSheet({ profile, onFound, onEditProfile, onClose }) {
       await navigator.clipboard.writeText(link);
       toast.success('リンクをコピーしました。');
     } catch (e) {
-      if (e?.name !== 'AbortError') toast.error('リンクを共有できませんでした。');
+      if (e?.name !== 'AbortError') toast.error('リンクを共有できませんでした。もう一度お試しください。');
     }
   };
 
@@ -66,26 +67,35 @@ export default function QrSheet({ profile, onFound, onEditProfile, onClose }) {
                 <path d={qr.d} fill="var(--focus-bg)" />
               </svg>
               {/* 真ん中のアイコン（白い縁で QR のマスから離す） */}
-              <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', padding: 4, borderRadius: 'var(--radius-full)', background: 'var(--on-cover)', lineHeight: 0 }}>
-                <UserAvatar avatarId={profile.avatar} nickname={profile.nickname} size={44} />
+              <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', padding: 'var(--space-1)', borderRadius: 'var(--radius-full)', background: 'var(--on-cover)', lineHeight: 0 }}>
+                {/* アイコンを選んでいない人の丸も、札の中は明暗どちらでも白地に墨（暗い画面で穴のように見えた・2026-11-28 ui-critic） */}
+                <UserAvatar
+                  avatarId={profile.avatar}
+                  nickname={profile.nickname}
+                  size={44}
+                  style={avatarById(profile.avatar) ? null : { background: 'var(--on-cover)', color: 'var(--focus-bg)', boxShadow: 'inset 0 0 0 1px var(--focus-bg)' }}
+                />
               </span>
             </div>
             <div style={{ textAlign: 'center' }}>
               <p style={{ margin: 0, fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{profile.nickname}</p>
-              <p style={{ ...note, marginTop: 'var(--space-1)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}>{`ID ${publicId}`}</p>
+              <p style={{ ...note, marginTop: 'var(--space-1)' }}>{`ID ${publicId}`}</p>
             </div>
-            <p style={note}>{withPhraseBreaks('相手がこの QR を読むと、あなたにフォローの申し込みができます。スマホのカメラで読んでも開きます。')}</p>
+            <p style={note}>{withPhraseBreaks('相手がこの QR コードを読むと、あなたをフォローできます。')}</p>
           </>
         ) : (
           <>
             <p style={{ ...note, fontSize: 'var(--text-sub)', color: 'var(--text)' }}>{withPhraseBreaks('ニックネームを決めると、あなたの QR コードを作れます。')}</p>
-            {onEditProfile && <button type="button" onClick={onEditProfile} style={{ ...btnLink }}>ニックネームを決める</button>}
           </>
         )}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
-          <button type="button" onClick={() => { track('follow_qr', { action: 'open_scanner' }); setScanning(true); }} style={{ ...btnPrimary, gap: 'var(--space-2)' }}>
-            <ScanLine size="1.1em" aria-hidden="true" />QR コードを読み取る
-          </button>
+          {/* ニックネームが無いとフォローできない（読み取っても先で止まる）ので、主ボタンは「ニックネームを決める」だけ（2026-11-28 ui-critic） */}
+          {!ready && onEditProfile && <button type="button" onClick={onEditProfile} style={btnPrimary}>ニックネームを決める</button>}
+          {ready && (
+            <button type="button" onClick={() => { track('follow_qr', { action: 'open_scanner' }); setScanning(true); }} style={{ ...btnPrimary, gap: 'var(--space-2)' }}>
+              <ScanLine size="1.1em" aria-hidden="true" />QR コードを読み取る
+            </button>
+          )}
           {ready && (
             <button type="button" onClick={share} style={{ ...btnGhost, gap: 'var(--space-2)' }}>
               <Share size="1em" aria-hidden="true" />リンクを共有

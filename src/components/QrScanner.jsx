@@ -4,6 +4,7 @@
 //   Android などの BarcodeDetector があればそれを、無ければ ZXing の QR の読み取り（使うときに読み込む）。
 //   映像はどこにも送らない。orime の QR でないとき・自分の QR のときは、枠の下の 1 行で知らせて読み続ける。
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, X } from 'lucide-react';
 import { withPhraseBreaks } from './TightBubble';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -35,7 +36,8 @@ function loadQrEngine() {
 
 const onCoverAlpha = (pct) => `color-mix(in srgb, var(--on-cover) ${pct}%, transparent)`;
 const overlay = {
-  position: 'fixed', inset: 0, zIndex: 300, background: 'var(--focus-bg)', color: 'var(--on-cover)',
+  // シート（--z-dialog の上の本体）より前・確かめるダイアログ（--z-confirm）より後ろ。body に出す（シートの下に隠れないように）。
+  position: 'fixed', inset: 0, zIndex: 'calc(var(--z-dialog) + 2)', background: 'var(--focus-bg)', color: 'var(--on-cover)',
   display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)',
   paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
@@ -174,7 +176,7 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
     return () => { cancelled = true; stopAll(); };
   }, [stopAll]);
 
-  return (
+  return createPortal(
     <div ref={trapRef} style={overlay} role="dialog" aria-modal="true" aria-label="QR コードを読み取る">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4)' }}>
         <h2 style={{ margin: 0, flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontWeight: 600 }}>QR コードを読み取る</h2>
@@ -204,6 +206,7 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

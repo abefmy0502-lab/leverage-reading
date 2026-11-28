@@ -57,7 +57,7 @@ const writeLastStatus = (s) => { try { localStorage.setItem(LAST_STATUS_KEY, s);
 // カメラ画面は明暗どちらでも黒地（ファインダーは映像そのもの）。上の文字・枠は --on-cover（明暗で変えない白）。
 const onCoverAlpha = (pct) => `color-mix(in srgb, var(--on-cover) ${pct}%, transparent)`;
 const overlay = {
-  position: 'fixed', inset: 0, zIndex: 300, background: 'var(--focus-bg)', color: 'var(--on-cover)',
+  position: 'fixed', inset: 0, zIndex: 'var(--z-modal)', background: 'var(--focus-bg)', color: 'var(--on-cover)',
   display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)',
   paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)',
 };
