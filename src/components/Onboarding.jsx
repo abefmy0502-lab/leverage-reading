@@ -486,23 +486,16 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             {habit === 'little' && onAdvisor ? (
             // あまり読まない人: 主＝最初の 1 冊を探す（AI 選書に下書き）／副＝読んだ本の一文をメモする／文字＝ほかのアプリから取り込む。
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
-              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startAdvisor}>最初の 1 冊を探す</button>
-              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startQuickstart}>
-                <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
-              </button>
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button type="button" style={{ ...btnLink, textAlign: 'center' }} onClick={startImport}>ほかのアプリから取り込む</button>
               </div>
+              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startQuickstart}>
+                <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
+              </button>
+              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startAdvisor}>最初の 1 冊を探す</button>
             </div>
             ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', flexShrink: 0 }}>
-              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
-                {/* 文字が大きいと「…メモす／る」と 1 字だけ落ちていた（2026-11-25 点検） */}
-                <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
-              </button>
-              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startOcr}>
-                本のページを撮る
-              </button>
               {/* 閉じるのは右上の × だけ（同じ操作を 2 か所に出さない・DESIGN §5）。
                   ガイドはヘルプの「使い方を最初から見る」で見直せる。 */}
               {/* まだ読んだ本が無い人の入口（最初の 1 冊を探す）と、ほかのアプリの記録がある人の入口を 1 行に並べる（2026-11-25）。 */}
@@ -513,13 +506,22 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                   ほかのアプリから取り込む
                 </button>
               </div>
+              <button type="button" style={{ ...btnGhost, flex: 'none', width: '100%' }} onClick={startOcr}>
+                本のページを撮る
+              </button>
+              {/* 主ボタンはいちばん下＝前の枚の「次へ」と同じ位置（続けて押しても別の操作にならない・2026-11-28 ui-critic） */}
+              <button type="button" style={{ ...btnPrimary, flex: 'none', width: '100%' }} onClick={startQuickstart}>
+                {/* 文字が大きいと「…メモす／る」と 1 字だけ落ちていた（2026-11-25 点検） */}
+                <span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('読んだ本の一文をメモする')}</span>
+              </button>
             </div>
             )}
             {/* signup_source（任意）: 押しつけないよう一番下に小さく畳んでおく（13/--text-2 の一行＋▾）。
                 押したときだけ選択肢を出し、選んだあとは選んだチップを残してお礼だけ。 */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)', flexShrink: 0, borderTop: '1px solid var(--separator)', paddingTop: 'var(--space-1)' }}>
+            {/* 前の枚の「次へ」の下の空き（高さ 44）と同じ場所＝主ボタンの位置が枚ごとにそろう */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0, marginTop: 'calc(var(--space-1) - var(--space-4))' }}>
               {srcOpen ? (
-                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', textAlign: 'left' }} aria-live="polite">
+                <p style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)', margin: 'var(--space-2) 0 0', textAlign: 'center' }} aria-live="polite">
                   {srcPicked ? 'ありがとうございます' : 'orime をどこで知りましたか？（任意）'}
                 </p>
               ) : (
@@ -539,7 +541,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
                 </button>
               )}
               {srcOpen && (
-              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+              <div style={{ display: 'flex', columnGap: 'var(--space-2)', rowGap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {/* 選んだ後も全チップを残し、選んだものだけ選択中（--accent-soft 面・--accent 文字）に。カードの高さが跳ねないように。 */}
                 {SOURCES.map(([key, label]) => (
                   <button

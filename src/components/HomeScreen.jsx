@@ -93,9 +93,9 @@ function StartCard({ onQuickstart, onAddBook, onAdvisor, onImport, onShelfScan =
       {/* 文字ボタンの上下の余り（高さ 44 のため）をカードの内側余白と相殺し、上下の見た目をそろえる。 */}
       {(onImport || onShelfScan) && (
         <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', columnGap: 'var(--space-4)', margin: onAdvisor ? 'var(--space-3) 0 0' : 'var(--space-3) 0 calc(-1 * var(--space-2))' }}>
-          {onShelfScan && <button type="button" onClick={onAddBook} style={btnLinkQuiet}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 冊ずつ追加する')}</span></button>}
+          {onShelfScan && <button type="button" onClick={onAddBook} style={btnLink}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('1 冊ずつ追加する')}</span></button>}
           {/* どのアプリから取り込めるかは、開いたシートの題名の下で言う。設定の「ほかのアプリから取り込む」と同じ名前。 */}
-          {onImport && <button type="button" onClick={onImport} style={onShelfScan ? btnLinkQuiet : textRow}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ほかのアプリから取り込む')}</span></button>}
+          {onImport && <button type="button" onClick={onImport} style={onShelfScan ? btnLink : textRow}><span style={{ wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks('ほかのアプリから取り込む')}</span></button>}
         </div>
       )}
       {/* 🌱 まだ読んだ本が無い人の入口（2026-11-25 オーナー方針「これから読書を始める人にも」）。AI 選書（無料プランも）に下書きを入れて開く。

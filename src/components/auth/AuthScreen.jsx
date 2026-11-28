@@ -172,7 +172,7 @@ export default function AuthScreen() {
       // 伝えることは 2 つ（どこに残るか・同意）。規約は開けるリンクにする（開けないものに同意させない・2026-11-19 ui-critic）。
       message: (
         <>
-          <span style={{ display: 'block' }}>{withPhraseBreaks('アカウントを作る前にアプリを消すと、本とメモは戻せません。アカウントは設定からいつでも作れます。')}</span>
+          <span style={{ display: 'block' }}>{withPhraseBreaks('アカウントを作る前にアプリを消すと、')}<span style={{ whiteSpace: 'nowrap' }}>本とメモは</span>{withPhraseBreaks('戻せません。アカウントは設定からいつでも作れます。')}</span>
           <span style={{ display: 'block', marginTop: 'var(--space-2)' }}>{withPhraseBreaks('始めると、利用規約とプライバシーポリシーに同意したことになります。')}</span>
           {/* リンクは文の中に置かず、高さ 44 の文字ボタンで 1 行に（押しやすく・新規登録と同じ形・2026-11-19 ui-critic） */}
           <span style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-6)' }}>
