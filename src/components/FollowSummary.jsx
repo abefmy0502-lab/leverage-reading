@@ -4,7 +4,7 @@
 //   数を押すとフォローのシートをそのタブで開く。届いた申し込みはその場で 承認（確かめる）・断る・「…」（通報・ブロック）。
 //   いちばん下の 1 行「ID でフォロー」はシートの最初の画面（申し込む・あなたの ID）。
 import { useState } from 'react';
-import { MoreHorizontal, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, ChevronRight, QrCode } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import ContextMenu from './ContextMenu';
 import { SkeletonBlock } from './Skeleton';
@@ -38,7 +38,7 @@ function Stat({ n, label, onClick, inset = false }) {
  * lists: loadFollows の lists（null＝読んでいる）。onOpen(tab) でシートを開く（tab: '' | 'following' | 'followers'）。
  * onReport(person) で通報の画面を開く。onChanged() で数え直す。
  */
-export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
+export default function FollowSummary({ lists, onOpen, onReport, onChanged, onOpenQr }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState('');
@@ -139,6 +139,15 @@ export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
         <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォロー</span>
         <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
+      {/* 🔳 QR コードで交換（自分の QR・相手の QR を読む・2026-11-28） */}
+      {onOpenQr && (
+        <button type="button" onClick={onOpenQr} style={{ ...plain, ...divider, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0' }}>
+          <span style={{ flex: 1, minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-body)', color: 'var(--text)' }}>
+            <QrCode size="1.1em" aria-hidden="true" style={{ color: 'var(--text-2)', flexShrink: 0 }} />QR コード
+          </span>
+          <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+        </button>
+      )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </>
   );

@@ -19,7 +19,7 @@ const NG_WORDS = [
 ];
 
 // 技術用語・ファイル名。英字は製品名などの決まった語だけ。
-const ALLOWED_LATIN = new Set(['orime', 'AI', 'App', 'Store', 'Apple', 'ID', 'Claude', 'ChatGPT', 'Code', 'URL', 'Kindle']);
+const ALLOWED_LATIN = new Set(['orime', 'AI', 'App', 'Store', 'Apple', 'ID', 'Claude', 'ChatGPT', 'Code', 'URL', 'Kindle', 'QR']);
 
 const allItems = () => RELEASE_RECORDS.flatMap((r) => r.items.map((it, i) => ({ ...it, _where: `${r.id}[${i}]` })));
 

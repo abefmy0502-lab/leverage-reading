@@ -8,7 +8,7 @@
 //   2026-11-23）。自分の一覧を見せるかは一覧の下のスイッチ（オフ＝見せない・ほかの人の一覧にも出ない）。
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, ChevronLeft, ChevronRight, ChevronDown, Check, Share } from 'lucide-react';
+import { MoreHorizontal, ChevronLeft, ChevronRight, ChevronDown, Check, Share, QrCode } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
 import ToggleSwitch from './ToggleSwitch';
@@ -33,6 +33,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
 
 // ニックネームが無いと申し込めない・申し込まれない（supabase_follows.sql の no_profile）ので、その場でプロフィールを開く。
+const QrSheet = lazy(() => import('./QrSheet'));
 const ProfileSheet = lazy(() => import('./ProfileSheet'));
 
 const STATUS_LABEL = { reading: '読書中', done: '読了', before: '積読', want: '読みたい' };
@@ -227,6 +228,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const { user } = useAuth();
   const { profile: me, loading: meLoading } = useProfile(user?.id || '');
   const [profileOpen, setProfileOpen] = useState(false);
+  // 🔳 QR コード（自分の QR・相手の QR を読む・2026-11-28）。読めたら、その ID をこの画面で確かめる。
+  const [qrOpen, setQrOpen] = useState(false);
   const meReady = !!(me?.publicId && me?.nickname);
   const confirm = useConfirm();
   const inputId = useId();
@@ -582,11 +585,23 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     setMenu({ x: r.right, y: r.bottom, items });
   };
 
-  const profileSheet = profileOpen && (
-    <Suspense fallback={null}>
-      <ProfileSheet userId={user?.id || ''} onClose={() => setProfileOpen(false)} />
-    </Suspense>
-  );
+  const profileSheet = (<>
+    {profileOpen && (
+      <Suspense fallback={null}>
+        <ProfileSheet userId={user?.id || ''} onClose={() => setProfileOpen(false)} />
+      </Suspense>
+    )}
+    {qrOpen && (
+      <Suspense fallback={null}>
+        <QrSheet
+          profile={me}
+          onClose={() => setQrOpen(false)}
+          onEditProfile={() => { setQrOpen(false); setProfileOpen(true); }}
+          onFound={(id) => { setQrOpen(false); setText(id); check(id); }}
+        />
+      </Suspense>
+    )}
+  </>);
 
   // まとめの行（表紙・書名・まとめの出だし 3 行・押すと本へ）。相手の考えがいちばん伝わるので本棚の上に置く。
   const SummaryRows = ({ person, books }) => (
@@ -1181,6 +1196,9 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                     </button>
                   </div>
                   <p style={note}>{withPhraseBreaks('相手がこの ID を「ID でフォロー」に入れると、あなたに申し込みが届きます。')}</p>
+                  <button type="button" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', gap: 'var(--space-2)' }}>
+                    <QrCode size="1em" aria-hidden="true" />QR コードで交換する
+                  </button>
                 </>
               ) : (
                 <>

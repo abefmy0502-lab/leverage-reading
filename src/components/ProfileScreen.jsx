@@ -28,6 +28,7 @@ import { track } from '../lib/analytics';
 const ProfileSheet = lazy(() => import('./ProfileSheet'));
 const FollowSheet = lazy(() => import('./FollowSheet'));
 const PublishSheet = lazy(() => import('./PublishSheet'));
+const QrSheet = lazy(() => import('./QrSheet'));
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' };
@@ -51,7 +52,8 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
   };
   const guest = isGuestUser(user);
   const [editOpen, setEditOpen] = useState(false);
-  const [followOpen, setFollowOpen] = useState(false); // false | { tab, report }
+  const [followOpen, setFollowOpen] = useState(false); // false | { tab, report, initialId }
+  const [qrOpen, setQrOpen] = useState(false);
   const [followLists, setFollowLists] = useState(null); // null＝読んでいる・'none'＝まだ使えない・'error'＝読めなかった
   const reloadFollows = useCallback(() => {
     if (!SOCIAL_ON) return;
@@ -187,6 +189,7 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
                       onOpen={(tab) => setFollowOpen({ tab })}
                       onReport={(person) => setFollowOpen({ report: person })}
                       onChanged={reloadFollows}
+                      onOpenQr={() => { track('follow_qr', { action: 'open', from: 'profile' }); setQrOpen(true); }}
                     />
                   </div>
                 </div>
@@ -234,9 +237,19 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
           <PublishSheet uid={uid} profile={profile} onClose={() => setPublishOpen(false)} onPublished={onPublished} />
         </Suspense>
       )}
+      {qrOpen && (
+        <Suspense fallback={null}>
+          <QrSheet
+            profile={profile}
+            onClose={() => setQrOpen(false)}
+            onEditProfile={() => { setQrOpen(false); setEditOpen(true); }}
+            onFound={(id) => { setQrOpen(false); setFollowOpen({ initialId: id }); }}
+          />
+        </Suspense>
+      )}
       {followOpen && (
         <Suspense fallback={null}>
-          <FollowSheet initialRequestCount={requests} initialTab={followOpen.tab || ''} initialReport={followOpen.report || null} onClose={() => { setFollowOpen(false); reloadFollows(); }} onAddWant={onAddWant} hasBook={hasBook} />
+          <FollowSheet initialRequestCount={requests} initialTab={followOpen.tab || ''} initialReport={followOpen.report || null} initialId={followOpen.initialId || ''} onClose={() => { setFollowOpen(false); reloadFollows(); }} onAddWant={onAddWant} hasBook={hasBook} />
         </Suspense>
       )}
     </>
