@@ -5570,9 +5570,8 @@ function AuthedApp() {
     // 積読は、得たいことが空でも AI 選書で書いた悩みを下書きとして見せる（「読み始める」でそのまま保存される＝見ていない文が
     //   黙って保存されていた・2026-11-23 点検）。下書きのときは、どこから来た文かを見出しで言う。
     const purposeShown = current.status === 'before' ? (buildFormFromBook(current).investPurpose || '').trim() : current.investPurpose;
-    const purposeIsDraft = current.status === 'before' && !!purposeShown && !(current.investPurpose || '').trim();
     const planItems = [
-      purposeShown && { label: purposeIsDraft ? 'この本から得たいこと（AI 選書の悩みから）' : 'この本から得たいこと', text: purposeShown },
+      purposeShown && { label: 'この本から得たいこと', text: purposeShown },
       current.currentChallenge && { label: '現在の課題', text: current.currentChallenge },
       current.hypothesis && { label: '仮説', text: current.hypothesis },
       // 読みたい本は、AI 選書で選んだ理由も見せる（編集の画面にしか無く、なぜ追加したか分からなくなっていた・2026-09-30）。

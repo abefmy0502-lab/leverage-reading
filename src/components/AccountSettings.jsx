@@ -1308,7 +1308,6 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
               <button type="button" style={rowButtonStyle} onClick={onOpenFavAuthors}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ ...rowTitleStyle, display: 'block' }}>お気に入りの著者{favAuthorsCount > 0 ? `（${favAuthorsCount}）` : ''}</span>
-                  <span style={{ ...rowDescStyle, display: 'block' }}>新しい本が出たら、ホームでお知らせします</span>
                 </span>
                 <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
               </button>
@@ -1320,7 +1319,6 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             <button type="button" style={rowButtonStyle} onClick={() => setMcpOpen(true)}>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ ...rowTitleStyle, display: 'block' }}>Claude・ChatGPT とつなぐ</span>
-                <span style={{ ...rowDescStyle, display: 'block' }}>いつもの AI から、自分のメモを呼べます</span>
               </span>
               <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
             </button>

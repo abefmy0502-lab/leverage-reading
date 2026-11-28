@@ -413,7 +413,6 @@ export default function KnowledgeMapCard({ books = [], likely = false, onWriteMe
         <p style={{ ...meta, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--space-4)', rowGap: 'var(--space-1)', marginTop: 'var(--space-1)', color: 'var(--text-3)' }}>
           {map.edges.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}><LineSample />似たメモ・同じタグ</span>}
           {map.hubs.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}><DotSample />分野</span>}
-          {sizeVaries && <span>大きい表紙＝メモが多い本</span>}
         </p>
       )}
 

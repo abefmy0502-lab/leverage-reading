@@ -145,7 +145,6 @@ function keepDateTogether(text) {
 export { ADVISOR_EXAMPLES_NEW_READER, advisorExamplesFor };
 // 空の画面の見出しと説明・入力欄の案内（相談の「困っていることを、相談してください」と書く場所を迷わせない）。
 export const ADVISOR_START_TITLE = '次に読む本を探す';
-export const ADVISOR_START_LEAD = '悩みに合う、まだ読んでいない本を選びます';
 export const ADVISOR_PLACEHOLDER = '悩みを書くと、本を探します';
 // 文字が大きいときは 1 行に収まる短い例（2026-10-11 リリース前の採点）。
 export const ADVISOR_PLACEHOLDER_SHORT = '悩みを書く';
@@ -1983,7 +1982,6 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
           旧「いま、どんなことに困っていますか」は相談の「困っていることを、相談してください」と同じ問いに見えた） */}
       {showStartHeading && <>
         <h2 style={headingStyle}>{ADVISOR_START_TITLE}</h2>
-        <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(ADVISOR_START_LEAD)}</p>
       </>}
 
       {/* Example chips — タップでそのまま送る（相談の相談例と同じ・2026-09-29）。

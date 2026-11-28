@@ -52,13 +52,13 @@ const slides = [
     //   どの道も、終えたら「相談してみる」（lib/firstDay.js）。（前は 2026-10-02 の 取り込む → 撮る → 一文 の順）
     title: 'まずはメモを入れましょう',
     // 「まだ読んだ本がなければ…」は下の 1 問（最近、本を読んでいますか？）に任せる（2026-11-27）。
-    body: '読んだ本の、心に残った一文から始められます。',
+    body: '',
   },
 ];
 
 // 「あまり読まない」と答えた人の最後の画面の題と本文（主ボタン「最初の 1 冊を探す」と同じ向き・2026-11-27 ui-critic）。
 const LITTLE_TITLE = 'まずは 1 冊から始めましょう';
-const LITTLE_BODY = '気になる本が見つかったら、心に残った一文をメモするところから。';
+const LITTLE_BODY = '';
 
 // 1 枚目の見本: 「3 か月前のメモ」→「相談」→「答え」（本物の相談の答えと同じ部品の形・引用は左に線・明朝）。
 //   中身はサンプル（読み上げでは 1 つの例として読む）。動かない・押せない。
@@ -439,9 +439,11 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
             {withPhraseBreaks(isLast && habit === 'little' && onAdvisor ? LITTLE_TITLE : slide.title)}
           </h2>
           {/* 文節の切れ目（BudouX の <wbr>）でだけ折り返す（「困った／ときに」のように語の途中で割らない・iOS の Safari は auto-phrase を知らない） */}
+          {(isLast && habit === 'little' && onAdvisor ? LITTLE_BODY : slide.body) && (
           <p style={{ fontSize: 'var(--text-body)', color: 'var(--text-2)', lineHeight: 1.5, textAlign: 'left', margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' }}>
             {withPhraseBreaks(isLast && habit === 'little' && onAdvisor ? LITTLE_BODY : slide.body)}
           </p>
+          )}
           {slide.sample && <OnboardSample />}
           {isLast && onAdvisor && (
             <div style={{ paddingTop: 'var(--space-3)' }}>

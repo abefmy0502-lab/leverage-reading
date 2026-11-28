@@ -487,9 +487,6 @@ export default function PastBooksQuickstart({ books = [], initialBooks = null, i
             {/* 1 文にまとめる（SPEC §1-1）。句のまとまりで折り返す（「はじめられ／ます」と割らない） */}
             {/* 括弧なしの短い 2 文（2026-10-12 ui-critic・句のまとまりで折り返す） */}
             {/* なぜ本を選ぶのか（＝一言が相談の根拠になる）を 1 文で（2026-10-21 ui-critic「冊数の話だけ」）。括弧なし・句のまとまりで折り返す */}
-            <p style={sub}>
-              <span style={{ display: 'inline-block' }}>選んだ本の一文が、相談の根拠になります。</span>
-            </p>
 
             <div role="search" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: 0, fontSize: 'var(--text-body)' }}>

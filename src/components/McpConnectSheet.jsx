@@ -191,7 +191,7 @@ export default function McpConnectSheet({ onClose }) {
           <div style={section}>
             <h3 style={h} id="mcp-howto-title">どこにつなぎますか？</h3>
             {seg}
-            <p style={meta}>{withPhraseBreaks(howTo === 'claude' ? 'Claude のアプリ・Web（iPhone でも）。本やメモはカードで出ます。' : howTo === 'chatgpt' ? 'ChatGPT（開発者モードが要ります）。本やメモはカードで出ます。' : 'ターミナルの Claude Code や Cursor。文字で答えます。')}</p>
+            <p style={meta}>{withPhraseBreaks(howTo === 'claude' ? 'Claude のアプリ・Web（iPhone でも）' : howTo === 'chatgpt' ? 'ChatGPT（開発者モードが要ります）' : 'ターミナルの Claude Code や Cursor。文字で答えます。')}</p>
             <button type="button" style={busy || atMax ? btnPrimaryOff : btnPrimary} disabled={busy || atMax} onClick={create}>
               {busy ? '作っています…' : `${labelOf(howTo)} 用の接続キーを作る`}
             </button>
