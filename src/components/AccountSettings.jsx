@@ -47,7 +47,7 @@ import { purchasePlan } from '../lib/iap';
 import { isNative, openManageSubscriptions, canRedeemOfferCode, presentOfferCodeSheet, invalidateCustomerInfo, waitForCodeSheetClosed } from '../lib/iap';
 import { REFERRAL_ON, REFERRAL_CODE, referralMessage, shareReferral, inviteMessage } from '../lib/referral';
 import { isAppStoreLive, storeLinkFor, APP_STORE_URL } from '../lib/appStore';
-import { isLocalReminderCapable, getLocalReminderPermission, isLocalReminderOn, enableLocalReminder, disableLocalReminder } from '../lib/localReminder';
+import { isLocalReminderCapable, getLocalReminderPermission, isLocalReminderOn, enableLocalReminder, disableLocalReminder, rescheduleLocalReminders } from '../lib/localReminder';
 import { usePaywall } from '../state/PaywallContext';
 import { planNameFor, planPeriodOf, trialRenewalLine, trialCancelNote, trialCancelByTime } from '../lib/trialNudge';
 import { FREE_TOKENS } from '../lib/tokens';
@@ -646,6 +646,13 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
             : await subscribeToPush({ frequency: 'weekly' });
         if (res.ok) {
           setPushOn(true);
+          // 端末の中の通知は、オンにしたその場で予定を置く（ホームを開き直すまで何も置かれなかった・2026-11-28 提出前の点検）
+          if (localReminder && user?.id) {
+            import('../hooks/useAllMemoRows').then(({ loadAllMemoRows }) => loadAllMemoRows(user.id)).then((r) => {
+              const memos = (r?.rows || []).filter((m) => m.book_id).map((m) => ({ id: m.id, bookId: m.book_id, text: m.text || '', createdAt: m.created_at, sourceType: m.source_type || null }));
+              return rescheduleLocalReminders({ memos, books: [] });
+            }).catch(() => {});
+          }
           track(EVENTS.PUSH_ENABLED); // ON 成功時のみ（props なし・fire-and-forget）
           toast.success(PUSH_ON_MESSAGE);
         } else if (res.reason === 'denied') {
@@ -863,6 +870,8 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       // 読書の時間の控え・途中の集中モード・この本で学べること・本の分野の印・写真で共有の選び方なども（lib/deviceData.js）。
       clearDeviceData();
       readingSessions.clearLocal();
+      // 端末の中の通知に前のメモが入らないように、予定を空で置き直す（2026-11-28 提出前の点検）
+      rescheduleLocalReminders({ memos: [], books: [] }).catch(() => {});
       clearLocalProfile(user.id);
       resetProfileCache();
       toast.success('データを初期化しました。画面を読み込み直します。');

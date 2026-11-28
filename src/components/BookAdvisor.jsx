@@ -61,7 +61,7 @@ import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks, withBulletLines } from './TightBubble';
 import CareNote from './CareNote';
 import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload, spaceDurationUnits } from '../lib/advisorText';
-import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, toggleChoice, choiceSelected, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine } from '../lib/advisorInterview';
+import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, starterOf, toggleChoice, choiceSelected, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';

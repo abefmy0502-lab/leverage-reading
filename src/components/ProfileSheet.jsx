@@ -160,7 +160,7 @@ export default function ProfileSheet({ userId, onClose, onSaved }) {
       title="プロフィール"
       onClose={onClose}
       // 書きかけのまま閉じるときは確かめる（ほかの編集のシートと同じ・2026-11-25 点検）
-      beforeClose={async () => (!dirty || busy) || !!(await confirm({ title: '保存していない変更があります', message: '閉じると、書いた内容は消えます。', confirmLabel: '破棄する', cancelLabel: '編集を続ける', danger: true }))}
+      beforeClose={async () => (busy ? false : !dirty) || !!(!busy && await confirm({ title: '保存していない変更があります', message: '閉じると、書いた内容は消えます。', confirmLabel: '破棄する', cancelLabel: '編集を続ける', danger: true }))}
       dismissLabel="キャンセル"
       layer="dialog"
       footer={(

@@ -46,6 +46,11 @@ describe('行動の期限の日の朝の通知（2026-11-27）', () => {
     expect(plan[1].body).toBe('「x」');
     plan.forEach((p) => expect(new Date(p.at).getHours()).toBe(DEADLINE_HOUR));
   });
+  it('繰り返しの次の回で、まだ画面に出ていない行動には置かない（2026-11-28）', () => {
+    const later = new Date(NOW + 5 * DAY).toISOString();
+    const books = [{ id: 'a', title: 'A', actions: [{ text: '来週の分', deadline: ymd(6), scheduledFor: later }, { text: '今の分', deadline: ymd(2) }] }];
+    expect(planDeadlineReminders({ now: NOW, books }).map((p) => p.body)).toEqual(['「今の分」']);
+  });
   it('期限の無い行動・行動が無い本では何も置かない', () => {
     expect(planDeadlineReminders({ now: NOW, books: [{ id: 'a', actions: [{ text: 'x' }] }, { id: 'b' }] })).toEqual([]);
   });

@@ -80,6 +80,7 @@ export async function enableLocalReminder() {
 
 export async function disableLocalReminder() {
   setOn(false);
+  lastMemos = null;
   if (!isLocalReminderCapable()) return;
   try {
     const { plugin: LN } = await loadLN();
@@ -128,6 +129,9 @@ export function planDeadlineReminders({ now = Date.now(), books = [] } = {}) {
       const text = String(a?.text || '').trim();
       const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(a?.deadline || ''));
       if (!a || a.done || !text || !m) continue;
+      // 繰り返しの次の回で、まだ画面に出ていない行動（scheduledFor が先）には届けない（2026-11-28 提出前の点検）
+      const sf = new Date(a.scheduledFor || a.scheduled_for || 0).getTime();
+      if (Number.isFinite(sf) && sf > now) continue;
       const at = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), DEADLINE_HOUR, 0, 0, 0).getTime();
       if (!(at > now) || at - now > DEADLINE_AHEAD_DAYS * 86400000) continue;
       const list = byDay.get(at) || [];
@@ -141,12 +145,13 @@ export function planDeadlineReminders({ now = Date.now(), books = [] } = {}) {
   }));
 }
 
-// 直前に置いたときのメモ（本棚や行動が変わったときに、メモを読み直さずに置き直す）
-let lastMemos = null; // null＝この回はまだメモを読んでいない（メモの通知には触らない）
+// 直前に置いたときのメモ（ホームを開いたときに読んだもの）。null＝この回はまだメモを読んでいない。
+let lastMemos = null;
 
 // アプリを開いたとき・本棚や行動が変わったとき: 先の予定を消して置き直す（開いている人には届かない）。オンでなければ何もしない。
 //   memos を渡さなければ、直前に置いたときのメモを使う。
-export async function rescheduleLocalReminders({ memos = null, books = [], now = Date.now() } = {}) {
+//   deadlinesOnly: 期限の通知だけを置き直す（本棚・行動が変わったとき＝メモは消したかもしれないので、前のメモで置き直さない・2026-11-28）。
+export async function rescheduleLocalReminders({ memos = null, books = [], now = Date.now(), deadlinesOnly = false } = {}) {
   if (!isLocalReminderCapable() || !isLocalReminderOn()) return false;
   if (Array.isArray(memos)) lastMemos = memos;
   try {
@@ -154,7 +159,7 @@ export async function rescheduleLocalReminders({ memos = null, books = [], now =
     const perm = await LN.checkPermissions();
     if (perm?.display !== 'granted') return false;
     // メモをまだ読んでいない回（ホームを開く前に本棚が変わった）は、期限の通知だけを置き直す（前に置いたメモの通知を消さない）。
-    const memosKnown = Array.isArray(lastMemos);
+    const memosKnown = !deadlinesOnly && Array.isArray(lastMemos);
     await LN.cancel({ notifications: (memosKnown ? ALL_IDS() : DEADLINE_IDS).map((id) => ({ id })) }).catch(() => {});
     const plan = [...(memosKnown ? planReminders({ now, memos: lastMemos, books }) : []), ...planDeadlineReminders({ now, books })];
     if (!plan.length) return true;
@@ -167,4 +172,20 @@ export async function rescheduleLocalReminders({ memos = null, books = [], now =
     });
     return true;
   } catch { return false; }
+}
+
+// 通知を押したとき（端末の中の通知）: 期限の通知は振り返り › 行動へ、メモの通知はホームへ（2026-11-28 提出前の点検）。
+//   戻り値: 解除する関数。使えない端末では何もしない。
+export async function initLocalReminderNav(onNavigate) {
+  if (!isLocalReminderCapable()) return () => {};
+  try {
+    const { plugin: LN } = await loadLN();
+    const handle = await LN.addListener('localNotificationActionPerformed', (action) => {
+      try {
+        const url = action?.notification?.extra?.url;
+        if (typeof url === 'string' && typeof onNavigate === 'function') onNavigate(url);
+      } catch { /* ignore */ }
+    });
+    return () => { try { handle?.remove?.(); } catch { /* ignore */ } };
+  } catch { return () => {}; }
 }

@@ -70,7 +70,7 @@ export function markReviewAsked() {
 
 // App Store のレビュー作成画面へ直行する URL（Web のトーストだけが使う）。
 export function getWriteReviewUrl() {
-  return `${APP_STORE_URL}?action=write-review`;
+  return `${String(APP_STORE_URL).split('?')[0]}?action=write-review`;
 }
 
 // Web のトーストに渡す共通ペイロード。文言はここに一元化（複数の発火面で揺れない）。

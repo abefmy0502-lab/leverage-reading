@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { threadBlock, retrievalQuery, THREAD_MAX_TURNS, turnHint } from './ai';
 import {
   selectThreadTurns, isCompletedAnswer, followupChips, FOLLOWUP_OTHER_BOOKS,
-  parseAskSection, wantsAction, isBookLookup, lookupTerm, selectThreadTurns, LOOKUP_APPLY_CHIP, LOOKUP_MORE_CHIP, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
+  parseAskSection, wantsAction, isBookLookup, lookupTerm, LOOKUP_APPLY_CHIP, LOOKUP_MORE_CHIP, nextStepChips, DECIDE_CHIP, DECIDE_REQUEST, FOLLOWUP_MORE, FOLLOWUP_IF_FAIL, FOLLOWUP_OTHER_BOOKS_LABEL,
 } from './consultHelpers';
 
 const ANSWER = [

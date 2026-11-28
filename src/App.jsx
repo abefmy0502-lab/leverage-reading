@@ -175,7 +175,7 @@ import { ensurePushSubscription } from './lib/push';
 import { isNative } from './lib/iap';
 import { storeLinkFor, isAppStoreLive } from './lib/appStore';
 import { initNativePushNav } from './lib/nativePush';
-import { isLocalReminderCapable, isLocalReminderOn, rescheduleLocalReminders } from './lib/localReminder';
+import { isLocalReminderCapable, isLocalReminderOn, rescheduleLocalReminders, initLocalReminderNav } from './lib/localReminder';
 import UpdateBanner from './components/UpdateBanner';
 import { useWhatsNew } from './hooks/useWhatsNew';
 import OfflineNotice from './components/OfflineNotice';
@@ -794,7 +794,7 @@ function AuthedApp() {
   //   メモはホームで置いたときのものを使う（ここでは読み直さない）。2 秒まとめて 1 回。
   useEffect(() => {
     if (booksLoading || !isLocalReminderCapable() || !isLocalReminderOn()) return undefined;
-    const t = setTimeout(() => { rescheduleLocalReminders({ books: rawBooks }).catch(() => {}); }, 2000);
+    const t = setTimeout(() => { rescheduleLocalReminders({ books: rawBooks, deadlinesOnly: true }).catch(() => {}); }, 2000);
     return () => clearTimeout(t);
   }, [rawBooks, booksLoading]);
   // AI 選書の会話履歴。advisor_sessions テーブル未マイグレーションなら
@@ -1206,6 +1206,22 @@ function AuthedApp() {
     initNativePushNav((url) => {
       if (cancelled || !url) return;
       // 通知の url は同一オリジンの相対パスだけ（public/sw.js の safeRecallPath と同じ決まり・2026-10-22）。
+      const safe = typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') && /^\/[A-Za-z0-9/_?=&%.,~+-]*$/.test(url) ? url : '/';
+      try { window.history.replaceState(null, '', safe); } catch { /* ignore */ }
+      handleRecallDeepLink();
+    }).then((remove) => {
+      if (cancelled) { try { remove?.(); } catch { /* ignore */ } }
+      else removeListener = remove;
+    });
+    return () => { cancelled = true; try { removeListener?.(); } catch { /* ignore */ } };
+  }, [handleRecallDeepLink]);
+  // 🔔📱 端末の中だけの通知を押したとき（期限の通知は振り返り › 行動へ・2026-11-28 提出前の点検）。
+  useEffect(() => {
+    if (!isNative || !isLocalReminderCapable()) return undefined;
+    let cancelled = false;
+    let removeListener = null;
+    initLocalReminderNav((url) => {
+      if (cancelled || !url) return;
       const safe = typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') && /^\/[A-Za-z0-9/_?=&%.,~+-]*$/.test(url) ? url : '/';
       try { window.history.replaceState(null, '', safe); } catch { /* ignore */ }
       handleRecallDeepLink();

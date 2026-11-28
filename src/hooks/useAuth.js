@@ -85,6 +85,8 @@ async function signOut() {
   // サインアウト自体は止めない。
   // iOS アプリは APNs の購読（platform='ios'）なので、Web 用とは別に解除する（以前は Web 用しか
   // 解除しておらず、同じ iPhone で別アカウントに替えると前の人のメモが届いていた）。
+  // 端末の中だけの思い出しの通知（メモの一節が入る）も消す。次にこの端末を使う人はオフから（2026-11-28 提出前の点検）。
+  try { const { disableLocalReminder } = await import('../lib/localReminder'); await disableLocalReminder(); } catch { /* ignore */ }
   try {
     if (isNative) {
       await unsubscribeNativePush();

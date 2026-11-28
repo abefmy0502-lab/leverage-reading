@@ -33,7 +33,6 @@ import {
 } from '../lib/sharePhrase';
 import { btnGhost, btnLink, groupTitle, input as inputStyle } from '../styles/ui';
 import { setKeyboardAccessoryBar } from '../lib/native';
-import { withPhraseBreaks } from './TightBubble';
 
 // 文字の大きさの設定が大きいとき（ルートの文字 22px 以上・ShareSheet と同じ目安）。
 const rootTextLarge = () => {
