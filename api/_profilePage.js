@@ -311,7 +311,7 @@ export function renderProfile(p, { publicId, shelf = null, social = socialOn(), 
   const author = String(p.fav_author || '').trim();
   const line = String(p.fav_line || '').trim();
   const cover = p.fav_cover ? checkCoverImageUrl(String(p.fav_cover)) : { ok: false };
-  const who = nickname ? `${nickname}さん` : 'orime の読者';
+  const who = nickname || 'orime の読者';
   const pageTitle = title ? `${who}の好きな本『${title}』` : `${who}のプロフィール`;
   const desc = line ? `「${line}」` : (title ? `${who}が好きな本は『${title}』` : (String(p.bio || '').trim().slice(0, 80)));
   const bio = String(p.bio || '').trim();
@@ -373,7 +373,7 @@ export function wantUrl(book, site = SITE()) {
 export function renderBook(p, book, { publicId, showSummary = false, others = [], linkShelf = true, self = false }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
-  const who = nickname ? `${nickname}さん` : 'orime の読者';
+  const who = nickname || 'orime の読者';
   const c = book.cover ? checkCoverImageUrl(String(book.cover)) : { ok: false };
   const cover = c.ok ? c.url : '';
   const rating = book.status === 'done' ? Math.max(0, Math.min(5, Math.round(Number(book.rating) || 0))) : 0;

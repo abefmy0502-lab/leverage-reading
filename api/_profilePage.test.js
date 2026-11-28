@@ -28,7 +28,7 @@ describe('プロフィールの公開のページ', () => {
   it('ページにニックネーム・好きな本・1 行・通報のフォーム・SNS の絵と文', () => {
     const { html, status } = renderProfile(row, { publicId: 'abcde12345' });
     expect(status).toBe(200);
-    expect(html).toContain('ふみさん');
+    expect(html).toContain('<h1 class="name">ふみ</h1>');
     expect(html).toContain('『確率思考の戦略論』');
     expect(html).toContain('「売上は確率で決まる」');
     // 共有したときの絵は好きな本の表紙ではなく orime のロゴ（2026-11-23）
@@ -122,7 +122,7 @@ describe('公開の本棚（2026-11-21）', async () => {
     expect(shelf.withSummary.map((b) => b.excerpt)).toEqual(['心を高める。熱意が大事。']);
     const { html } = renderProfile({ nickname: 'ふみ', shelf_public: true }, { publicId: 'abcdefgh23', shelf, social: true });
     expect(html).not.toContain('心を高める。熱意が大事。'); // まとめの行は本棚の上に並べない（2026-11-23）
-    expect(html).not.toContain('<h2>ふみさんのまとめ</h2>');
+    expect(html).not.toContain('<h2>ふみのまとめ</h2>');
     expect(html).not.toContain('が書いたこと');
     expect(html).not.toContain('test@example.com');
     const off = buildShelf(withMemo, []);
@@ -215,7 +215,7 @@ describe('本のページ（まとめ・読みたいに追加・2026-11-21）', 
   const book = { id: '00000000-0000-4000-8000-000000000001', title: '考え方', author: '稲盛和夫', status: 'done', rating: 5, isbn: '978-4-12', summary: '心を高める\n2 行目' };
   it('まとめは本人が公開しているときだけ・エスケープする', () => {
     const on = renderBook({ nickname: 'ふみ' }, book, { publicId: 'abcdefgh23', showSummary: true }).html;
-    expect(on).toContain('ふみさんの、この本のまとめ');
+    expect(on).toContain('ふみの、この本のまとめ');
     expect(on).toContain('心を高める');
     const off = renderBook({ nickname: 'ふみ' }, book, { publicId: 'abcdefgh23', showSummary: false }).html;
     expect(off).not.toContain('心を高める');

@@ -15,7 +15,7 @@ import { respondFollow, blockUser } from '../lib/social';
 import { track } from '../lib/analytics';
 
 const SHOWN_REQUESTS = 3;
-const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
+const who = (p) => (p?.nickname ? String(p.nickname) : 'この人');
 const plain = { background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', textAlign: 'left' };
 // 行ごとの「承認」は枠のボタン（塗りの主ボタンは 1 画面に 1 つだけ・申し込みが何件あっても塗りを並べない・2026-11-22 ui-critic）。
 const smallBtn = btnRow;
@@ -38,7 +38,7 @@ function Stat({ n, label, onClick, inset = false }) {
  * lists: loadFollows の lists（null＝読んでいる）。onOpen(tab) でシートを開く（tab: '' | 'following' | 'followers'）。
  * onReport(person) で通報の画面を開く。onChanged() で数え直す。
  */
-export default function FollowSummary({ lists, onOpen, onReport, onChanged, onOpenQr }) {
+export default function FollowSummary({ lists, onOpen, onReport, onChanged }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState('');
@@ -136,16 +136,9 @@ export default function FollowSummary({ lists, onOpen, onReport, onChanged, onOp
         </section>
       )}
       <button type="button" onClick={() => onOpen('')} style={{ ...plain, ...divider, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0' }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォロー</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID・QR コードでフォロー</span>
         <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
       </button>
-      {/* 🔳 QR コードで交換（自分の QR・相手の QR を読む・2026-11-28） */}
-      {onOpenQr && (
-        <button type="button" onClick={onOpenQr} style={{ ...plain, ...divider, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', padding: 'var(--space-3) 0' }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>QR コードでフォロー</span>
-          <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-        </button>
-      )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </>
   );

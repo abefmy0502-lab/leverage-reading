@@ -100,7 +100,7 @@ export default function QrSheet({ profile, onFound, onEditProfile, onClose }) {
           <>
             <div
               role="img"
-              aria-label={`${profile.nickname}さんをフォローする QR コード`}
+              aria-label={`${profile.nickname}をフォローする QR コード`}
               style={{ position: 'relative', padding: 'var(--space-4)', background: 'var(--on-cover)', borderRadius: 'var(--radius)', border: '1px solid var(--separator)', lineHeight: 0 }}
             >
               <svg viewBox={`-1 -1 ${qr.size + 2} ${qr.size + 2}`} width={QR_PX} height={QR_PX} shapeRendering="crispEdges" aria-hidden="true">

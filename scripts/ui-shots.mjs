@@ -439,7 +439,7 @@ const SCREENS = [
   { name: 'profile-screen', url: '/?social=1', steps: [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 1200 }] },
   // 👥 相手のフォロー中・フォロワー（2026-11-23）: さくらさんの本棚の上の数 → 一覧（その場でフォロー）・隠している人・自分の一覧を見せるスイッチ
   ...(() => {
-    const SAKURA = [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID でフォロー")' }, { wait: 800 }, { css: 'button:has-text("さくら") >> nth=-1' }, { wait: 1200 }];
+    const SAKURA = [{ css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID・QR コードでフォロー")' }, { wait: 800 }, { css: 'button:has-text("さくら") >> nth=-1' }, { wait: 1200 }];
     return [
       { name: 'follow-person-counts', url: '/?social=1', steps: SAKURA },
       // 本棚の表紙の下の書名（2026-11-23）
@@ -454,7 +454,7 @@ const SCREENS = [
       { name: 'follow-peek-private', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }, { css: '[role=list] button:has-text("みなみ")' }, { wait: 1000 }] },
       { name: 'follow-conn-xxl', url: '/?social=1', steps: [{ eval: () => { document.documentElement.style.fontSize = '28px'; } }, ...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }] },
       { name: 'follow-conn-pending', url: '/?social=1', steps: [...SAKURA, { css: 'button[aria-label^="フォロワー"] >> nth=-1' }, { wait: 800 }, { css: '[role=list] button:text-is("フォロー") >> nth=0' }, { wait: 1200 }] },
-      { name: 'follow-lists-switch', url: '/?social=1', steps: [{ eval: "localStorage.setItem('orime.profile.v1:00000000-0000-4000-8000-00000000d3e0', JSON.stringify({ publicId: 'demo0me001', nickname: 'ふみ', avatar: 'leaf' }))" }, { reload: true }, { wait: 1500 }, { css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID でフォロー")' }, { wait: 1000 }, { scrollBottom: true }] },
+      { name: 'follow-lists-switch', url: '/?social=1', steps: [{ eval: "localStorage.setItem('orime.profile.v1:00000000-0000-4000-8000-00000000d3e0', JSON.stringify({ publicId: 'demo0me001', nickname: 'ふみ', avatar: 'leaf' }))" }, { reload: true }, { wait: 1500 }, { css: 'button[aria-label="プロフィールを開く"]' }, { wait: 800 }, { css: 'span:text-is("ID・QR コードでフォロー")' }, { wait: 1000 }, { scrollBottom: true }] },
     ];
   })(),
   // 📅 年額の更新の前の 1 行（?demo=renewal・30 日以内）／12〜1 月の月額の人への年額の 1 行／設定の「友だちに紹介する」（2026-10-22）

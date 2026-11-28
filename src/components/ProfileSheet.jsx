@@ -39,7 +39,7 @@ async function loadBookMemos(userId, book) {
   return (data || []).filter((m) => String(m.text || '').trim());
 }
 
-const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict' };
+const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, lineBreak: 'strict', textWrap: 'pretty', wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 
 export default function ProfileSheet({ userId, onClose, onSaved }) {
   const { profile, stored, loading } = useProfile(userId);

@@ -67,7 +67,8 @@ const OwnedMark = () => (
 // 書名の頭の全角の英数字（「７つの習慣」）は、表示のときだけ半角に（左端が半字ずれないように）。
 const shownTitle = (t) => String(t || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 
-const who = (p) => (p?.nickname ? `${p.nickname}さん` : 'この人');
+// ニックネームに「さん」を付けない（2026-11-28 オーナー「勝手にさんがつけられているが、さんをつけないで OK」）
+const who = (p) => (p?.nickname ? String(p.nickname) : 'この人');
 
 const Cover = ({ book, width = 72 }) => <MiniCover title={shownTitle(book.title)} cover={book.cover} width={width} />;
 
@@ -1097,7 +1098,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           {listsBlock}
           {/* 申し込む・あなたの ID の画面へ（‹ は戻る専用の形なので使わない・設定のまとめの最後の行と同じ形・2026-11-22 ui-critic） */}
           <button type="button" onClick={() => setView({ name: 'home' })} style={{ ...plainBtn, width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 'var(--tap-min)', marginTop: 'var(--space-6)', padding: 'var(--space-3) 0', borderTop: '1px solid var(--separator)' }}>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID でフォロー</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', color: 'var(--text)' }}>ID・QR コードでフォロー</span>
             <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
           </button>
           {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
@@ -1110,7 +1111,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     <BottomSheet title="フォロー" onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
       {notReady ? (
-        <p style={note}>フォローはまだ使えません。少し時間をおいてお試しください。</p>
+        <p style={note}>フォローはまだ使えません。</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* 届いた申し込みは、いちばん上で答えられるように（設定の「申し込みが N 件」から来た人がすぐ答えられる）。 */}
@@ -1148,7 +1149,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
             </section>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>ID でフォロー</label>
+            <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>ID・QR コードでフォロー</label>
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <input
                 id={inputId}
@@ -1163,6 +1164,12 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { border: '1px solid var(--error)' } : {}) }}
                 aria-invalid={preview?.missing || undefined}
               />
+              {/* QR コード（自分の QR を見せる・相手の QR を読む）。ID の入力の横に 1 つ（2026-11-28 オーナー「ID でフォローと QR コードでフォローを一つに」） */}
+              {meReady && (
+                <button type="button" aria-label="QR コード" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnGhost, width: 'var(--btn-h)', padding: 0, flexShrink: 0 }}>
+                  <QrCode size="1.25em" aria-hidden="true" />
+                </button>
+              )}
               <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
             {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
@@ -1214,9 +1221,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                       <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
                     </button>
                   </div>
-                  <button type="button" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', gap: 'var(--space-2)' }}>
-                    <QrCode size="1em" aria-hidden="true" />QR コードでフォロー
-                  </button>
                 </>
               ) : (
                 <>

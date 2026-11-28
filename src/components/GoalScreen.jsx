@@ -483,16 +483,13 @@ function GoalEditSheet({ horizonKey, initial, hasRoadmap, nextLabel, onClose, on
         </button>
       )}
     >
-      <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sub)', color: 'var(--text-2)', lineHeight: 1.6 }}>
-        {withPhraseBreaks(`${h.label}に、どうなっていたいですか。`)}
-      </p>
       <textarea
         ref={ref}
         value={text}
         onChange={(e) => setText(e.target.value)}
         maxLength={GOAL_MAX}
         rows={3}
-        placeholder={h.example}
+        placeholder={`例：${h.example}`}
         aria-label={`${h.label}の目標`}
         style={{ ...uiInput, resize: 'none', lineHeight: 1.6 }}
         onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } }}
