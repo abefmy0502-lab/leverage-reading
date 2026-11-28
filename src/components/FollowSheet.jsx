@@ -8,7 +8,7 @@
 //   2026-11-23）。自分の一覧を見せるかは一覧の下のスイッチ（オフ＝見せない・ほかの人の一覧にも出ない）。
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, ChevronLeft, ChevronRight, ChevronDown, Check, Share, QrCode } from 'lucide-react';
+import { MoreHorizontal, ChevronLeft, ChevronRight, ChevronDown, Check, Share, QrCode, Copy } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ContextMenu from './ContextMenu';
 import ToggleSwitch from './ToggleSwitch';
@@ -29,10 +29,13 @@ import {
   REPORT_REASONS, reportReasonText, loadFolloweeConnections, withRelation, setFollowsVisible,
 } from '../lib/social';
 import { track } from '../lib/analytics';
+import { isDemo } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
 
 // ニックネームが無いと申し込めない・申し込まれない（supabase_follows.sql の no_profile）ので、その場でプロフィールを開く。
+// お試しモード（開発だけ）: &clipboard=fail で、ID のコピーに失敗したときの知らせを撮れるように。
+const demoClipboardFail = isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('clipboard') === 'fail';
 const QrSheet = lazy(() => import('./QrSheet'));
 const ProfileSheet = lazy(() => import('./ProfileSheet'));
 
@@ -481,6 +484,20 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     leaveReport(back);
   };
 
+  // ID だけを 1 回でコピー（2026-11-28 オーナー「ワンクリックで id だけコピーできるように」）
+  const copyMyId = async () => {
+    const id = me?.publicId;
+    if (!id) return;
+    track('follow_copy_id');
+    try {
+      if (demoClipboardFail) throw new Error('demo');
+      await navigator.clipboard.writeText(id);
+      toast.success('ID をコピーしました。');
+    } catch {
+      toast.error('コピーできません。', { action: { label: me.isPublic ? 'リンクを渡す' : 'ID を渡す', onClick: () => { shareMyId(); } } });
+    }
+  };
+
   const shareMyId = async () => {
     const { text, url } = myIdShareText(me);
     if (!text) return;
@@ -488,7 +505,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     try {
       if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') { await navigator.share(url ? { text, url } : { text }); return; }
       await navigator.clipboard.writeText(url ? `${text}\n${url}` : text);
-      toast.success(url ? 'リンクをコピーしました。' : 'ID をコピーしました。');
+      toast.success(url ? 'リンクをコピーしました。' : '誘いの文をコピーしました。');
     } catch (e) {
       if (e?.name !== 'AbortError') toast.error('共有できませんでした。');
     }
@@ -1190,12 +1207,21 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               ) : meReady ? (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-body)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', color: 'var(--text)', overflowWrap: 'anywhere', userSelect: 'all', WebkitUserSelect: 'all' }}>{me.publicId}</span>
+                    {/* ID を押すと ID だけをコピー（右のボタンは共有のシート） */}
+                    <button
+                      type="button"
+                      onClick={copyMyId}
+                      aria-label={`あなたの ID ${me.publicId} をコピー`}
+                      style={{ flex: 1, minWidth: 0, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text)' }}
+                    >
+                      <span style={{ minWidth: 0, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', overflowWrap: 'anywhere' }}>{me.publicId}</span>
+                      <Copy size="1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--accent)' }} />
+                    </button>
                     <button type="button" onClick={shareMyId} style={{ ...btnRow, flexShrink: 0, gap: 'var(--space-2)' }}>
                       <Share size="1em" aria-hidden="true" />{me.isPublic ? 'リンクを渡す' : 'ID を渡す'}
                     </button>
                   </div>
-                  <p style={note}>{withPhraseBreaks('相手がこの ID を「ID でフォロー」に入れると、あなたに申し込みが届きます。')}</p>
+                  <p style={note}>{withPhraseBreaks('ID を押すとコピーできます。相手がこの ID を「ID でフォロー」に入れると、あなたに申し込みが届きます。')}</p>
                   <button type="button" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))', gap: 'var(--space-2)' }}>
                     <QrCode size="1em" aria-hidden="true" />QR コードでフォロー
                   </button>
