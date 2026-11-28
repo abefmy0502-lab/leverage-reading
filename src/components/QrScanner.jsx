@@ -111,6 +111,13 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
   const handleRef = useRef(handleText);
   handleRef.current = handleText;
 
+  // キーボードの Escape でも閉じる（シートの代わりに出ているので、シートの Escape は届かない）
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [close]);
+
   useEffect(() => {
     let cancelled = false;
     async function start() {
