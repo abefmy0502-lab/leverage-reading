@@ -1475,7 +1475,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   dismissValue: null,
                 } : {
                   title: 'ログアウトしますか？',
-                  message: 'メモはアカウントに残ります',
+                  message: 'メモはアカウントに残ります。',
                   confirmLabel: 'ログアウト',
                   cancelLabel: 'キャンセル',
                 });
@@ -1552,7 +1552,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                   </p>
                   <p style={{ ...rowDescStyle, margin: 0, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>
                     {deleteTarget.byWord
-                      ? withPhraseBreaks('確認のため、『削除』と入力してください。')
+                      ? withPhraseBreaks('確認のため、「削除」と入力してください。')
                       : <>{withPhraseBreaks('確認のため、ご自身のメールアドレス')} <strong style={{ fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>{expectedConfirm}</strong> {withPhraseBreaks('を入力してください。')}</>}
                   </p>
                   <input

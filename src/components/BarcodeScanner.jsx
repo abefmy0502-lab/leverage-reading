@@ -329,7 +329,7 @@ export default function BarcodeScanner({ existingBooks = [], onAdd, onUndo, onPi
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-meta)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{`ISBN ${card.isbn}`}</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--space-4)', marginTop: 'var(--space-1)', marginLeft: 'calc(-1 * var(--space-1))' }}>
             {card.phase === 'offline' && <button type="button" style={linkOnCard} onClick={() => { lastRef.current = null; handleIsbn(card.isbn); }}>もう一度</button>}
-            <button type="button" style={linkOnCard} onClick={() => { closedRef.current = true; stopAll(); onManualIsbn?.(card.isbn); }}>手で入れる</button>
+            <button type="button" style={linkOnCard} onClick={() => { closedRef.current = true; stopAll(); onManualIsbn?.(card.isbn); }}>手動で入力する</button>
           </div>
         </div>
       );

@@ -216,7 +216,7 @@ export default function FeedbackForm({ onClose }) {
       toast.success('フィードバックを受け取りました。ありがとうございます！');
       onClose?.();
     } catch (e) {
-      toast.error(toMessage(e, 'フィードバックの送信に失敗しました。'));
+      toast.error(toMessage(e, '送れませんでした。もう一度お試しください。'));
     } finally {
       setBusy(false);
     }

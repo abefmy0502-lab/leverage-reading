@@ -104,7 +104,9 @@ import { revealInScroller } from '../lib/motion';
 const OFFLINE_SEND_MESSAGE = 'オフラインです。つながってから、もう一度送ってください。';
 
 // 1 文字も出る前に「止める」を押したときの答え（履歴にもこの文で残る）。
-const STOPPED_EMPTY = '回答を中止しました。';
+const STOPPED_EMPTY = '答えを止めました。';
+// 前の版で保存した「回答を中止しました。」も、止めた答えとして見る（2026-11-28 言い換え）
+const isStoppedText = (c) => c === STOPPED_EMPTY || c === '回答を中止しました。';
 // 送った直後の「中止」を数えない時間（送るボタンの 2 度押しで答えを止めない・2026-11-26）。
 const STOP_GRACE_MS = 700;
 // 💬 メモが答える相談（AI を使わない答え・2026-10-01）のやりとりは、画面の上だけに置く（local: true・id は memo-）。
@@ -945,7 +947,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             setMessages((arr) => arr.map((m) => (m.id === waitId ? {
               id: `err-${Date.now()}`,
               role: 'assistant',
-              content: bg.aborted ? '回答を中止しました。' : `${ANSWER_FAILED_TITLE}。${bg.failed?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
+              content: bg.aborted ? STOPPED_EMPTY : `${ANSWER_FAILED_TITLE}。${bg.failed?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
               refs: [],
               createdAt: new Date().toISOString(),
               error: !bg.aborted,
@@ -967,7 +969,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
         setMessages((arr) => [...arr, {
           id: `err-${Date.now()}`,
           role: 'assistant',
-          content: bg.aborted ? '回答を中止しました。' : `${ANSWER_FAILED_TITLE}。${bg.failed?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
+          content: bg.aborted ? STOPPED_EMPTY : `${ANSWER_FAILED_TITLE}。${bg.failed?.notCharged ? 'トークンは使っていません。' : ''}${ANSWER_FAILED_DESC}`,
           refs: [],
           createdAt: new Date().toISOString(),
           error: !bg.aborted,
@@ -1317,7 +1319,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
   //   🧵 会話のはじめの相談から作る（最後の返事「会議の前」を拾わない・lib/consultThreads.js の lastConsultThread・2026-10-08 ui-critic）。
   const lastConsult = useMemo(() => lastConsultThread(messages, {
     skip: (m) => isLocalMsg(m) || /^(err|streaming|bg-wait)-/.test(String(m.id)),
-    isDone: (a) => isCompletedAnswer(a) && a.content !== STOPPED_EMPTY,
+    isDone: (a) => isCompletedAnswer(a) && !isStoppedText(a.content),
   }), [messages]);
   // 行動（本に入っている）。相談例の「やってみた「…」、次はどうする？」に使う。
   const { allActions } = useAllActions(books);
@@ -1688,7 +1690,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const base = finalBody;
       // 中止した場合は末尾に控えめな注記を付ける (refs は付けない)。
       // 1 文字も出る前に止めたときは、注記を重ねない（「中止しました」を 2 回出さない）。
-      const assistantContent = wasAborted && finalBody !== STOPPED_EMPTY ? `${base}\n\n— ここで中止しました` : base;
+      const assistantContent = wasAborted && finalBody !== STOPPED_EMPTY ? `${base}\n\n— ここで止めました` : base;
       // 答えの下の一行（使ったメモ・前の相談から増えたメモ）と、引用をメモと突き合わせた結果も refs に残す（履歴にも出る）。
       const grown = wasAborted ? 0 : await growthPromise;
       // 🌱 はじめての相談の答えには、必ず「あなたのメモ N 件から答えました」（2026-10-02・lib/firstDay.js）。
@@ -1793,7 +1795,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
               key: m.key || m.id,
               role: 'assistant',
               content: controller.signal.aborted
-                ? '回答を中止しました。'
+                ? STOPPED_EMPTY
                 : e?.paywall
                   ? (e.message || '今月のトークンは、ここまでです。')
                 : e?.monthlyLimit
@@ -1953,7 +1955,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     group.forEach((m, k) => {
       if (m.role !== 'user') return;
       const a = group[k + 1];
-      if (!a || a.role !== 'assistant' || !isCompletedAnswer(a) || a.content === STOPPED_EMPTY) return;
+      if (!a || a.role !== 'assistant' || !isCompletedAnswer(a) || isStoppedText(a.content)) return;
       ids.push(m.id, a.id);
     });
     if (ids.length === 0) return;
@@ -2232,8 +2234,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
     : [];
   // 同じ相談にもう一度答える（別の角度で／止めた・途中までの答えは「もう一度答えて」）。チップの行の最後に置く。
   // 問いに答えている間（返事の候補がある）は出さない＝チップは「候補＋行動を決める」だけ（2026-09-30 ui-critic）。
-  // 途中で止めた答え（「— ここで中止しました」で終わる）も「もう一度答えて」（SPEC §3・角度を変えたいのではなく続きが欲しい・2026-10-04）。
-  const stoppedAnswer = !!lastVisible && (lastVisible.content === STOPPED_EMPTY || /— ここで中止しました\s*$/.test(String(lastVisible.content || '')));
+  // 途中で止めた答え（「— ここで止めました」で終わる）も「もう一度答えて」（SPEC §3・角度を変えたいのではなく続きが欲しい・2026-10-04）。
+  const stoppedAnswer = !!lastVisible && (isStoppedText(lastVisible.content) || /— ここで(?:止め|中止し)ました\s*$/.test(String(lastVisible.content || '')));
   // 🏁 いまどこにいるか（2026-10-08）: 最後の答えが聞き返しなら、その下に「あと 1 つ聞いたら…」「次で…」の 1 行。
   //   見方を変えた答え（🔭 lensOf）の「続けますか？」は聞き返しではないので出さない。
   const askProgress = answerDone && !noMemosYet && !lastLookup && !lensOf(lastAsked) && answerAsks(lastVisible.content)
@@ -2706,7 +2708,7 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
             )}
             {/* 新しい相談から上に並べる（開いてすぐ最近の相談が見える）。相談とその答えは 1 組のまま。 */}
             {historyGroups.map((g, gi) => {
-              const canContinue = g[0].role === 'user' && g.some((m) => m.role === 'assistant' && isCompletedAnswer(m) && m.content !== STOPPED_EMPTY);
+              const canContinue = g[0].role === 'user' && g.some((m) => m.role === 'assistant' && isCompletedAnswer(m) && !isStoppedText(m.content));
               return (
                 // 相談（会話）どうしの間は 32（中は 12）＝どこからどこまでが 1 つの相談か分かるように（2026-10-08 ui-critic）。
                 <div key={g[0].id} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'calc(var(--space-8) - var(--space-3))' }}>
@@ -3301,8 +3303,8 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
                 onMouseDown={(e) => { if (document.activeElement === inputRef.current) e.preventDefault(); }}
                 onClick={stopStreaming}
                 disabled={aborting}
-                aria-label={aborting ? '中止しています' : '回答を中止'}
-                title={aborting ? '中止しています…' : '回答を中止'}
+                aria-label={aborting ? '止めています' : '答えを止める'}
+                title={aborting ? '止めています…' : '答えを止める'}
               >
                 <Square size={16} fill="currentColor" aria-hidden="true" />
               </button>

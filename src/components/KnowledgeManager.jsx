@@ -166,7 +166,7 @@ function TextEditModal({ title, initialText, onClose, onSave, maxLength }) {
       await onSave(text);
       onClose?.();
     } catch (e) {
-      setErrorMsg(toMessage(e, '保存に失敗しました。'));
+      setErrorMsg(toMessage(e, '保存できませんでした。'));
     } finally {
       setBusy(false);
     }
@@ -587,7 +587,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
       }
     })().catch((e) => {
       deleteFailed = true;
-      toast.error(toMessage(e, 'メモの削除に失敗しました。'));
+      toast.error(toMessage(e, 'メモを削除できませんでした。'));
       // 楽観的に消したカードを一覧へ戻す（rollback）。戻さないと DB に残って
       // いる行が画面から消えっぱなしになり、「削除済み」と誤認させる。
       // rethrow しない（誰も await しない unhandled rejection を作らない）。
@@ -624,7 +624,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
           toast.info('削除を取り消しました。');
           refresh();
         } catch (e) {
-          toast.error(toMessage(e, '復元に失敗しました。'));
+          toast.error(toMessage(e, '元に戻せませんでした。'));
         }
       },
     });
@@ -674,7 +674,7 @@ export default function KnowledgeManager({ onChanged, onBooksMutated, onWriteMem
           refresh();
           notifyBooksMutated();
         } catch (e) {
-          toast.error(toMessage(e, '復元に失敗しました。'));
+          toast.error(toMessage(e, '元に戻せませんでした。'));
         }
       },
     });

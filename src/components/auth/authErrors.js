@@ -4,7 +4,7 @@
 // 通信やサーバー側の失敗（入力を直しても解決しない）。入力の誤りとは見せ方を分け、ErrorMessage の面で出す。
 export const NETWORK_ERROR = 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
 export const RATE_LIMIT_ERROR = '短い間に何度も試されました。少し待ってから、もう一度お試しください。';
-export const NOT_CONFIGURED_ERROR = 'アプリの設定が未完了です。管理者にお問い合わせください。';
+export const NOT_CONFIGURED_ERROR = 'いまログインできません。時間をおいて、もう一度お試しください。';
 // サーバー（Supabase）が止まっている・壊れている（5xx・一時停止）。入力を直しても解決しない。
 export const SERVER_DOWN_ERROR = 'サーバーにつながりません。時間をおいて、もう一度お試しください。';
 
@@ -65,7 +65,7 @@ export function humanizeError(err, op = 'signin') {
     return 'メールアドレスまたはパスワードが正しくありません。';
   }
   if (msg.includes('user already registered')) {
-    return 'このメールアドレスは既に登録されています。';
+    return 'このメールアドレスは、もう登録されています。';
   }
   if (msg.includes('password should be') || msg.includes('password length')) {
     return 'パスワードは 8 文字以上で、英字と数字を含めてください。';

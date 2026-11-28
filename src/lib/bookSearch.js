@@ -504,7 +504,7 @@ export async function searchBooks(query) {
       if (e?.status === 429) {
         return {
           ok: false,
-          error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
+          error: 'いま検索が混み合っています。\n5〜10 分おいて、もう一度お試しください。',
         };
       }
     }
@@ -582,7 +582,7 @@ export async function searchBooks(query) {
     if (ndlError.status === 429 || googleError.status === 429) {
       return {
         ok: false,
-        error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
+        error: 'いま検索が混み合っています。\n5〜10 分おいて、もう一度お試しください。',
       };
     }
     return {
@@ -593,7 +593,7 @@ export async function searchBooks(query) {
   if (googleError?.status === 429) {
     return {
       ok: false,
-      error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
+      error: 'いま検索が混み合っています。\n5〜10 分おいて、もう一度お試しください。',
     };
   }
 
@@ -726,7 +726,7 @@ export async function searchBooksAdvanced({ title = '', author = '', isbn = '' }
   if (ndlError && ndlError.status === 429) {
     return {
       ok: false,
-      error: '検索の利用回数が一時的に上限に達しました。\n5〜10 分後に再度お試しください。',
+      error: 'いま検索が混み合っています。\n5〜10 分おいて、もう一度お試しください。',
     };
   }
   // 全ソースが「失敗」（真の 0 件ではない）なら通信エラーとして返し、

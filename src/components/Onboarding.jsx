@@ -83,7 +83,7 @@ function OnboardSample() {
 }
 
 // 「どこで知りましたか」の選択肢（analytics の sanitizer 適合＝≤32字の固定スラッグ）。
-const SOURCES = [['note', 'note'], ['x', 'X (Twitter)'], ['appstore', 'App Store検索'], ['friend', '知人'], ['other', 'その他']];
+const SOURCES = [['note', 'note'], ['x', 'X (Twitter)'], ['appstore', 'App Store で検索'], ['friend', '知人'], ['other', 'その他']];
 
 export function isOnboardingCompleted() {
   if (typeof window === 'undefined') return true;
@@ -455,7 +455,7 @@ export default function Onboarding({ onClose, onStart, onImport, onStartQuicksta
               </div>
               {/* 下のボタンが入れ替わったことを読み上げで伝える（見えない 1 行） */}
               <p role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', margin: 0 }}>
-                {habit === 'little' ? '最初の 1 冊を探す が先頭になりました' : habit === 'yes' ? '読んだ本の一文をメモする が先頭です' : ''}
+                {habit === 'little' ? '「最初の 1 冊を探す」が先頭になりました' : habit === 'yes' ? '「読んだ本の一文をメモする」が先頭です' : ''}
               </p>
             </div>
           )}

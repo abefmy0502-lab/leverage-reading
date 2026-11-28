@@ -565,12 +565,12 @@ export function answerStepToAction(text) {
 //   - carry: 過去の相談の「この相談の続きを聞く」で持ってきた相談。もう送った（used）あとは会話の始まりとして入れる
 //     （まだ送っていない間は、次の相談に prior として渡すのでここには入れない）
 const THREAD_TEMP_ID = /^(err|streaming|bg-wait)-/;
-const THREAD_STOPPED = '回答を中止しました。';
-const THREAD_CUT_NOTE = /\n— (?:ここで中止しました|通信が中断された|通信が切れた)/;
+const THREAD_STOPPED = /^(?:答えを止めました|回答を中止しました)。$/;
+const THREAD_CUT_NOTE = /\n— (?:ここで中止しました|ここで止めました|通信が中断された|通信が切れた)/;
 export function isCompletedAnswer(a) {
   if (!a || a.role !== 'assistant' || a.streaming || a.error || a.notice) return false;
   const text = String(a.content || '').trim();
-  return !!text && text !== THREAD_STOPPED && !THREAD_CUT_NOTE.test(text);
+  return !!text && !THREAD_STOPPED.test(text) && !THREAD_CUT_NOTE.test(text);
 }
 export function selectThreadTurns(messages, { max = 3, before = null, carry = null } = {}) {
   const list = Array.isArray(messages) ? messages : [];

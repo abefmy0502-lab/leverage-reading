@@ -81,7 +81,7 @@ async function postClaude(payload, signal) {
   }
 
   if (!res.ok) {
-    if (res.status === 401) return 'AI機能を使うにはログインが必要です。';
+    if (res.status === 401) return 'AI を使うには、ログインが必要です。';
     // 無料のトークンを使い切った／プランの機能 → 有料プランの画面を重ねて開く（PaywallGate が受ける）。
     if (res.status === 402 && data?.free_pool === true) {
       // 無料の AI の全体の予算が尽きた: 有料プランの画面は開かず、サーバーの文を出す（2026-11-26 点検）。
@@ -108,7 +108,7 @@ async function postClaude(payload, signal) {
   // 安全機構による拒否（stop_reason: 'refusal'、200 + content 空/途中まで）。
   // 空応答と区別してユーザーに再試行の手がかりを返す（無言の空回答にしない）。
   if (data?.stop_reason === 'refusal') {
-    return 'AI が今回の内容への回答を控えました。表現を変えて再度お試しください。';
+    return 'AI が今回の内容への答えを控えました。言い方を変えて、もう一度お試しください。';
   }
   if (Array.isArray(data?.content)) {
     notifyAiUsed();
@@ -206,12 +206,12 @@ export function isClaudeErrorString(s) {
   if (typeof s !== 'string') return true;
   if (s === '通信エラー' || s === 'レスポンス解析エラー' || s === 'エラー') return true;
   if (s.startsWith('エラー: ')) return true;
-  if (s.startsWith('AI機能')) return true;
+  if (s.startsWith('AI機能') || s.startsWith('AI を使うには')) return true;
   if (s.startsWith('リクエストが多すぎます')) return true;
   // トークンの上限・プランの案内（429 / 402）。旧文言も含めて前方一致で見る。
   if (isAiNoticeString(s)) return true;
   // 安全機構による回答の見送り（postClaude の refusal 文言）— メモや要約に入れない
-  if (s.startsWith('AI が今回の内容への回答を控えました')) return true;
+  if (s.startsWith('AI が今回の内容への')) return true;
   return false;
 }
 
@@ -872,7 +872,7 @@ export function recentConsultsBlock(rows, { now = Date.now(), maxItems = ADVISOR
     const next = asc.slice(i + 1).find((n) => n.role === 'user' || n.role === 'assistant');
     if (!next || next.role !== 'assistant') return; // 答えの無い相談
     const answer = String(next.content || '').trim();
-    if (!answer || /^回答を中止しました/.test(answer)) return;
+    if (!answer || /^(?:回答を中止しました|答えを止めました)/.test(answer)) return;
     const q = safeLine(m.content, 60);
     const conclusion = conclusionOf(answer, 90);
     if (!q || !conclusion) return;
@@ -1382,7 +1382,7 @@ export async function buildGrowthBlock(userId, { scopeSet = null, info = null, s
     const ans = asc.slice(i + 1).find((n) => n.role === 'assistant');
     // 答えの付いていない相談（いま送った問い・途中で止めたもの）は歩みに入れない
     // 何も出る前に止めた答えも入れない（結論が無い）。
-    if (ans && !/^回答を中止しました/.test(String(ans.content || '').trim())) pairs.push({ at: day(m.created_at), q: safeLine(m.content, 80), a: conclusionOf(ans.content) });
+    if (ans && !/^(?:回答を中止しました|答えを止めました)/.test(String(ans.content || '').trim())) pairs.push({ at: day(m.created_at), q: safeLine(m.content, 80), a: conclusionOf(ans.content) });
   });
   const skip = new Set((Array.isArray(skipQuestions) ? skipQuestions : []).map((q) => safeLine(q, 80)).filter(Boolean));
   // この会話の問いを外してから直近 N 件を取る（外してから取らないと、会話の 2 回目で窓が 1 つずれて
@@ -2432,7 +2432,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   if (isSuspiciousOutput(fullText)) {
     console.warn('AI output flagged by content guard');
     return {
-      body: '安全なフォーマットで回答できませんでした。質問を変えて再度お試しください。',
+      body: 'この相談には答えられませんでした。言い方を変えて、もう一度送ってください。',
       refs: [],
       ...ctx.stats,
     };
@@ -2444,7 +2444,7 @@ export async function streamMyBookBrain({ userId, question, onStage, onChunk, si
   // メモの無い本の予想を「『X』の考え方は」と書いた答えを、読む前の予想として言い直す（決まりを守らなかったときの受け止め・2026-11-27）
   const fixedBody = fixPrepOnlyPhrases(parsed.body, ctx.prepOnlyTitles);
   const body = truncated
-    ? `${fixedBody}\n\n※ 回答が長さの上限に達したため途中までです。質問を絞ると最後まで生成できます。`
+    ? `${fixedBody}\n\n※ 長くなったので、ここまでで止まりました。相談を短く絞ると、最後まで答えられます。`
     : fixedBody;
   let quoteRefs = [];
   try { quoteRefs = verifyAnswerQuotes(parsed.body, ctx.sources); } catch { /* 確かめられなければ付けない（古い答えと同じ見せ方） */ }

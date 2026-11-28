@@ -292,7 +292,7 @@ export default function ImportSheet({ onImport, onClose, onAsk, onUndoImport, on
             <summary style={howSummary}>ブクログ<ChevronDown size="1.1em" aria-hidden="true" className="fold-chevron" style={{ flexShrink: 0, color: 'var(--text-3)' }} /></summary>
             <div style={howBody}>
             {/* 公式ヘルプの手順（パソコンの Web 版だけ・本棚マーク → スパナ → エクスポート・2026-11-25 調査）。 */}
-            <p style={body}>パソコンの Web 版のブクログで、本棚の本棚マーク → スパナのマーク → 「エクスポート」で CSV を保存して選びます。スマホのアプリからは書き出せません。</p>
+            <p style={body}>パソコンの Web 版のブクログで、上の本棚マーク → スパナのマーク → 「エクスポート」で CSV を保存して選びます。スマホのアプリからは書き出せません。</p>
             </div>
             </details>
           </li>

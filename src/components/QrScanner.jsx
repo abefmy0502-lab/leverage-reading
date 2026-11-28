@@ -122,7 +122,7 @@ export default function QrScanner({ myPublicId = '', onFound, onClose }) {
     let cancelled = false;
     async function start() {
       if (demoQrScan === 'denied') { setSettingsDenied(true); setError('カメラの使用が許可されていません。'); return; }
-      if (!QR_SCAN_SUPPORTED || demoQrScan === 'unsupported') { setError('この端末では QR コードを読み取れません。相手に ID を教えてもらい、「ID でフォロー」から入れてください。'); return; }
+      if (!QR_SCAN_SUPPORTED || demoQrScan === 'unsupported') { setError('この端末では QR コードを読み取れません。相手に ID を教えてもらい、「ID・QR コードでフォロー」から入れてください。'); return; }
       let detector = null;
       if (HAS_NATIVE_DETECTOR) {
         try { detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; }

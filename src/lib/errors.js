@@ -97,6 +97,10 @@ function tidyUserMessage(text, fallback) {
     .replace(/^[\s\p{Extended_Pictographic}\uFE0F\u200D]+/u, '')
     .replace(/^エラー\s*[:：]\s*/, '')
     .trim();
+  // AI の中継の短い印（ai.js の postClaude が返す閉じた言葉）は、そのまま見せずに人の言葉へ（2026-11-28 提出前の点検）
+  if (s === '通信エラー') return 'つながりませんでした。通信状況を確認して、もう一度お試しください。';
+  if (s === 'レスポンス解析エラー' || s === 'エラー') return fallback;
+  if (s.startsWith('リクエストが多すぎます')) return 'AI が混み合っています。少し待ってから、もう一度お試しください。';
   return s || fallback;
 }
 
@@ -111,8 +115,8 @@ export function toSaveMessage(err, fallback = '保存できませんでした。
 }
 
 // 曖昧に謝らず、何が起きたかと次の一歩を言う（frontend-design の文の決まり・2026-10-31。前は「予期せぬエラーが発生しました。」）
-export function toMessage(err, fallback = 'うまくいきませんでした。通信状況を確かめて、もう一度お試しください。') {
-  return tidyUserMessage(toMessageRaw(err, fallback), tidyUserMessage(fallback, 'うまくいきませんでした。通信状況を確かめて、もう一度お試しください。'));
+export function toMessage(err, fallback = 'うまくいきませんでした。通信状況を確認して、もう一度お試しください。') {
+  return tidyUserMessage(toMessageRaw(err, fallback), tidyUserMessage(fallback, 'うまくいきませんでした。通信状況を確認して、もう一度お試しください。'));
 }
 
 function toMessageRaw(err, fallback) {

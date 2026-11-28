@@ -146,7 +146,7 @@ export function WantPhase({ form, setForm, onSave, saving = false, onSearchOpen,
       const url = await uploadCover(file);
       if (url) setForm({ ...form, cover: url });
     } catch (err) {
-      toast.error(toMessage(err, '画像のアップロードに失敗しました。もう一度お試しください。'));
+      toast.error(toMessage(err, '表紙の写真を保存できませんでした。もう一度お試しください。'));
     } finally {
       setUploading(false);
     }

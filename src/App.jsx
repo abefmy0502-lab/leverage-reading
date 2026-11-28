@@ -2148,7 +2148,7 @@ function AuthedApp() {
     const dropPreview = () => { if (preview) setTimeout(() => { try { URL.revokeObjectURL(preview); } catch { /* ignore */ } }, 30000); };
     try {
       const url = await uploadCover(file);
-      if (!url) throw new Error('アップロード URL の取得に失敗しました');
+      if (!url) throw new Error('表紙を保存できませんでした。');
       // 直列化チェーンに乗せ、実行時点の最新行へ rebase して cover だけ差し替える。
       // タップ時点の全行スナップショットで saveBook すると、アップロード待ちの間の
       // 並行編集（行動トグル等）が差分同期で巻き戻るため。
@@ -3309,7 +3309,7 @@ function AuthedApp() {
       track('book_added', { via: 'advisor' });
       // 「開く」の先は本の詳細（読みたい）なので、読書計画シートへ誘う文にはしない（押した先と食い違うため）。
       // 書名はカードの「追加済み」で分かるので入れない（「開く」と並んで 390 幅で 1 行に収まる短さ・2026-09-30）。
-      const msg = '「読みたい」に追加しました。';
+      const msg = '読みたいに追加しました。';
       // 追加直後に「本棚で探し直す」断絶を無くす — トーストの「開く」から 1 タップでその本の詳細（読みたい）へ。
       // 以前は読書計画の編集（積読の画面）を開いていたが、状態が「読みたい」のまま積読の画面になり食い違った。
       // 詳細の左上は「‹ AI 選書」で、戻るとさっきのおすすめのまま（BookAdvisor が状態を覚えている・2026-09-29）。
@@ -3648,7 +3648,7 @@ function AuthedApp() {
     // Fallback: copy to clipboard
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('共有テキストをコピーしました。');
+      toast.success('共有の文をコピーしました。');
     } catch {
       // Last resort
       prompt("共有テキストをコピーしてください：", text);
@@ -4079,7 +4079,7 @@ function AuthedApp() {
       if (!didStreamAny) {
         // 何も返ってこなかったケース (network error 等は throw されるので
         // ここに来ることは稀だが念のため)。
-        throw new Error('AI 修正に失敗しました');
+        throw new Error('直したシートを受け取れませんでした。もう一度お試しください。');
       }
       if (targetId) saveStrategyHistory(targetId, prev);
       setStrategyHistoryTick((t) => t + 1);
@@ -4281,7 +4281,7 @@ function AuthedApp() {
       });
       if (saved) { try { resolveCoverInBackground(saved); } catch { /* 表紙は後で */ } }
       track('want_from_other', { isbn: !!isbn });
-      toast.success(`『${title}』を読みたいに入れました。`);
+      toast.success(`『${title}』を読みたいに追加しました。`);
       return 'added';
     } catch (e) {
       toast.error(toMessage(e, '読みたいに入れられませんでした。通信状況を確認して、もう一度お試しください。'));
@@ -4404,7 +4404,7 @@ function AuthedApp() {
 
         const saved = await saveBook(newBook);
         resolveCoverInBackground(saved);
-        toast.success(`『${trimmedTitle}』を「読みたい」に追加しました。`);
+        toast.success(`『${trimmedTitle}』を読みたいに追加しました。`);
       } catch (error) {
         // 失敗時は UI rollback してエラー表示
         setAddedRelatedTitles((prev) => {
@@ -4658,7 +4658,7 @@ function AuthedApp() {
       chainEntry.latest = book;
       syncActionSnapshots(book);
       // オフラインなら「つながってから、もう一度」（toSaveMessage・2026-10-11）。
-      toast.error(toSaveMessage(error, '行動の更新に失敗しました。'));
+      toast.error(toSaveMessage(error, '行動を保存できませんでした。'));
       return false;
     }
   };
@@ -4706,7 +4706,7 @@ function AuthedApp() {
       // 追加した行動の目印（相談の「見る」で行動の一覧のその行まで送る・2026-09-30）。真偽としても使える。
       return { bookId, text: newAction.text };
     } catch (error) {
-      toast.error(toMessage(error, '行動の追加に失敗しました。'));
+      toast.error(toMessage(error, '行動を追加できませんでした。'));
       return false;
     }
   };
@@ -4743,7 +4743,7 @@ function AuthedApp() {
       if (!payload.quiet) toast.success('行動を追加しました。');
       return true;
     } catch (error) {
-      const msg = toSaveMessage(error, '行動の追加に失敗しました。');
+      const msg = toSaveMessage(error, '行動を追加できませんでした。');
       // 行動の追加のモーダルから呼ばれたときは、モーダルの中に出す（知らせはモーダルの下に隠れて読めない・2026-10-04）。
       if (payload.onError) payload.onError(msg); else toast.error(msg);
       return false;
@@ -4885,7 +4885,7 @@ function AuthedApp() {
         mutateBookLocal(bookId, () => book);
         entry.latest = book;
         syncActionSnapshots(book);
-        toast.error(toMessage(error, '行動の削除に失敗しました。'));
+        toast.error(toMessage(error, '行動を削除できませんでした。'));
       }
     });
   };

@@ -830,7 +830,7 @@ export default async function handler(req, res) {
     const tooManyImages = freeOcrCall && countImages(body) > (req.body?.purpose === 'shelf_scan' ? FREE_SHELF_SCAN_MAX_IMAGES : FREE_OCR_MAX_IMAGES);
     if (bodyBytes > MAX_BODY_BYTES || countTextChars(body) > textCap || tooManyImages) {
       return res.status(413).json({
-        error: { message: 'リクエストが大きすぎます。画像のサイズを小さくして再度お試しください。' },
+        error: { message: '送る内容が大きすぎます。写真を小さくするか、文を短くして、もう一度お試しください。' },
         error_code: 'payload_too_large',
       });
     }
@@ -1322,10 +1322,10 @@ export default async function handler(req, res) {
       console.error('Claude upstream error:', response.status, JSON.stringify(data)?.slice(0, 500));
       const message =
         response.status === 429
-          ? 'AI へのリクエストが混み合っています。少し時間をおいて、やり直してください。'
+          ? 'AI が混み合っています。少し待ってから、もう一度お試しください。'
           : response.status >= 500 || response.status === 529
-            ? 'AI サービスが一時的に不安定です。少し時間をおいて、やり直してください。'
-            : 'AI リクエストに失敗しました。少し時間をおいて、やり直してください。';
+            ? 'AI につながりにくくなっています。少し待ってから、もう一度お試しください。'
+            : 'AI につながりませんでした。少し待ってから、もう一度お試しください。';
       return res.status(response.status).json({ error: { message } });
     }
     if (refund) {

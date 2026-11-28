@@ -101,7 +101,7 @@ export async function streamClaude({
   try {
     const accessToken = await getAccessToken();
     if (!accessToken) {
-      throw new Error('AI機能を使うにはログインが必要です。');
+      throw new Error('AI を使うには、ログインが必要です。');
     }
     // 🤝 送る直前の関所（App Review 5.1.2(i)・lib/aiConsent.js）: 同意が無ければシートを出し、やめたら送らない。
     const consent = await checkAiConsentForSend(purpose);
@@ -129,7 +129,7 @@ export async function streamClaude({
         errorCode = j?.error_code || '';
         freePool = j?.free_pool === true;
       } catch { /* fallthrough */ }
-      if (res.status === 401) throw new Error('AI機能を使うにはログインが必要です。');
+      if (res.status === 401) throw new Error('AI を使うには、ログインが必要です。');
       if (res.status === 402 && freePool) {
         // 無料の AI の全体の予算が尽きた: 有料プランの画面は開かず、サーバーの文で案内する（相談はメモから答える）。
         markFreePoolOut();
@@ -229,7 +229,7 @@ export async function streamClaude({
     }
     // 安全機構で答えを控えた（refusal）ときは、空や途中の答えを保存しないようエラーにする。
     if (stopReason === 'refusal') {
-      throw new Error('AI が今回の内容への回答を控えました。表現を変えて再度お試しください。');
+      throw new Error('AI が今回の内容への答えを控えました。言い方を変えて、もう一度お試しください。');
     }
     notifyAiUsed();
     onDone?.(fullText, { stopReason, aborted: false, refund });

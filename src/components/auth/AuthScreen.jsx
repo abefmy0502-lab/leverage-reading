@@ -241,7 +241,7 @@ export default function AuthScreen() {
         // このとき確認メールは送られないので、「送りました」画面で永遠に
         // 待たせず、ログイン/リセットへ誘導する。
         if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          setError('このメールアドレスは登録済みです。ログインするか、パスワードを再設定してください。');
+          setError('このメールアドレスは、もう登録されています。ログインするか、パスワードを再設定してください。');
           setMode('signin');
           return;
         }
@@ -282,7 +282,7 @@ export default function AuthScreen() {
         setInfo('メールをもう一度送りました。');
       } else {
         await resendConfirmation(confirmSentTo);
-        setInfo('確認メールを再送しました。');
+        setInfo('確認メールをもう一度送りました。');
       }
     } catch (err) {
       console.error('[auth] resend failed:', err);
@@ -367,7 +367,7 @@ export default function AuthScreen() {
             disabled={resending}
             style={{ ...btnLink, marginTop: 'var(--space-3)', ...(resending ? { color: 'var(--text-2)', opacity: 1 } : null) }}
           >
-            {resending ? '再送中…' : isReset ? 'メールをもう一度送る' : '確認メールを再送する'}
+            {resending ? '送っています…' : isReset ? 'メールをもう一度送る' : '確認メールをもう一度送る'}
           </button>
         </div>
       </div>

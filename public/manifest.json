@@ -2,7 +2,7 @@
   "id": "/",
   "name": "orime",
   "short_name": "orime",
-  "description": "読むほど、自分だけの相談相手が育つ。読んだ本のメモを根拠に、困ったときに答えが返ってくる読書アプリ",
+  "description": "読んだ本と、会話できる読書メモアプリ。答えのもとは、あなたが残したメモ。",
   "lang": "ja",
   "dir": "ltr",
   "categories": ["books", "education", "productivity"],

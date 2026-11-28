@@ -649,7 +649,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     const footer = (
       <>
         {f.failed && <p role="alert" style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sub)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(errText)}</p>}
-        {!f.reason && !f.failed && <p style={{ ...note, margin: '0 0 var(--space-2)', textAlign: 'center' }}>理由をえらんでください。</p>}
+        {!f.reason && !f.failed && <p style={{ ...note, margin: '0 0 var(--space-2)', textAlign: 'center' }}>理由を選んでください。</p>}
         <button type="button" onClick={sendReport} disabled={!f.reason || f.busy} aria-busy={f.busy || undefined} style={f.reason ? btnPrimary : btnPrimaryOff}>
           {f.busy ? '送っています…' : '通報する'}
         </button>

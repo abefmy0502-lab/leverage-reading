@@ -12,7 +12,7 @@ function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
+    reader.onerror = () => reject(new Error('この写真は読み込めませんでした。'));
     reader.readAsDataURL(file);
   });
 }
