@@ -735,6 +735,8 @@ const POSTER = {
 
 // 一文が主役（紙・夜・表紙の色）の組み。動かしていない言葉があれば、その高さぶんを下に取っておき、
 //   言葉は本の行の下に置く（新しい言葉が一文に重なっていた・2026-11-28 点検・雑誌と同じ考え）。
+// 言葉の文字のいちばん小さい大きさ（sharePhrase の phraseLayout が縮める下限と同じ）。
+const PHRASE_MIN_SIZE = 28;
 function posterLayout(ctx, o, reserve = 0) {
   const { format, fonts, text } = o;
   const L = POSTER[format] || POSTER.story;
@@ -749,8 +751,23 @@ function posterLayout(ctx, o, reserve = 0) {
   const kickerH = o.kicker ? Math.round(kSize * 1.35) + Math.round(L.sizes[0] * 0.5) : 0;
   const fixedH = kickerH + L.markInk + markGap + bookGap + (showBook ? coverH : 0);
   const span = L.bottom - L.top;
-  const room = Math.max(0, reserve > 0 && span - fixedH - reserve >= L.sizes[L.sizes.length - 1] * 3 ? reserve : 0);
-  const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: span - fixedH - room, sizes: L.sizes, lineHeight: 1.75 });
+  const quoteFit = (h) => layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: h, sizes: L.sizes, lineHeight: 1.75 });
+  const fitsIn = (f, h) => f.lines.length * f.lineHeight <= h + 0.5;
+  // 言葉の場所: ① 言葉の大きさのまま取れて、一文も収まるならそのまま ② 取れなければ、一文はそのままの大きさで、
+  //   残った空き（言葉の最小の 1 行ぶん以上）だけを言葉に回す＝言葉が小さくなって入る（長い一文でも重ねない・2026-11-28 点検）。
+  let room = 0;
+  let fit = null;
+  if (reserve > 0) {
+    const want = quoteFit(span - fixedH - reserve);
+    if (fitsIn(want, span - fixedH - reserve)) { room = reserve; fit = want; }
+    else {
+      const natural = quoteFit(span - fixedH);
+      const slack = span - fixedH - natural.lines.length * natural.lineHeight;
+      const minPhrase = Math.round(PHRASE_MIN_SIZE * 2.2) + PHRASE_MAGAZINE_GAP * (o.W / 1080);
+      if (fitsIn(natural, span - fixedH) && slack >= minPhrase) { room = Math.floor(slack); fit = natural; }
+    }
+  }
+  if (!fit) fit = quoteFit(span - fixedH - room);
   const quoteH = fit.lines.length * fit.lineHeight;
   // 目で見た中心（数学の中心より少し上）に置く。
   const top = L.top + Math.max(0, (span - fixedH - room - quoteH) * 0.44);
