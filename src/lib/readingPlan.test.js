@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   readingSpeedFactor, estimateBookMinutes, scheduleBooks, planItemsFromRoadmap, monthWeeks, weekBands,
   planItemsFromOrder, planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, addDays, DEFAULT_BOOK_MINUTES, MIN_LEFT_MINUTES,
-  isPlanSkipped, roadmapBookIds,
+  isPlanSkipped, roadmapBookIds, minutesOnDay,
 } from './readingPlan';
 
 describe('1 冊にかかる時間', () => {
@@ -125,5 +125,20 @@ describe('書き方', () => {
     expect(fmtHoursMin(320)).toBe('5 時間 20 分');
     expect(fmtHoursMin(120)).toBe('2 時間');
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+  });
+});
+
+describe('minutesOnDay', () => {
+  const item = { start: '2026-11-28', end: '2026-11-29', days: 2, minutes: 90 };
+  it('最後の日は残りだけ', () => {
+    expect(minutesOnDay(item, '2026-11-28', 60)).toBe(60);
+    expect(minutesOnDay(item, '2026-11-29', 60)).toBe(30);
+  });
+  it('期間の外は 0', () => {
+    expect(minutesOnDay(item, '2026-11-30', 60)).toBe(0);
+    expect(minutesOnDay(null, '2026-11-28', 60)).toBe(0);
+  });
+  it('1 日で読み終える本は、その本の分まで', () => {
+    expect(minutesOnDay({ start: '2026-11-28', end: '2026-11-28', days: 1, minutes: 30 }, '2026-11-28', 60)).toBe(30);
   });
 });

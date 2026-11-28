@@ -35,6 +35,7 @@ import { advisorDraftFor, GOAL_ASK_LIMIT, ROADMAP_TOKENS_LABEL, PHASE_BOOKS_TOKE
 import {
   PLAN_MINUTES, PLAN_DEFAULT_MINUTES, readingSpeedFactor, planItemsFromRoadmap, planItemsFromOrder, scheduleBooks, monthWeeks, weekBands,
   planMonths, bookOnDay, fmtSpan, fmtMd, fmtRange, fmtHoursMin, parseYmd, isPlanSkipped, roadmapBookIds,
+  minutesOnDay,
 } from '../lib/readingPlan';
 import { appNow } from '../lib/appNow';
 import { displayTitle } from '../lib/bookTitle';
@@ -1316,6 +1317,7 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
   useEffect(() => { if (mi > months.length - 1) setMi(Math.max(0, months.length - 1)); }, [months.length, mi]);
   const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
   const nowItem = bookOnDay(schedule, today);
+  const todayMin = nowItem ? minutesOnDay(nowItem, today, minutes) : minutes;
   const nextItem = nowItem ? null : schedule.find((x) => x.start > today) || null;
   const indexOf = useMemo(() => new Map(schedule.map((x, i) => [x.bookId, i])), [schedule]);
 
@@ -1413,15 +1415,15 @@ function PlanView({ goal, record, books, sessions, onFindBooks, onOpenBook, onRe
           <span className="plan-today-body">
             <span className="plan-today-label">{nowItem ? '今日の本' : `次の本 · ${fmtMd(nextItem.start, year)} から`}</span>
             <span className="plan-today-title">{withPhraseBreaks(`『\u2060${todayBook.title}\u2060』`, { scriptBreaks: true })}</span>
-            <span className="plan-today-meta">{nowItem ? <><span style={{ whiteSpace: 'nowrap' }}>{`1 日 ${minutes} 分`}</span>{' · '}<span style={{ whiteSpace: 'nowrap' }}>{`${fmtMd(nowItem.end, year)} まで`}</span></> : withPhraseBreaks('今日は読む本の予定がありません')}</span>
+            <span className="plan-today-meta">{nowItem ? <><span style={{ whiteSpace: 'nowrap' }}>{todayMin < minutes ? `今日 ${todayMin} 分` : `1 日 ${minutes} 分`}</span>{' · '}<span style={{ whiteSpace: 'nowrap' }}>{`${fmtMd(nowItem.end, year)} まで`}</span></> : withPhraseBreaks('今日は読む本の予定がありません')}</span>
           </span>
           <ChevronRight className="goal-entry-chev" size="1.1em" aria-hidden="true" style={{ marginRight: 'calc(-1 * var(--space-1))' }} />
         </button>
       )}
       {/* ⏱ 今日の本をそのまま読む（1 日に読む時間をタイマーに入れて・2026-11-22 点検＝前は本の詳細へ寄り道が要った）。 */}
       {todayBook && nowItem && onRead && (
-        <button type="button" onClick={() => onRead(todayBook, minutes)} style={{ ...btnGhost, marginTop: 'var(--space-2)' }}>
-          {`今日の ${minutes} 分を読む`}
+        <button type="button" onClick={() => onRead(todayBook, todayMin)} style={{ ...btnGhost, marginTop: 'var(--space-2)' }}>
+          {`今日の ${todayMin} 分を読む`}
         </button>
       )}
 

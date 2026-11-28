@@ -15,10 +15,11 @@ import FollowSummary from './FollowSummary';
 import { SkeletonBlock } from './Skeleton';
 import ErrorMessage from './ErrorMessage';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { withPhraseBreaks } from './TightBubble';
 import { btnGhost, btnPrimary, btnLink, groupTitle } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
-import { useProfile, setProfileCache } from '../hooks/useProfile';
+import { useProfile, setProfileCache, saveProfileShared } from '../hooks/useProfile';
 import { isGuestUser } from '../lib/guestAuth';
 import { hasProfile, addressName, profileUrl, loadProfile } from '../lib/profile';
 import { SOCIAL_ON, loadFollows } from '../lib/social';
@@ -35,7 +36,8 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
   const toast = useToast();
   const { user } = useAuth();
   const uid = user?.id || '';
-  const { profile, loading, error: profileError } = useProfile(uid);
+  const { profile, stored, loading, error: profileError } = useProfile(uid);
+  const confirm = useConfirm();
   // 読めなかったプロフィールを読み直す（useProfile は覚えた値を配るので、読めたら setProfileCache で全画面へ）。
   const [retrying, setRetrying] = useState(false);
   const retryProfile = () => {
@@ -68,6 +70,54 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
       toast.success('リンクをコピーしました。');
     } catch (e) {
       if (e?.name !== 'AbortError') toast.error('リンクを共有できませんでした。');
+    }
+  };
+
+  // 「公開のページを見る」は公開していなくても出す（2026-11-28 オーナー「オフでも見るのボタンは表示」「押したら公開しますか？と選べるように」）。
+  //   押すと、公開してよいか確かめてから公開し、そのままページを開く（ニックネームが無ければ、編集へ）。
+  const [publishing, setPublishing] = useState(false);
+  const canOpenPage = !guest && stored !== 'local';
+  const openPage = (pageUrl) => {
+    const href = `${pageUrl}?me=1`;
+    let win = null;
+    // 'noopener' を付けると開けても null が返るので付けず、開いたあとで opener を外す。
+    try { win = window.open(href, '_blank'); if (win) win.opener = null; } catch { win = null; }
+    // 待ったあとの window.open は端末が止めることがあるので、そのときは知らせのボタンから開く。
+    if (!win) toast.show({ type: 'success', message: '公開しました。', action: { label: 'ページを開く', onClick: () => { try { const w = window.open(href, '_blank'); if (w) w.opener = null; } catch { /* ignore */ } } } });
+  };
+  const publishAndOpen = async () => {
+    if (publishing) return;
+    if (!String(profile.nickname || '').trim()) {
+      const ok = await confirm({
+        title: '公開するには、ニックネームが要ります',
+        message: 'ニックネームを入れると、公開のページを見られます。',
+        confirmLabel: 'ニックネームを決める',
+        cancelLabel: 'キャンセル',
+      });
+      if (ok) setEditOpen(true);
+      return;
+    }
+    const ok = await confirm({
+      title: 'プロフィールを公開しますか？',
+      message: 'リンクを知っている人が、ニックネーム・自己紹介・好きな本を見られます。メモは見えません。あとからプロフィールを編集でやめられます。',
+      confirmLabel: '公開して見る',
+      cancelLabel: 'キャンセル',
+    });
+    if (!ok) return;
+    setPublishing(true);
+    try {
+      const { profile: saved } = await saveProfileShared(uid, { ...profile, isPublic: true });
+      if (!saved?.isPublic || !saved.publicId) {
+        toast.error(saved?.hidden ? 'このプロフィールは、運営が確かめるまで公開を止めています。' : '公開にできませんでした。通信状況を確認して、もう一度お試しください。');
+        return;
+      }
+      track('profile_set', { from: 'profile_page_link', pub: true });
+      onProfileSaved?.({ before: profile, after: saved });
+      openPage(profileUrl(saved.publicId));
+    } catch {
+      toast.error('公開にできませんでした。通信状況を確認して、もう一度お試しください。');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -177,9 +227,13 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
               </section>
             )}
             {/* 本人が開いたときは ?me=1＝通報とフォローのボタンを出さない（api/_profilePage.js の SELF_Q・2026-11-25） */}
-            {url && (
+            {url ? (
               <a href={`${url}?me=1`} target="_blank" rel="noopener noreferrer" style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>公開のページを見る</a>
-            )}
+            ) : canOpenPage && !loading && !retrying && !profileError ? (
+              <button type="button" onClick={publishAndOpen} disabled={publishing} aria-busy={publishing || undefined} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
+                {publishing ? '公開しています…' : '公開のページを見る'}
+              </button>
+            ) : null}
           </div>
         </BottomSheet>,
         document.body,

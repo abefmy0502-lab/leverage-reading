@@ -97,6 +97,16 @@ export function scheduleBooks(items, { minutesPerDay = PLAN_DEFAULT_MINUTES, sta
   return out;
 }
 
+// その日に読む分（分）。最後の日は残りだけ（1 日 60 分でも、残り 30 分なら 30 分・2026-11-28 点検＝
+//   前は最後の日も「今日の 60 分を読む」と出て、同じ本の「残り 30 分」と食い違っていた）。
+export function minutesOnDay(item, day, minutesPerDay = PLAN_DEFAULT_MINUTES) {
+  if (!item || !day || day < item.start || day > item.end) return 0;
+  const per = Math.max(5, Number(minutesPerDay) || PLAN_DEFAULT_MINUTES);
+  if (day !== item.end) return per;
+  const left = (Number(item.minutes) || 0) - per * Math.max(0, (item.days || 1) - 1);
+  return Math.max(1, Math.min(per, Math.round(left)));
+}
+
 // 読書計画に置かない本: 読み終えた本とアーカイブした本（2026-11-26・アーカイブ＝「しまっておく」印は読了と同じに外す）。
 export const isPlanSkipped = (b) => !b || b.status === 'done' || !!b.archivedAt;
 

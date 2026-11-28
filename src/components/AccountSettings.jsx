@@ -449,13 +449,22 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
   const nativeView = isNative || nativePreview;
   const showCodeRow = canRedeemOfferCode || nativePreview;
   const [codeBusy, setCodeBusy] = useState(false);
+  // 反映を待つ間の一言は、知らせではなく行の 2 行目に（下の「プランを管理」の行に知らせが重なっていた・2026-11-28 点検）。
+  const [codeWaiting, setCodeWaiting] = useState(false);
+  const codeNoteTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(codeNoteTimerRef.current), []);
+  const showCodeNote = () => {
+    setCodeWaiting(true);
+    clearTimeout(codeNoteTimerRef.current);
+    codeNoteTimerRef.current = setTimeout(() => setCodeWaiting(false), 30000);
+  };
   const codeTimersRef = useRef([]);
   useEffect(() => () => codeTimersRef.current.forEach(clearTimeout), []);
   const handleRedeemCode = async () => {
     if (codeBusy) return;
     track('offer_code', { action: 'open' });
     // お試しモード: Apple の画面は開かず、閉じたあとの知らせだけ見せる。
-    if (!canRedeemOfferCode) { toast.info('コードの反映には、数秒〜30 秒ほどかかります。'); return; }
+    if (!canRedeemOfferCode) { showCodeNote(); return; }
     setCodeBusy(true);
     try {
       const opened = await presentOfferCodeSheet(user?.id);
@@ -463,7 +472,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       // Apple の画面を閉じたら 1 回だけ知らせ、少しずつ間をあけて契約の状態を読み直す（使えたかは画面から分からない・
       // 反映は数秒〜数十秒）。閉じたのが分からないまま 3 分たったら、知らせずに読み直しだけ。
       waitForCodeSheetClosed().then((closed) => {
-        if (closed) toast.info('コードの反映には、数秒〜30 秒ほどかかります。');
+        if (closed) showCodeNote();
         codeTimersRef.current.forEach(clearTimeout);
         codeTimersRef.current = [1500, 5000, 12000, 30000].map((ms) => setTimeout(async () => {
           await invalidateCustomerInfo();
@@ -482,7 +491,7 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
       {/* 2 行: 題と、何のコードか（13/--text-2・GLOSSARY「オファーコード」）。 */}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ ...rowTitleStyle, display: 'block' }}>コードを使う</span>
-        <span style={{ ...rowDescStyle, display: 'block', margin: 0 }}>App Store のオファーコード</span>
+        <span role="status" style={{ ...rowDescStyle, display: 'block', margin: 0 }}>{codeWaiting ? 'コードの反映には、数秒〜30 秒ほどかかります。' : 'App Store のオファーコード'}</span>
       </span>
       <ChevronRight size="1.1em" aria-hidden="true" style={{ color: 'var(--text-3)', flexShrink: 0 }} />
     </button>
