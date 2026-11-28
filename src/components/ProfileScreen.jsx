@@ -19,7 +19,7 @@ import { useConfirm } from './ConfirmDialog';
 import { withPhraseBreaks } from './TightBubble';
 import { btnGhost, btnPrimary, btnLink, groupTitle } from '../styles/ui';
 import { useAuth } from '../hooks/useAuth';
-import { useProfile, setProfileCache, saveProfileShared } from '../hooks/useProfile';
+import { useProfile, setProfileCache } from '../hooks/useProfile';
 import { isGuestUser } from '../lib/guestAuth';
 import { hasProfile, addressName, profileUrl, loadProfile } from '../lib/profile';
 import { SOCIAL_ON, loadFollows } from '../lib/social';
@@ -27,6 +27,7 @@ import { track } from '../lib/analytics';
 
 const ProfileSheet = lazy(() => import('./ProfileSheet'));
 const FollowSheet = lazy(() => import('./FollowSheet'));
+const PublishSheet = lazy(() => import('./PublishSheet'));
 
 const note = { margin: 0, fontSize: 'var(--text-meta)', color: 'var(--text-2)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' };
 const card = { background: 'var(--surface)', border: '1px solid var(--separator)', borderRadius: 'var(--radius)', padding: '0 var(--space-4)' };
@@ -74,8 +75,7 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
   };
 
   // 「公開のページを見る」は公開していなくても出す（2026-11-28 オーナー「オフでも見るのボタンは表示」「押したら公開しますか？と選べるように」）。
-  //   押すと、公開してよいか確かめてから公開し、そのままページを開く（ニックネームが無ければ、編集へ）。
-  const [publishing, setPublishing] = useState(false);
+  //   押すと、一緒に見せるもの（本棚・本のまとめ・フォロー中/フォロワー）を選ぶシートから公開し、そのままページを開く（ニックネームが無ければ、編集へ）。
   const canOpenPage = !guest && stored !== 'local';
   const openPage = (pageUrl) => {
     const href = `${pageUrl}?me=1`;
@@ -86,7 +86,6 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
     if (!win) toast.show({ type: 'success', message: '公開しました。', action: { label: 'ページを開く', onClick: () => { try { const w = window.open(href, '_blank'); if (w) w.opener = null; } catch { /* ignore */ } } } });
   };
   const publishAndOpen = async () => {
-    if (publishing) return;
     if (!String(profile.nickname || '').trim()) {
       const ok = await confirm({
         title: '公開するには、ニックネームが要ります',
@@ -97,28 +96,15 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
       if (ok) setEditOpen(true);
       return;
     }
-    const ok = await confirm({
-      title: 'プロフィールを公開しますか？',
-      message: 'リンクを知っている人が、ニックネーム・自己紹介・好きな本を見られます。メモは見えません。あとからプロフィールを編集でやめられます。',
-      confirmLabel: '公開して見る',
-      cancelLabel: 'キャンセル',
-    });
-    if (!ok) return;
-    setPublishing(true);
-    try {
-      const { profile: saved } = await saveProfileShared(uid, { ...profile, isPublic: true });
-      if (!saved?.isPublic || !saved.publicId) {
-        toast.error(saved?.hidden ? 'このプロフィールは、運営が確かめるまで公開を止めています。' : '公開にできませんでした。通信状況を確認して、もう一度お試しください。');
-        return;
-      }
-      track('profile_set', { from: 'profile_page_link', pub: true });
-      onProfileSaved?.({ before: profile, after: saved });
-      openPage(profileUrl(saved.publicId));
-    } catch {
-      toast.error('公開にできませんでした。通信状況を確認して、もう一度お試しください。');
-    } finally {
-      setPublishing(false);
-    }
+    // 本棚・本のまとめ・フォロー中/フォロワーも、ここでまとめて選んでから公開する（2026-11-28 オーナー「一気にできるように」）。
+    setPublishOpen(true);
+  };
+  const [publishOpen, setPublishOpen] = useState(false);
+  const onPublished = (saved, notes = []) => {
+    setPublishOpen(false);
+    onProfileSaved?.({ before: profile, after: saved });
+    if (notes.length) toast.info(`${notes.join('・')}は、まだ準備ができていません。プロフィールは公開しました。`);
+    openPage(profileUrl(saved.publicId));
   };
 
   const name = hasProfile(profile) ? (addressName(profile) || 'ニックネームなし') : 'ニックネームはまだありません';
@@ -230,8 +216,8 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
             {url ? (
               <a href={`${url}?me=1`} target="_blank" rel="noopener noreferrer" style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>公開のページを見る</a>
             ) : canOpenPage && !loading && !retrying && !profileError ? (
-              <button type="button" onClick={publishAndOpen} disabled={publishing} aria-busy={publishing || undefined} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
-                {publishing ? '公開しています…' : '公開のページを見る'}
+              <button type="button" onClick={publishAndOpen} style={{ ...btnLink, alignSelf: 'flex-start', marginLeft: 'calc(-1 * var(--space-1))' }}>
+                公開のページを見る
               </button>
             ) : null}
           </div>
@@ -241,6 +227,11 @@ export default function ProfileScreen({ onClose, onOpenSettings, onProfileSaved,
       {editOpen && (
         <Suspense fallback={null}>
           <ProfileSheet userId={user?.id || ''} onClose={() => setEditOpen(false)} onSaved={onProfileSaved} />
+        </Suspense>
+      )}
+      {publishOpen && (
+        <Suspense fallback={null}>
+          <PublishSheet uid={uid} profile={profile} onClose={() => setPublishOpen(false)} onPublished={onPublished} />
         </Suspense>
       )}
       {followOpen && (
