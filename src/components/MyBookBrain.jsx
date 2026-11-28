@@ -1200,7 +1200,17 @@ export default function MyBookBrain({ onOpenBook, books = [], onAddAction, onBoo
       const gap = parseFloat(getComputedStyle(el).getPropertyValue('--space-4')) || 16;
       if (r.bottom > prevBottom + 1 || r.bottom + gap <= c.bottom) return; // 前から隠れていた・いまも余白つきで見えている
       // 箱の下に 16 の余白まで見せる（角丸が線の下に入っていた・2026-11-27 ui-critic）。箱の上端は出さない。
-      const delta = Math.min(r.bottom + gap - c.bottom, Math.max(0, r.top - c.top - gap));
+      let delta = Math.min(r.bottom + gap - c.bottom, Math.max(0, r.top - c.top - gap));
+      // 箱が欄より高い（小さな画面で文字が大きい）ときは、小さな見出し（あなたに聞きたいこと）を上に隠して、
+      //   問いの文と「ここで答えと行動を」を見せる（箱の下が返事の候補の行の下に入っていた・2026-11-28 提出前の点検）。
+      const over = r.bottom + gap - c.bottom;
+      if (over > delta && r.height + gap * 2 > c.height) {
+        // 見出しの下の端を欄の上の端に合わせる（見出しの字の切れ端を残さない）
+        const q = box.querySelector('[data-ask-text]');
+        const label = q?.previousElementSibling;
+        const toQ = label ? Math.ceil(label.getBoundingClientRect().bottom - c.top) : 0;
+        if (toQ >= over) delta = toQ;
+      }
       if (delta > 0) el.scrollTop += delta;
     });
     ro.observe(el);
@@ -4342,7 +4352,7 @@ function ChatMessage({ message, onOpenBook, stage, slow = false, books, actions 
   const renderAsk = (p, marginTop) => (p.question ? (
     <div data-ask-box="" style={{ marginTop, ...nextStepBox, containerType: 'inline-size' }}>
       <p style={subLabel}>{ASK_LABEL}</p>
-      <p style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'break-word', ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{/* AI の文は文節で止めずに流す（DESIGN §2・右が空いていた・2026-11-18 ui-critic） */}{haltLead(renderBoldInline(p.question))}{tail === 'ask' && cursor}</p>
+      <p data-ask-text="" style={{ ...readText, ...askQuestionSize, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'normal', lineBreak: 'strict', textWrap: 'pretty', overflowWrap: 'break-word', ...(isStreaming ? { minHeight: ASK_SKELETON_HEIGHT } : null) }}>{/* AI の文は文節で止めずに流す（DESIGN §2・右が空いていた・2026-11-18 ui-critic） */}{haltLead(renderBoldInline(p.question))}{tail === 'ask' && cursor}</p>
       {/* 🏁 いまどこにいるか（2026-10-08）: 問いの下 8 に 13/--text-2 の 1 行（状態色・段階のバーは使わない）。
           送った直後の 1 画面（答えの上端＝問いの箱が見える位置）で読めるよう、答えの下ではなく箱の中に置く。 */}
       {askProgress && !isStreaming && (
