@@ -45,6 +45,7 @@ export function cleanPhrase(text) {
 export const clampScale = (v) => Math.min(PHRASE_SCALE_MAX, Math.max(PHRASE_SCALE_MIN, Number(v) || 1));
 
 // 最初の置き方: 横は中央、縦は上から 24%（記録・一文は下にあるので重ならない）。
+// 雑誌と一文が主役（紙・夜・表紙の色）は、動かすまで引用・本の行の下に置く（shareCard の layoutPhraseOn）。
 export function newPhrase(text = '') {
   return { text: cleanPhrase(text), style: 'mincho', x: 0.5, y: 0.24, scale: 1, invert: false };
 }
@@ -157,14 +158,14 @@ export function balanceLines(text, maxWidth, measure) {
 // below（雑誌の重ね方・言葉をまだ動かしていないとき）: 引用・続きの文・本のカードの下端（画像の座標）。
 //   言葉はその下 PHRASE_MAGAZINE_GAP（幅 1080 のとき）から置き、引用に重ねない（2026-10-10 ui-critic）。
 //   入らなければ、その下の空きに入るまで小さくする。指で動かした言葉（moved）は今までどおり置いた場所に。
-export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', sticker = false, magazine = false, below = null, measureAt } = {}) {
+export function phraseLayout(phrase, { W = 1080, H = 1350, format = 'post', sticker = false, magazine = false, underBlock: underPoster = false, below = null, measureAt } = {}) {
   const text = phraseDisplayText(phrase);
   if (!text || typeof measureAt !== 'function') return null;
   const style = PHRASE_STYLES.includes(phrase.style) ? phrase.style : 'mincho';
   const m = phraseMetrics(style);
   // 透明は高さが中身で決まるので、大きさは幅だけで決め（高さは 1600 まで）、決まった高さをそのまま言葉の場所にする。
   let frame = phraseFrame({ W, H: sticker ? STICKER_PAD * 2 + 1600 * (W / 1080) : H, format, sticker, magazine });
-  const underBlock = magazine && !sticker && !phrase.moved && Number.isFinite(below);
+  const underBlock = (magazine || underPoster) && !sticker && !phrase.moved && Number.isFinite(below);
   if (underBlock) frame = { ...frame, top: Math.min(frame.bottom - 28, Math.max(frame.top, below + PHRASE_MAGAZINE_GAP * (W / 1080))) };
   const frameW = frame.right - frame.left;
   const frameH = frame.bottom - frame.top;

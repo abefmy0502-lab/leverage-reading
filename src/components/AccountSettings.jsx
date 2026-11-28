@@ -1560,7 +1560,6 @@ export default function AccountSettings({ onClose, onAfterDelete, onOpenImport, 
                     aria-label={deleteTarget.byWord ? '確認のための入力（削除）' : '確認用メールアドレス'}
                     style={inputStyle}
                     maxLength={LIMITS.email}
-                    autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck={false}
                   />

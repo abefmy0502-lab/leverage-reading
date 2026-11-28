@@ -60,7 +60,7 @@ import ErrorMessage from './ErrorMessage';
 import { SkeletonBlock } from './Skeleton';
 import TightBubble, { withPhraseBreaks, withBulletLines } from './TightBubble';
 import CareNote from './CareNote';
-import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload, spaceDurationUnits } from '../lib/advisorText';
 import { MAX_INTERVIEW_QUESTIONS, OPT_UNSURE, OFF_PLACEHOLDER, parseInterviewStep, interviewChips, applyStarter, starterOf, toggleChoice, choiceSelected, buildPriorQA, buildRecoMessage, spokenAnswers, needsCareLine } from '../lib/advisorInterview';
 import { usePaywall } from '../state/PaywallContext';
 import { findDuplicateBook } from '../lib/checkDuplicate';
@@ -119,7 +119,7 @@ const questionText = { fontSize: 'var(--text-body)', fontWeight: 600, color: 'va
 // ユーザーの相談＝右寄せの --fill 吹き出し（相談と同じ）。
 // 相談の吹き出しと同じ: 文字に沿って縮む（TightBubble・最大 85%）・文節の切れ目でだけ折り返す（BudouX の <wbr>＋keep-all・2026-09-29）。
 const userBubble = { maxWidth: '85%', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius)', background: 'var(--fill)', color: 'var(--text)', fontSize: 'var(--text-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'keep-all', overflowWrap: 'anywhere', textWrap: 'pretty' };
-const answerChipSelected = { background: 'var(--accent-soft)', borderColor: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
+const answerChipSelected = { background: 'var(--accent-soft)', border: '1px solid var(--accent-soft)', color: 'var(--accent)', fontWeight: 600 };
 // 推薦カードの購入リンク（Amazon・楽天ブックス）は AdvisorStoreLinks.jsx（過去の AI 選書と共通・2026-10-04）。
 
 // 推薦の前置きを 1 段落の文にするのは lib/advisorSummary.js の introTextOf（過去の AI 選書と共通・2026-10-04）。
@@ -155,13 +155,8 @@ const rootTextLarge = () => {
   try { return parseFloat(getComputedStyle(document.documentElement).fontSize) >= 22; } catch { return false; }
 };
 
-// 目安（AI が書く「2週間で読了、1ヶ月で実践」）を、数と助数詞の間に空きを入れた形に（「2 週間」「1 か月」・DESIGN §2・
-//   ヶ月・カ月は「か月」に・2026-11-23 点検）。空きは withPhraseBreaks が折り返さない空きにする。
-export function spaceDurationUnits(text) {
-  return String(text ?? '')
-    .replace(/(\d)\s*[ヶヵカケ]月/g, '$1か月')
-    .replace(/(\d)(週間|か月|日間|時間|分|冊|回)/g, '$1 $2');
-}
+// 目安の数と助数詞の間の空きは lib/advisorText.js の spaceDurationUnits（過去の AI 選書と共通・2026-11-28）。
+export { spaceDurationUnits };
 
 // 受け取った悩み（確かめる一歩のカード）。文節の切れ目で折り返す（「でしょ／うか」と割れていた・2026-11-23 点検）。
 //   文字が大きいとき（rootTextLarge）は 4 行で切り、「全文を見る」で開く（長いまとめが「合っている／少し違う（直す）」を
@@ -1474,8 +1469,19 @@ export default function BookAdvisor({ onAddBook, sessionApi, books, onSearchBook
   };
 
   // ひとつ前の問いへ戻る（最初の問いで戻ると相談入力に戻る）。答えた言葉は入力欄に戻す（書き直せる）。
-  const goBackQuestion = () => {
+  const goBackQuestion = async () => {
     if (interviewLoading || askingRef.current) return;
+    // 書きかけの答え（直しの文も）があるときは、消す前に確かめる（黙って消さない・2026-11-28 点検）。
+    const draft = summaryStep && correcting ? correctionText : (summaryStep ? '' : answerText);
+    if (String(draft || '').trim()) {
+      const ok = await advisorConfirm({
+        title: '書いた答えを消して戻りますか？',
+        message: 'いま書いている答えは残りません。',
+        confirmLabel: '消して戻る',
+        cancelLabel: '書き続ける',
+      });
+      if (!ok) return;
+    }
     setAnswerOff(false);
     setCorrecting(false);
     setCorrectionText('');

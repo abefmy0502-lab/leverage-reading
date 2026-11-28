@@ -814,7 +814,7 @@ export default function Review({ books = [], onOpenBook, onAddAction, onAddNote,
     setAddingAction(false);
     if (ok) {
       setActionAddedId(memo.id);
-      toast.success('行動に追加しました。期限は明日です。');
+      if (ok !== 'exists') toast.success('行動に追加しました（期限は明日）');
     }
   }, [onAddAction, addingAction, booksById, toast]);
 

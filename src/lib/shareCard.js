@@ -733,13 +733,12 @@ const POSTER = {
   square: { margin: 104, top: 112, bottom: 870, markInk: 40, sizes: [58, 54, 50, 46, 42, 40, 38, 36, 34, 32], coverW: 104, titleSize: 36, metaSize: 30 },
 };
 
-function drawPoster(ctx, o) {
-  const { W, H, format, theme, fonts, text } = o;
+// 一文が主役（紙・夜・表紙の色）の組み。動かしていない言葉があれば、その高さぶんを下に取っておき、
+//   言葉は本の行の下に置く（新しい言葉が一文に重なっていた・2026-11-28 点検・雑誌と同じ考え）。
+function posterLayout(ctx, o, reserve = 0) {
+  const { format, fonts, text } = o;
   const L = POSTER[format] || POSTER.story;
-  drawGround(ctx, W, H, theme, o.cover);
-  const left = L.margin;
-  const contentW = W - L.margin * 2;
-  const mark = quoteMark(ctx, fonts, L.markInk);
+  const contentW = o.W - L.margin * 2;
   const markGap = Math.round(L.sizes[0] * 0.55);
   const coverH = Math.round(L.coverW * 1.45);
   // 書名も著者も隠したときは、本の行（表紙＋書名）ごと出さない。
@@ -749,21 +748,51 @@ function drawPoster(ctx, o) {
   const kSize = recordFrame(format).kickerSize;
   const kickerH = o.kicker ? Math.round(kSize * 1.35) + Math.round(L.sizes[0] * 0.5) : 0;
   const fixedH = kickerH + L.markInk + markGap + bookGap + (showBook ? coverH : 0);
-  const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: (L.bottom - L.top) - fixedH, sizes: L.sizes, lineHeight: 1.75 });
+  const span = L.bottom - L.top;
+  const room = Math.max(0, reserve > 0 && span - fixedH - reserve >= L.sizes[L.sizes.length - 1] * 3 ? reserve : 0);
+  const fit = layoutQuote(ctx, fonts, text, { maxWidth: contentW, maxHeight: span - fixedH - room, sizes: L.sizes, lineHeight: 1.75 });
   const quoteH = fit.lines.length * fit.lineHeight;
   // 目で見た中心（数学の中心より少し上）に置く。
-  let y = L.top + Math.max(0, (L.bottom - L.top - fixedH - quoteH) * 0.44);
+  const top = L.top + Math.max(0, (span - fixedH - room - quoteH) * 0.44);
+  const bottom = top + kickerH + L.markInk + markGap + quoteH + bookGap + (showBook ? coverH : 0);
+  return { L, fit, quoteH, top, bottom, kickerH, kSize, markGap, coverH, bookGap, showBook, room };
+}
+function posterPhraseReserve(ctx, o) {
+  if (!o.phrase || o.phrase.moved || !phraseDisplayText(o.phrase)) return 0;
+  const lay = layoutPhraseOn(ctx, { ...o, posterBelow: null }, o.W, o.H);
+  return lay ? lay.h + PHRASE_MAGAZINE_GAP * (o.W / 1080) : 0;
+}
+// 一文が主役の組みに要る材料（描く前の opts でも・visibleOpts を通したあとでも）。写真・透明は対象外（null）。
+function posterOpts(o, fonts) {
+  let style = o.style || 'paper';
+  if (style === 'photo' && !o.photo) style = 'night';
+  if (style === 'photo' || style === 'sticker') return null;
+  const { w: W, h: H } = FORMATS[o.format] || FORMATS.story;
+  const format = FORMATS[o.format] ? o.format : 'story';
+  if (o.hasFooter) return { ...o, fonts, style, W, H, format };
+  const { text } = clampLine(o.line);
+  if (!text) return null;
+  return { ...visibleOpts(o, 'quote', text), fonts, style, W, H, format, layout: 'quote' };
+}
 
+function drawPoster(ctx, o) {
+  const { W, H, format, theme, fonts } = o;
+  drawGround(ctx, W, H, theme, o.cover);
+  const P = posterLayout(ctx, o, posterPhraseReserve(ctx, o));
+  const { L } = P;
+  const left = L.margin;
+  const mark = quoteMark(ctx, fonts, L.markInk);
+  let y = P.top;
   if (o.kicker) {
-    drawKicker(ctx, fonts, { x: left, y, h: Math.round(kSize * 1.35), size: kSize, text: o.kicker, theme });
-    y += kickerH;
+    drawKicker(ctx, fonts, { x: left, y, h: Math.round(P.kSize * 1.35), size: P.kSize, text: o.kicker, theme });
+    y += P.kickerH;
   }
   drawQuoteMark(ctx, mark, left, y, theme.ink3);
-  y += L.markInk + markGap;
-  drawQuoteLines(ctx, fonts, fit, left, y, theme.ink);
-  y += quoteH + bookGap;
+  y += L.markInk + P.markGap;
+  drawQuoteLines(ctx, fonts, P.fit, left, y, theme.ink);
+  y += P.quoteH + P.bookGap;
 
-  if (showBook) drawPosterBook(ctx, o, L, { left, y, coverH, theme, fonts });
+  if (P.showBook) drawPosterBook(ctx, o, L, { left, y, coverH: P.coverH, theme, fonts });
   drawFooter(ctx, { format, margin: L.margin, logo: o.logo, theme, fonts });
 }
 
@@ -1893,6 +1922,14 @@ export function layoutPhraseOn(ctx, o, W, H) {
       below = mo ? finalMagazineLayout(ctx, { ...mo, magazineBelow: null }).topBottom : null;
     }
   }
+  // 一文が主役（紙・夜・表紙の色）: 動かしていない言葉は、本の行の下に置く（一文に重ねない・2026-11-28 点検）。
+  if (o.layout === 'quote' && !o.phrase.moved && o.posterBelow !== null) {
+    const po = posterOpts(o, fonts);
+    if (po) {
+      const P = posterLayout(ctx, po, posterPhraseReserve(ctx, po));
+      if (P.room > 0) below = P.bottom;
+    }
+  }
   return phraseLayout(o.phrase, {
     below,
     W,
@@ -1901,6 +1938,7 @@ export function layoutPhraseOn(ctx, o, W, H) {
     // 雑誌の透明は画像の大きさのまま（高さを中身に合わせない）・言葉は右上のロゴの下から。
     sticker: o.style === 'sticker' && o.layout !== 'magazine',
     magazine: o.layout === 'magazine',
+    underBlock: o.layout === 'quote' && Number.isFinite(below),
     measureAt: (size) => {
       const m = measurer(ctx, phraseFont(style, fonts, size), spacing);
       const trail = Math.round(spacing * size * 10) / 10;
@@ -2135,7 +2173,7 @@ export function drawShareCard(canvas, opts = {}) {
   const o = { ...base, W, H, format: FORMATS[opts.format] ? opts.format : 'story' };
   if (style === 'photo') drawPhoto(ctx, o);
   else drawPoster(ctx, o);
-  drawPhrase(ctx, { ...o, quoteShown: true }, W, H);
+  drawPhrase(ctx, { ...o, layout, quoteShown: true }, W, H);
   return { line: text, width: W, height: H };
 }
 

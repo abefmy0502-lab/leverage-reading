@@ -492,7 +492,8 @@ export default function BookMemoList({ bookId, bookTitle, bookAuthor = '', summa
       sourceMemoId: memo.id || null,
       sourcePage: memo.pageNumber ?? memo.page_number ?? null,
     });
-    if (ok) { haptic.success(); toast.success('行動に追加しました。期限は明日です。'); }
+    // 'exists'＝もう追加してある（知らせは App が出す）。文は短く 1 行に（「…期限は明日／です。」と割れていた・2026-11-27 点検）
+    if (ok && ok !== 'exists') { haptic.success(); toast.success('行動に追加しました（期限は明日）'); }
   };
 
   const openEdit = (memo) => {

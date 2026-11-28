@@ -21,7 +21,7 @@ import { withPhraseBreaks, withBulletLines } from './TightBubble';
 import AdvisorStoreLinks from './AdvisorStoreLinks';
 import { STORE_DISCLOSURE_TEXT } from '../lib/rakutenLink';
 import { btnPrimary, btnGhost, btnGhostOff, btnText, groupTitle } from '../styles/ui';
-import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload } from '../lib/advisorText';
+import { displayUserText, concernOf, interviewPairsOf, confirmedOf, advisorSetupPayload, spaceDurationUnits } from '../lib/advisorText';
 import { filterProseTitles, proseTitleLists } from '../lib/advisorProse';
 import { dropSummarySection, introTextOf, splitRecoAnswer } from '../lib/advisorSummary';
 import { fmtDateTimeJa } from '../lib/dates';
@@ -291,7 +291,7 @@ function RecommendationCard({ book, index = 0, isAdded, isChecking, onAdd }) {
       {book.core && <RecField label="この本の核心" text={book.core} />}
       {/* 章番号・ページを書いた注目ポイントは出さない（推測・lib/advisorRecs.js）。目安は会話中のカードと同じ小さな見出し＋本文。 */}
       {focusText(book.focus) && <RecField label="注目ポイント" text={focusText(book.focus)} />}
-      {book.duration && <RecField label="目安" text={book.duration} />}
+      {book.duration && <RecField label="目安" text={spaceDurationUnits(book.duration)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
         {isAdded ? (

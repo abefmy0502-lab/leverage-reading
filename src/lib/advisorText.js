@@ -99,3 +99,11 @@ export function advisorSetupPayload(concern, answers, rec, confirmed = null) {
     bookReason: clamp([String(rec?.why || '').trim(), rec?.core ? `この本の核心: ${String(rec.core).trim()}` : ''].filter(Boolean).join('\n'), 400),
   };
 }
+
+// 目安（AI が書く「2週間で読了、1ヶ月で実践」）を、数と助数詞の間に空きを入れた形に（「2 週間」「1 か月」・DESIGN §2・
+//   ヶ月・カ月は「か月」に・2026-11-23 点検）。空きは withPhraseBreaks が折り返さない空きにする。
+export function spaceDurationUnits(text) {
+  return String(text ?? '')
+    .replace(/(\d)\s*[ヶヵカケ]月/g, '$1か月')
+    .replace(/(\d)(週間|か月|日間|時間|分|冊|回)/g, '$1 $2');
+}

@@ -206,6 +206,15 @@ export default function QuickMemoSheet({
   const [errorMsg, setErrorMsg] = useState('');
   // 閉じアニメーション中（入りが滑らかなのに出だけ瞬間消滅、の非対称を解消）。
   const [closing, setClosing] = useState(false);
+  // 閉じはじめの 0.45 秒は、透明な幕で 2 回目の指を受け止める（保存を素早く 2 回押すと、2 回目が下のタブや別のメモに
+  //   届いていた・2026-11-27 点検）。そのあとは下の画面をすぐ使えるように通す（保存の終わりを待たない）。
+  const [swallow, setSwallow] = useState(false);
+  useEffect(() => {
+    if (!closing) { setSwallow(false); return undefined; }
+    setSwallow(true);
+    const t = setTimeout(() => setSwallow(false), 450);
+    return () => clearTimeout(t);
+  }, [closing]);
   // 下スワイプで閉じるドラッグ（ハンドル/ヘッダー起点）。キーボード追従の
   // transform と競合しないよう、ドラッグ中は vv 追従を一時停止する。
   const dragStartYRef = useRef(null);
@@ -494,8 +503,8 @@ export default function QuickMemoSheet({
   const sheet = (
     <>
       <div
-        style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease', pointerEvents: 'none' } : {}) }}
-        onClick={requestClose}
+        style={{ ...backdrop, ...(closing ? { opacity: 0, transition: 'opacity .18s ease', pointerEvents: swallow ? 'auto' : 'none' } : {}) }}
+        onClick={closing ? undefined : requestClose}
         aria-hidden="true"
       />
       <div

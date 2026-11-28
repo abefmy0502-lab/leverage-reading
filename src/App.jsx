@@ -1839,11 +1839,15 @@ function AuthedApp() {
     if (prevShelfModeRef.current === shelfMode) return;
     prevShelfModeRef.current = shelfMode;
     savedShelfScroll.current = 0;
+    // 先頭へ戻すのはホームのタブにいるときだけ（記録の分野から すべての本 へ行き「‹ 記録」で戻ると、同じ送りの箱が
+    //   振り返りの画面になっていて、戻した記録の位置を 0 に上書きしていた・2026-11-27 点検）。
+    if (tab !== 'books') return;
     requestAnimationFrame(() => {
       if (listScrollRef.current) {
         try { listScrollRef.current.scrollTop = 0; } catch { /* ignore */ }
       }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shelfMode]);
 
   // 編集に入った瞬間の form をベースラインとして控える（編集中の変更検知用）。
@@ -3365,6 +3369,8 @@ function AuthedApp() {
       status: fresh.status,
       startDate: fresh.startDate,
       doneDate: fresh.doneDate,
+      // 読了にしたあと知らせの間に付けた ★ も、元に戻すで戻す（読書中に戻した本に ★ が残っていた・2026-11-27 点検）
+      rating: Number(fresh.rating) || 0,
       ...(wasArchived ? { archivedAt: wasArchived } : null),
     };
     // opts.extra: 状態と一緒に残す欄（積読の「読書を開始する」で、下書きの得たいことを本に残す・2026-10-09）。
@@ -4633,7 +4639,13 @@ function AuthedApp() {
   const addActionFromMemo = async (bookId, { text, sourceMemoId = null, sourcePage = null, deadline = '', source = 'memo' }) => {
     const body = (text || '').trim();
     if (!body) return false;
-    if (!booksRef.current.find((b) => b.id === bookId)) return false;
+    const bookNow = booksRef.current.find((b) => b.id === bookId);
+    if (!bookNow) return false;
+    // 同じメモから作ったまだ終わっていない行動があれば、重ねて足さない（メモの「…」から 2 回押すと同じ行動が 2 つできていた・2026-11-27 点検）
+    if (sourceMemoId && (bookNow.actions || []).some((a) => !a.done && String(a.sourceMemoId || '') === String(sourceMemoId))) {
+      toast.info('このメモの行動は、もう追加してあります。');
+      return 'exists';
+    }
     const newAction = {
       text: body.slice(0, LIMITS.actionText || 500),
       deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : tomorrowLocal(),
@@ -4913,6 +4925,8 @@ function AuthedApp() {
     return m;
   }, [books, statusFilter, minRating, tagFilter, libraryHits]);
   // フォルダのチップの行を出すか（フォルダが 1 つ以上・検索で 0 件のときは出さない）。allFolders はこの下で決まるので本から数える。
+  // 検索の「N 冊中」は、見出しと同じ数え方（アーカイブした本は、アーカイブのチップを選んだときだけ数える・2026-11-27 点検）
+  const searchTotal = statusFilter === STATUS_ARCHIVED ? rawBooks.filter((b) => b.archivedAt).length : rawBooks.filter((b) => !b.archivedAt).length;
   const showFolderChips = books.some((b) => (b.collections || []).some((c) => (c || '').trim())) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   const showStatusChips = (books.length >= 4 || !!folderFilter || minRating > 0 || tagFilter.length > 0) && !(filtered.length === 0 && libraryQuery && rawBooks.length > 0);
   // 読み終えたら上の形を覚える（読み込み中の骨組みを同じ形に・lib/libraryShape.js）。絞り込み・検索に左右されない数え方で。
@@ -6393,7 +6407,7 @@ function AuthedApp() {
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
                         });
-                        if (ok) toast.success('行動に追加しました。期限は明日です。');
+                        if (ok && ok !== 'exists') toast.success('行動に追加しました（期限は明日）');
                       },
                     },
                   }));
@@ -7073,7 +7087,7 @@ function AuthedApp() {
                           sourceMemoId: typeof result?.id === 'string' ? result.id : null,
                           sourcePage: result?.page_number ?? payload?.pageNumber ?? null,
                         });
-                        if (ok) toast.success('行動に追加しました。期限は明日です。');
+                        if (ok && ok !== 'exists') toast.success('行動に追加しました（期限は明日）');
                       },
                     },
                   }));
@@ -7174,7 +7188,7 @@ function AuthedApp() {
                   <span style={{ fontSize: 'var(--text-sub)', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
                     {/* メモを読んでいる間で、まだ何も見つかっていないときは「0 冊」と言い切らない（2026-09-30） */}
                     {/* 数と「冊」は割らない（文字最大で「0 / 冊」と割れていた・U+00A0） */}
-                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${rawBooks.length}\u00a0冊中 …` : `${rawBooks.length}\u00a0冊中 ${filtered.length}\u00a0冊`) : `${filtered.length}\u00a0冊`}
+                    {libraryQuery ? (librarySearch.memoStatus === 'loading' && filtered.length === 0 ? `${searchTotal}\u00a0冊中 …` : `${searchTotal}\u00a0冊中 ${filtered.length}\u00a0冊`) : `${filtered.length}\u00a0冊`}
                     {/* 評価順の間は並びを題の横に添える（分野の行から評価順で開いたときも・検索中は見つかった順なので出さない・2026-10-11 ui-critic） */}
                     {!libraryQuery && sortBy === 'rating' && <span data-sort-note="" style={{ fontSize: 'var(--text-meta)', color: 'var(--text-2)' }}>{' · 評価順'}</span>}
                   </span>

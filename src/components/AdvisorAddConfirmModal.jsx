@@ -223,7 +223,7 @@ export default function AdvisorAddConfirmModal({ original, candidates, onConfirm
           )}
         </div>
 
-        <div style={footerStyle}>
+        <div style={footerStyle} data-toast-above="">
           {/* やめるのは右上の × と外側のタップ・Esc（下に「キャンセル」を並べない・2026-09-30）。 */}
           <button
             type="button"
