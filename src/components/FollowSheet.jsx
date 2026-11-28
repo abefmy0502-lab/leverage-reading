@@ -1020,9 +1020,9 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   const mutual = new Set((lists?.following || []).map((p) => p.publicId));
   const listsBlock = (
           <div>
-            <div role="tablist" aria-label="フォローの一覧" style={segTrack}>
+            <div role="tablist" aria-label="フォローの一覧" style={{ ...segTrack, flexWrap: 'wrap' }}>
               {TABS.map((t) => (
-                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={{ ...segOption(tab === t.id), flex: '1 1 auto', padding: '0 var(--space-2)', whiteSpace: 'normal', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{t.label}</button>
+                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={{ ...segOption(tab === t.id), flex: '1 1 auto', minWidth: 'max-content', padding: '0 var(--space-2)' }}>{t.label}</button>
               ))}
             </div>
             {!lists ? <p role="status" style={{ ...note, marginTop: 'var(--space-4)' }}>読み込んでいます…</p> : (
@@ -1130,6 +1130,8 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
               <div role="list">
                 {lists.requests.map((p, i) => (
                   <PersonRow key={`r-${p.publicId}`} first={i === 0} person={p}>
+                    {/* 操作はひとまとまり（文字が大きくて折り返すときも、断る・承認・… が離れない） */}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', marginLeft: 'auto' }}>
                     <button type="button" style={rowLink} disabled={respondingId === p.publicId} onClick={() => respond(p, false)}>断る</button>
                     <button type="button" style={btnRow} disabled={respondingId === p.publicId} onClick={() => respond(p, true)}>承認</button>
                     <button
@@ -1143,6 +1145,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                     >
                       <MoreHorizontal size="1.25em" aria-hidden="true" />
                     </button>
+                    </span>
                   </PersonRow>
                 ))}
               </div>
@@ -1206,15 +1209,15 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 <SkeletonBlock height="var(--tap-min)" />
               ) : meReady ? (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
                     {/* ID を押すと ID だけをコピー（右のボタンは共有のシート） */}
                     <button
                       type="button"
                       onClick={copyMyId}
                       aria-label={`あなたの ID ${me.publicId} をコピー`}
-                      style={{ flex: 1, minWidth: 0, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text)' }}
+                      style={{ flex: '1 1 auto', minWidth: 0, minHeight: 'var(--tap-min)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 0, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', fontSize: 'var(--text-body)', color: 'var(--text)' }}
                     >
-                      <span style={{ minWidth: 0, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em', overflowWrap: 'anywhere' }}>{me.publicId}</span>
+                      <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{me.publicId}</span>
                       <Copy size="1em" aria-hidden="true" style={{ flexShrink: 0, color: 'var(--accent)' }} />
                     </button>
                     <button type="button" onClick={shareMyId} style={{ ...btnRow, flexShrink: 0, gap: 'var(--space-2)' }}>
