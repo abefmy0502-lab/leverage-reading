@@ -129,7 +129,13 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
   // 相談の答えの回数は、使い道の「相談」の行に添える（別の段に「相談の AI の答え 2 回」と並べると、
   //   使い道の「相談 21 トークン」と同じことを 2 回言っていた・2026-11-23 ui-critic）。使い道に相談の行が無いときだけ下の段に。
   const consultAnswers = value && value.consults > 0 && usedSome ? value.consults : 0;
-  const consultOnUsage = consultAnswers > 0 && !!breakdown?.some((b) => b.key === 'consult');
+  // 回数は保存した答えから・トークンは原価から数えるので、相談を消した・保存しない答えがあると食い違う。
+  //   1 回あたりが多すぎる（40 トークン超）か少なすぎる（1 未満）ときは、回数を添えない（2026-11-28 点検「343 トークン（AI の答え 2 回）」）。
+  const consultRow = breakdown?.find((b) => b.key === 'consult');
+  const perAnswer = consultRow && consultAnswers > 0 ? consultRow.tokens / consultAnswers : 0;
+  const consultOnUsage = consultAnswers > 0 && !!consultRow && perAnswer >= 1 && perAnswer <= 40;
+  // 使い道に相談の行があって回数が合わないときは、下の段にも回数を出さない（同じ食い違いが下に移るだけなので）。
+  const consultBelow = consultAnswers > 0 && !consultRow;
 
   // 次に戻る日（データだけ）。
   let resetLine = null;
@@ -254,10 +260,10 @@ export default function TokenUsageSheet({ onClose, onAdd, onPlans, from = 'consu
 
       {/* 🌿 この期間に相談から得たもの（数だけ・2026-10-20） */}
       {/* 答えの回数は、トークンを使っているときだけ（払い戻した回・メモが答えた回だけだと「まだ使っていません」と並んで矛盾して見えた・2026-10-30 点検） */}
-      {value && detail !== undefined && ((consultAnswers > 0 && !consultOnUsage) || value.done > 0) && (
+      {value && detail !== undefined && (consultBelow || value.done > 0) && (
         <section aria-label={`${periodName}の相談`} style={sectionGap}>
           <h3 style={{ ...groupTitle, marginBottom: 'var(--space-2)' }}>{periodName}の相談</h3>
-          {consultAnswers > 0 && !consultOnUsage && (
+          {consultBelow && (
             <div style={row}>
               <span style={rowLabel}>相談の AI の答え</span>
               <span style={rowValue}>{fmt(value.consults)} 回</span>
