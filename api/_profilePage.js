@@ -237,11 +237,6 @@ function miniCover(title, cover, width) {
   return `<span class="mc" style="width:${width}px" aria-hidden="true">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : coverPlaceholder(title)}</span>`;
 }
 
-/** まとめのある本の行（表紙・書名・まとめの出だし 3 行）。 */
-function summaryRows(list, publicId, self = false) {
-  return `<ul class="srows">${list.map((b) => `<li><a class="srow" href="/u/${esc(publicId)}/b/${esc(b.id)}${self ? SELF_Q : ''}">${miniCover(b.title, b.cover, 48)}<span style="min-width:0"><p class="t">${esc(shownTitle(b.title))}</p><p class="ex">${esc(b.excerpt)}</p></span></a></li>`).join('')}</ul>`;
-}
-
 function bookInner(b) {
   return `${b.cover ? `<img src="${esc(b.cover)}" alt="" loading="lazy">` : coverPlaceholder(b.title)}${
     b.cover ? `<p class="bt">${esc(shownTitle(b.title))}</p>` : `<p class="bt sr">${esc(b.title)}</p>`}${b.author ? `<p class="ba">${esc(b.author)}</p>` : ''}${
@@ -370,7 +365,7 @@ export function wantUrl(book, site = SITE()) {
 }
 
 /** 本のページ（/u/<id>/b/<本の id>）。 */
-export function renderBook(p, book, { publicId, showSummary = false, others = [], linkShelf = true, self = false }) {
+export function renderBook(p, book, { publicId, showSummary = false, linkShelf = true, self = false }) {
   const site = SITE();
   const nickname = String(p.nickname || '').trim();
   const who = nickname || 'orime の読者';
@@ -388,7 +383,6 @@ export function renderBook(p, book, { publicId, showSummary = false, others = []
 ${summary ? `<h2 class="h">${esc(who)}の、この本のまとめ</h2><p class="sum">${esc(summary)}</p>` : `<p class="note" style="text-align:left;margin-top:24px;font-size:15px">${showSummary ? 'まとめはまだありません。' : 'まとめは公開されていません。'}</p>`}
 ${self ? '' : `<a class="cta" href="${esc(wantUrl({ ...book, cover }, site))}">読みたいに追加</a>`}
 <div class="tl" style="margin-top:24px"><a href="${esc(getAmazonLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer sponsored">Amazon<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a href="${esc(getRakutenLink({ isbn: book.isbn, title, author: book.author }))}" target="_blank" rel="noopener noreferrer">楽天ブックス<svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:4px"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
-${others.length ? `<p class="sh">${esc(who)}の、ほかのまとめ</p>${summaryRows(others, publicId, self)}` : ''}
 <!-- 本のページにはフォローのボタンを置かない（フォローを決めるのはプロフィールのページ・2026-11-22 オーナー「ここにフォロー申し込みのボタンは不要」） -->
 ${self ? '' : `<details style="margin-top:48px"><summary>このページを通報する</summary>
 <form method="post" action="/api/profile-report"><input type="hidden" name="id" value="${esc(publicId)}">
@@ -518,9 +512,8 @@ export async function handleProfileRequest(req, res, { dbImpl = db } = {}) {
     const showSummary = shared || (shelfOpen && !!row.summary_public);
     const book = await loadBook(c, row, bookId, { shared, summary: showSummary });
     if (!book) return send(res, renderNotFound()), true;
-    const more = shelfOpen && row.summary_public ? await loadShelf(c, row.user_id, row.shelf_hidden, { summaries: true }) : null;
-    const others = (more?.withSummary || []).filter((b) => b.id !== String(book.id)).slice(0, 3);
-    return send(res, renderBook(row, book, { publicId: id, showSummary, others, linkShelf: isShowable(row), self }), 'public, max-age=0, s-maxage=60'), true;
+    // 本のページにはその本だけ（ほかのまとめは並べない・2026-11-28 オーナー「他のまとめは入れないで」）
+    return send(res, renderBook(row, book, { publicId: id, showSummary, linkShelf: isShowable(row), self }), 'public, max-age=0, s-maxage=60'), true;
   }
   if (!isShowable(row)) return send(res, renderNotFound()), true;
   let shelf = null;

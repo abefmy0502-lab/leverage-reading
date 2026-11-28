@@ -621,23 +621,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
     )}
   </>);
 
-  // まとめの行（表紙・書名・まとめの出だし 3 行・押すと本へ）。相手の考えがいちばん伝わるので本棚の上に置く。
-  const SummaryRows = ({ person, books }) => (
-    <div role="list">
-      {books.map((b, i) => (
-        <div role="listitem" key={b.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--separator)' }}>
-          <button type="button" onClick={() => setView((v) => ({ name: 'book', person, book: b, back: v.name === 'book' ? v.back : v }))} style={{ ...plainBtn, width: '100%', display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start', padding: 'var(--space-4) 0' }}>
-            <MiniCover title={shownTitle(b.title)} cover={b.cover} width={48} />
-            <span style={{ minWidth: 0, flex: 1 }}>
-              <span style={{ display: 'block', fontSize: 'var(--text-sub)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(shownTitle(b.title), { scriptBreaks: true })}</span>
-              <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 'var(--space-1)', fontFamily: 'var(--font-read)', fontSize: 'var(--text-sub)', lineHeight: 1.7, color: 'var(--text)', lineBreak: 'strict', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(summaryExcerpt(b.summary))}</span>
-            </span>
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-
   // ─── 通報（理由をえらぶ・任意で書き足す・あわせてブロック） ───
   // 決める入口は下の「通報する」1 つ（右上は「キャンセル」）。送れた知らせはシートの上に出る（--z-toast）。
   if (view.name === 'report') {
@@ -695,8 +678,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
   if (view.name === 'book') {
     const { person, book } = view;
     const st = wantState[book.id] || (hasBook?.(book) ? 'exists' : undefined);
-    const loaded = shelf && typeof shelf === 'object' ? shelf : null;
-    const others = (loaded?.books || []).filter((b) => b.summary && b.id !== book.id).slice(0, 3);
     return createPortal(
       <BottomSheet title={`${who(person)}の本棚`} onClose={onClose} layer="dialog">
         <div ref={bodyRef} style={sheetBody}>
@@ -752,12 +733,6 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
         <div style={{ marginTop: st === 'exists' ? 'var(--space-4)' : 'var(--space-3)' }}>
           <AdvisorStoreLinks book={book} />
         </div>
-        {others.length > 0 && (
-          <section style={{ marginTop: 'var(--space-8)' }}>
-            <p style={{ ...groupTitle, margin: '0 0 var(--space-1)' }}>{who(person)}の、ほかのまとめ</p>
-            <SummaryRows person={person} books={others} />
-          </section>
-        )}
         <p style={{ ...note, marginTop: 'var(--space-8)', color: 'var(--text-3)' }}>{withPhraseBreaks(STORE_DISCLOSURE_TEXT)}</p>
         </div>
       </BottomSheet>,
