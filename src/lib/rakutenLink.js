@@ -52,4 +52,4 @@ export const RAKUTEN_LINK_REL = 'noopener noreferrer';
 //   2026-11-26 オーナー「これは記載しないといけない？」→ Amazon アソシエイトの運営規約が求める決まった文だけに短くした。
 //   楽天のリンクはアフィリエイトの ID を付けていない（ふつうの検索のリンク）ので、楽天アフィリエイトの文は外した
 //   （参加していないのに書くと事実と違う）。楽天のアフィリエイトを始めたら、ここに足す。
-export { AMAZON_DISCLOSURE_TEXT as STORE_DISCLOSURE_TEXT } from './amazonLink';
+export { AMAZON_DISCLOSURE_TEXT as STORE_DISCLOSURE_TEXT } from './amazonLink.js';
