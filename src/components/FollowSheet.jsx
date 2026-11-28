@@ -1022,7 +1022,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           <div>
             <div role="tablist" aria-label="フォローの一覧" style={segTrack}>
               {TABS.map((t) => (
-                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={segOption(tab === t.id)}>{t.label}</button>
+                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={{ ...segOption(tab === t.id), flex: '1 1 auto', padding: '0 var(--space-2)', whiteSpace: 'normal', lineHeight: 1.3, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{t.label}</button>
               ))}
             </div>
             {!lists ? <p role="status" style={{ ...note, marginTop: 'var(--space-4)' }}>読み込んでいます…</p> : (
@@ -1150,7 +1150,7 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <label htmlFor={inputId} style={{ ...groupTitle, margin: 0 }}>ID・QR コードでフォロー</label>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
               <input
                 id={inputId}
                 value={text}
@@ -1161,16 +1161,16 @@ export default function FollowSheet({ onClose, initialId = '', onAddWant, initia
                 autoCapitalize="off"
                 autoCorrect="off"
                 enterKeyHint="go"
-                style={{ ...inputBase, flex: 1, minWidth: 0, ...(preview?.missing ? { border: '1px solid var(--error)' } : {}) }}
+                style={{ ...inputBase, flex: '1 1 9em', minWidth: 0, ...(preview?.missing ? { border: '1px solid var(--error)' } : {}) }}
                 aria-invalid={preview?.missing || undefined}
               />
+              <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
               {/* QR コード（自分の QR を見せる・相手の QR を読む）。ID の入力の横に 1 つ（2026-11-28 オーナー「ID でフォローと QR コードでフォローを一つに」） */}
               {meReady && (
                 <button type="button" aria-label="QR コード" onClick={() => { track('follow_qr', { action: 'open', from: 'follow_sheet' }); setQrOpen(true); }} style={{ ...btnGhost, width: 'var(--btn-h)', padding: 0, flexShrink: 0 }}>
                   <QrCode size="1.25em" aria-hidden="true" />
                 </button>
               )}
-              <button type="button" onClick={() => check()} disabled={!text.trim() || checking} aria-busy={checking || undefined} style={{ ...btnGhost, width: 'auto', flexShrink: 0 }}>{checking ? '確かめています…' : '確かめる'}</button>
             </div>
             {preview?.missing && <p role="alert" style={{ margin: 0, fontSize: 'var(--text-body)', color: 'var(--error)', lineHeight: 1.6, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{withPhraseBreaks(followResultMessage('not_found'))}</p>}
             {preview?.person && (
