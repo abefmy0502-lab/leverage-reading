@@ -1142,6 +1142,8 @@ function RoadmapView({ goal, record, books, sessions = [], onOpenBook, onAddActi
                           <MiniCover book={b} width={36} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span className="rm-book-title">{withPhraseBreaks(`『${b.title}』`)}</span>
+                            {/* 本棚に入れたあとも著者を残す（入れる前の行と同じ形・2026-11-28 点検） */}
+                            {(b.author || rb.author) && <span className="rm-book-author">{b.author || rb.author}</span>}
                             {rb.why && <span className="rm-book-why">{rb.why}</span>}
                           </span>
                         </button>
